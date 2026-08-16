@@ -69,6 +69,12 @@ function orderedMarker(text) {
   return i + 2
 }
 
+// A block or attribute name: a letter, then letters, digits, `-` and `_`. The same rule
+// everywhere a name appears, so there is one thing to remember and one thing to implement.
+function isName(text) {
+  return /^[A-Za-z][A-Za-z0-9_-]*$/.test(text)
+}
+
 // ---- inline -----------------------------------------------------------------
 //
 // `base` is where `text` begins in the whole document, so a slot's offset points into the file
@@ -153,6 +159,29 @@ function parseInline(text, base) {
       continue
     }
 
+    if (c === ':' && text[i + 1] === ':') {
+      // An inline block: `::name[head]::`. NOT a slot — a slot's value is escaped and this is a
+      // call to something the host declared, so the two must look different at a glance.
+      const open = text.indexOf('[', i + 2)
+      const name = open < 0 ? '' : text.slice(i + 2, open)
+      if (open < 0 || !isName(name)) {
+        throw new BmxError('BMX-E034', base + i, 'an inline block is ::name[head]::')
+      }
+      const shut = text.indexOf(']::', open + 1)
+      if (shut < 0) {
+        throw new BmxError('BMX-E034', base + i, 'unterminated inline block: no ]:: on this line')
+      }
+      flush()
+      out.push({
+        type: 'inline_block',
+        name,
+        head: text.slice(open + 1, shut),
+        offset: base + open + 1,
+      })
+      i = shut + 3
+      continue
+    }
+
     if (c === '[') {
       const shut = text.indexOf(']', i + 1)
       if (shut < 0) throw new BmxError('BMX-E004', base + i, 'unterminated link text')
@@ -213,10 +242,30 @@ function parseLines(rows, offsetOf, textOf) {
 
 // ---- blocks -----------------------------------------------------------------
 
+// How many colons a line opens or closes with.
+function fenceLength(text) {
+  let n = 0
+  while (n < text.length && text[n] === ':') n++
+  return n
+}
+
 export function parse(source) {
   const rows = lines(source)
+  const [children, end] = parseBlocks(rows, 0, 0)
+  if (end !== rows.length) {
+    // parseBlocks only stops early on a closing fence, and at depth 0 there is nothing to close.
+    throw new BmxError('BMX-E032', rows[end].offset,
+      'a closing fence longer than any open block')
+  }
+  return { type: 'document', children }
+}
+
+// Blocks are the one construct the format grew for structure, and they nest by fence LENGTH —
+// a longer fence contains a shorter one, which is the rule code fences already use. `depth` is
+// the fence length of the enclosing block, or 0 at the top level.
+function parseBlocks(rows, from, depth) {
   const children = []
-  let i = 0
+  let i = from
 
   while (i < rows.length) {
     const row = rows[i]
@@ -234,6 +283,51 @@ export function parse(source) {
     }
     if (text[0] === ' ') {
       throw new BmxError('BMX-E012', row.offset, '0.1 has no nesting; this line is indented')
+    }
+
+    const fence = fenceLength(text)
+    if (fence >= 3) {
+      const rest = text.slice(fence)
+      // A line of ONLY colons closes. It closes the nearest open block whose fence is no longer
+      // than this one; at depth 0 nothing is open, so it is an error.
+      if (rest.trim() === '') {
+        if (depth > 0 && fence >= depth) return [children, i]
+        throw new BmxError('BMX-E032', row.offset,
+          depth === 0 ? 'a closing fence with no open block'
+                      : 'a closing fence longer than any open block')
+      }
+      // `:::card` and `::: card` are the same block: spaces after the fence are not content.
+      let at = 0
+      while (at < rest.length && (rest[at] === ' ' || rest[at] === '\t')) at++
+      let stop = at
+      while (stop < rest.length && rest[stop] !== ' ' && rest[stop] !== '\t') stop++
+      const name = rest.slice(at, stop)
+      if (!isName(name)) {
+        throw new BmxError('BMX-E030', row.offset, 'a block name is a letter, then letters, digits, - and _')
+      }
+      const rawHead = rest.slice(stop)
+      const head = rawHead.replace(/^[ \t]+|[ \t]+$/g, '')
+      // At most one #id. Everything else in the head belongs to the host.
+      if ((head.match(/(^|[ \t])#[A-Za-z]/g) || []).length > 1) {
+        throw new BmxError('BMX-E033', row.offset, 'a block may carry at most one #id')
+      }
+      let pad = 0
+      while (pad < rawHead.length && (rawHead.charCodeAt(pad) === SPACE || rawHead.charCodeAt(pad) === TAB)) pad++
+      // The head's offset is where its first byte is — after the fence, the name, and any spaces.
+      const headOffset = row.offset + fence + stop + pad
+      const [body, end] = parseBlocks(rows, i + 1, fence)
+      if (end >= rows.length) {
+        throw new BmxError('BMX-E031', row.offset, 'unterminated block: no closing fence')
+      }
+      children.push({
+        type: 'block',
+        name,
+        head,
+        offset: headOffset,
+        children: body,
+      })
+      i = end + 1
+      continue
     }
 
     if (text[0] === '#') {
@@ -312,6 +406,7 @@ export function parse(source) {
       const inner = stripEnd(rows[j].text)
       const startsBlock =
         isBlank(inner) ||
+        fenceLength(inner) >= 3 ||
         inner.startsWith('#') ||
         inner.startsWith('```') ||
         inner.startsWith('> ') ||
@@ -328,7 +423,7 @@ export function parse(source) {
     i = j
   }
 
-  return { type: 'document', children }
+  return [children, i]
 }
 
 // ---- the command line the conformance harness drives ------------------------

@@ -1,4 +1,4 @@
-# BMX 0.1 — the grammar
+# BMX 0.2 — the grammar
 
 **BMX is markdown with one unambiguous reading and a typed hole in it.**
 
@@ -85,7 +85,7 @@ exactly one space after the marker. Consecutive item lines form one list. A blan
 - An ordered list's numbers are **content, not instructions**: a renderer emits them as written.
   A list numbered `1. 1. 1.` renders as `1. 1. 1.`, because a format that silently renumbers is
   a format whose output does not match its source.
-- A list item's content is inline content. **Nesting is not in 0.1** — a line beginning with
+- A list item's content is inline content. **List nesting is not in 0.2** — a line beginning with
   spaces then `- ` is `BMX-E012`, refused rather than guessed at, and the trigger for adding it
   is a real document that needs it.
 
@@ -116,7 +116,7 @@ lines of content, then exactly three backticks at the start of a line.
 ```
 
 `> ` at the start of a line. Consecutive lines form one quote; the content of each is inline
-content. **No nesting in 0.1** — `> > ` is `BMX-E012`.
+content. **No nested quotes in 0.2** — `> > ` is `BMX-E012`.
 
 ## 3. Inline content
 
@@ -174,10 +174,114 @@ described that loosely, and the fix is recorded here rather than quietly applied
 
 `{{{` is not a special form. It is `{` followed by a slot, per the escape rule.
 
-**There is no slot in a code block, and no block-level slot in 0.1** — no `{{#if}}`, no loops.
-Control flow inside a template is the thing that turns a view into a program that no type system
-is watching; the host has `if` and `while` already, and a view is a function. The trigger for
-reconsidering is a document that cannot be expressed as host code calling BMX fragments.
+**There is no slot in a code block.** That is what makes it possible to document BMX in BMX.
+
+For repetition and conditional structure, see §4a: those are **blocks**, not slot syntax. There is
+no `{{#if}}` and no `{{#each}}` — a slot is always a value, and anything that opens and closes is a
+fence.
+
+## 4a. Blocks
+
+A **block** is the format's one extension point for structure, and it is the same move as a slot:
+BMX captures a name and some text, and refuses to interpret the text.
+
+```
+::: for line in order.lines
+- {{ line.sku }} x {{ to_string(line.qty) }}
+:::
+```
+
+That is a block named `for` with the head `line in order.lines` and a body of ordinary BMX.
+**BMX does not know what `for` means.** The host declares it, exactly as the host declares what
+`order.lines` means — see [`BOUNDARY.md`](BOUNDARY.md).
+
+This is why the grammar does not grow when a host gains a feature. `for`, `if`, `match` and a
+component named `card` are not four constructs; they are one construct used four times.
+
+### 4a.1 Opening and closing
+
+An opening fence is **three or more colons** at the start of a line, then a **name**, then an
+optional **head** to the end of the line. A closing fence is a line of **only** colons, at least
+as many as opened it.
+
+- Spaces between the fence and the name are not content: `:::card` and `::: card` are the same
+  block.
+- A name is a letter, then letters, digits, `-` and `_`. `BMX-E030` otherwise.
+- **A line of only colons closes**, so a block with no name cannot be written — it would be
+  indistinguishable from a closing fence, and one spelling per concept beats an escape rule.
+- The head is the bytes after the name, with leading and trailing spaces and tabs removed. It may
+  be empty.
+- **The head is never parsed.** It is captured with its byte offset, like a slot's expression.
+- An unclosed block at end of document is `BMX-E031`. It is never closed implicitly.
+
+### 4a.2 Nesting
+
+**A longer fence contains a shorter one**, which is the rule code fences already use, so there is
+nothing new to learn and nothing to count:
+
+```
+:::: for section in page.sections
+## {{ section.title }}
+
+::: card title="Detail"
+{{ section.body }}
+:::
+::::
+```
+
+A closing fence closes the nearest open block whose fence is **no longer** than its own — the
+same rule a code fence uses, so `::::` legitimately closes a `:::` block. A closing fence with **no
+open block at all** is `BMX-E032`.
+
+*(These two sentences contradicted each other in the first draft: one said a longer closer was an
+error, the other said it closed. Writing the conformance case is what exposed it, which is the
+argument for the suite being the specification's executable half.)*
+
+### 4a.3 Attributes
+
+A head may carry attributes, and BMX still does not parse them — but it does define **where a
+class and an id go**, because those two are the ones every host wants and every dialect spells
+differently:
+
+```
+::: card title="Pricing" .featured .wide #plans
+```
+
+- `.name` is a class, `#name` is an id. Both use the §4a.1 name rule.
+- **At most one `#id` per block.** `BMX-E033` for a second.
+- Everything else in the head is the host's, including `title="Pricing"` and any
+  `on:click=save_order`. BMX captures the text and does not decide what an attribute means.
+
+**A block emits nothing by itself.** A host decides what `card` renders, and whether `on:click`
+becomes a wasm binding, a data attribute, or a refusal. That is what keeps a format with no
+runtime from acquiring one.
+
+### 4a.4 Inline blocks
+
+The same construct in a sentence:
+
+```
+Press ::key[Ctrl+S]:: to save, or ::icon[trash]:: to discard.
+```
+
+`::`, a name, `[`, an opaque head, `]`, `::`. The head may not contain an unescaped `]`, and the
+whole thing must close on its line — `BMX-E034` otherwise.
+
+**An inline block is not a slot, and the difference is the guarantee.** A slot's value is escaped,
+always (see [`ESCAPING.md`](ESCAPING.md)). An inline block is a call to something the host
+declared, and the host decides what it produces. They look different because they are different,
+and a reader must be able to tell at a glance which one can emit markup.
+
+### 4a.5 What a host must do
+
+Nothing in this section can be checked by BMX, so all of it is required of a host:
+
+- **Refuse an unknown block name.** Never render it, never skip it silently.
+- **Refuse an unknown attribute** on a block it declares.
+- **Decide what a head means**, including whether it binds names inside the body.
+- **Refuse an event attribute it cannot wire.** A host with no runtime must refuse `on:*` rather
+  than emit an inline handler — emitting one puts unchecked script on the page, which is the hole
+  the escaping rule exists to close.
 
 ## 5. The AST
 
@@ -201,6 +305,8 @@ implementation may build whatever it likes in memory.
 | `emphasis` \| `strong` \| `link` | `children`; `link` also `target` |
 | `code_span` | `value` |
 | `slot` | `expression`, `offset` |
+| `block` | `name`, `head`, `offset` (of the head), `children` |
+| `inline_block` | `name`, `head`, `offset` |
 
 Adjacent `text` nodes are **always merged**. A parser that emits `text("a")`,`text("b")` where
 another emits `text("ab")` fails the conformance suite, and rightly: they are the same document.
@@ -219,16 +325,21 @@ others.
 | `BMX-E004` | unterminated link |
 | `BMX-E010` | tab in significant whitespace |
 | `BMX-E011` | malformed heading |
-| `BMX-E012` | nesting, which 0.1 does not have |
+| `BMX-E012` | list or quote nesting, which 0.2 does not have (blocks nest — see §4a.2) |
 | `BMX-E020` | unterminated code span |
 | `BMX-E021` | invalid escape |
 | `BMX-E022` | empty slot expression |
+| `BMX-E030` | a block name that is not a name |
+| `BMX-E031` | unterminated block |
+| `BMX-E032` | a closing fence with no open block |
+| `BMX-E033` | a second `#id` on one block |
+| `BMX-E034` | unterminated inline block |
 
 A conforming parser **stops at the first error**. Recovery is a 0.2 question and it is a real
 one — an editor wants every error at once — but recovery that differs between implementations is
 worse than no recovery.
 
-## 7. What 0.1 deliberately does not have
+## 7. What 0.2 deliberately does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons is a list somebody will "fix" at random.
@@ -237,8 +348,19 @@ reasons is a list somebody will "fix" at random.
 |---|---|
 | Nested lists and quotes | a real document that needs one; the AST already nests, only the parser refuses |
 | Tables | the same; they are the most-requested markdown extension and the least uniform |
-| Images | a decision about whether a target is a URL or a host expression — probably the latter, which makes it a slot question |
+| Images | a decision about whether a target is a URL or a host expression — probably the latter, which makes it a slot question. A host may declare an `image` block today |
 | Raw HTML passthrough | it would put an unescaped hole in the format, and [`ESCAPING.md`](ESCAPING.md) says why that is the host's `raw` to grant, not the format's |
-| Block-level slots, loops, conditionals | §4. A view is a function; the host already has control flow |
 | Error recovery | §6 |
-| Front matter | it is how a host will declare a view's signature, and it must be designed WITH a host rather than guessed at — the first real question for 0.2 |
+| Front matter | it is how a host will declare a view's signature, and it must be designed WITH a host rather than guessed at |
+
+**Loops, conditionals, components and event bindings are NOT on this list any more**, and how they
+left it is worth recording. They were refused in 0.1 on the reasoning that *a view is a function
+and the host already has control flow* — which is true when the host compiles the view, and false
+everywhere else. A receipt with N line items could not be written in BMX at all: the host had to
+build the list, so the markup for a line lived in the host's code rather than in the document.
+**A markup format that cannot express repetition is not a markup format.**
+
+They arrived as §4a, and as **one** construct rather than four, so the grammar grew by three rules
+instead of a dozen. That was the constraint: [`VERSIONING.md`](VERSIONING.md) says 1.0 needs an
+implementation by somebody who did not write this spec, and every rule added is weight against
+that bar.

@@ -1,0 +1,1 @@
+{"type":"document","children":[{"type":"block","name":"card","head":"","offset":7,"children":[{"type":"heading","level":1,"children":[{"type":"text","value":"A heading"}]},{"type":"quote","children":[{"type":"text","value":"quoted"}]}]}]}

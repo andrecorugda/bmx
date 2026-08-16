@@ -86,7 +86,7 @@ way to the tag, so a template cannot quietly round `£4.947525` to two places on
 
 ## Status
 
-**0.1**, and honest about it: two implementations, both written by one author, so this is a format
+**0.2**, and honest about it: two implementations, both written by one author, so this is a format
 rather than a standard yet. [`VERSIONING.md`](https://github.com/andrecorugda/bmx/blob/main/VERSIONING.md)
 says what 1.0 requires — an implementation by somebody who did not write the spec.
 
