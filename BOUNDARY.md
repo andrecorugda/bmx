@@ -39,6 +39,38 @@ nobody can act on**, which is why the offset is mandatory rather than optional.
 - **A dialect flag.** There is one BMX. A host that wants different structure wants a different
   format, and should say so rather than passing an option.
 
+## The test for any future feature
+
+Before adding anything to this format, ask one question:
+
+> **Can a hand-written call in the host express it?**
+
+If yes, the feature belongs in the host and BMX does not need it. If no, stop — because the
+moment a `.bmx` component and a hand-written one differ, **the format has acquired a runtime**,
+and every claim on this page stops being true.
+
+It replaced a weaker rule and is sharper than it. "Is this structural?" is a judgement call people
+can argue either side of. "Can a hand-written call express it?" is a question with an answer you
+can go and check.
+
+It has already decided three things without further argument. Named regions inside a component —
+a `header` and a `body` — need no `slot=` attribute, because nesting expresses them and which
+children are regions is a host convention. Component props need no front matter, because a `props`
+block is a block like any other. And an event binding needs no syntax of its own, because
+`on:click=save(line.id)` is attribute text the host reads.
+
+## What an event binding buys, which is not obvious
+
+A host with no closures cannot turn `on:click=save(line.id)` into one. It has to become an object
+carrying its captures as **named fields** — which sounds like a limitation and is the opposite.
+
+`onClick={() => save(id)}` has **no reviewable surface**. What that closure captured is invisible
+to anything but a human reading the enclosing scope, and invisible entirely to a tool.
+
+Captures written out as fields are part of a **promise that can be compared between versions**. A
+handler that starts capturing something new is a diff, mechanically. No framework can offer that,
+because none of them has anywhere to put the captures where a tool can see them.
+
 ## Conformance levels
 
 This is how BMX stays adoptable without the guarantee becoming meaningless.
