@@ -34,6 +34,25 @@ jobs:
           echo "$count documents"
           test "$count" -ge 39
 
+      # A page that documents `{{` is a page Jekyll reads as Liquid, so every doc wraps its body
+      # in {% raw %}. An UNCLOSED one is worse than a missing one: the missing case fails on the
+      # brace it could not parse, the unclosed case fails on the tag and takes the whole site with
+      # it. That happened -- a slice to end-of-file removed the closing tag from two pages and the
+      # build died with "'raw' tag was never closed".
+      #
+      # Checked here rather than trusted, because there is no Ruby on the machine these pages are
+      # written on: Jekyll only ever runs on the remote, so a green local anything says nothing
+      # about whether the site builds.
+      - name: Every doc page closes its raw tag
+        run: |
+          bad=0
+          for f in docs/*.md docs/guide/*.md; do
+            o=$(grep -c '{% raw %}' "$f" || true)
+            c=$(grep -c '{% endraw %}' "$f" || true)
+            if [ "$o" != "$c" ]; then echo "::error file=$f::raw=$o endraw=$c"; bad=1; fi
+          done
+          test "$bad" -eq 0
+
       # VERSIONING.md: a case that had to be EDITED rather than ADDED is a major version.
       # This does not fail the build — it prints the fact so a reviewer sees it on the PR.
       - name: Report whether this touched an existing case

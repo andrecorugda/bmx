@@ -162,3 +162,4 @@ markup.
 That means **the class you write in a document is a request, not an instruction**, and a host that
 does not recognise a component refuses rather than guessing. See
 [Building on BMX](building-on.html).
+{% endraw %}
