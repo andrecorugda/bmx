@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ page.title }} · BMX</title>
+<title>{% if page.title == "BMX" %}BMX — Burxt Markup Language{% else %}{{ page.title }} · BMX{% endif %}</title>
 <meta name="description" content="{{ site.description }}">
 <style>
   :root { --fg:#16181d; --bg:#fff; --muted:#5b6270; --line:#e3e6eb; --accent:#0b5fff; --code:#f5f6f8; }
