@@ -1,0 +1,14 @@
+/* BMX-only styling, loaded after site.css.
+ *
+ * site.css and site.js are BYTE COPIES of burxt-lang.org's, so that the two sites are one site and
+ * an upstream change is a re-copy rather than a merge. Nothing BMX-specific belongs in them —
+ * it belongs here. */
+
+/* The wordmark stands in for the lockup until the branding lands. Sized to sit on the same
+ * baseline as the image will, so flipping `has_branding` does not move the topbar. */
+.bar .mark .wordmark {
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}

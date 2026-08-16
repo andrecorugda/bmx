@@ -1,6 +1,17 @@
+# BMX's documentation site, served from /docs on main at bmx.burxt-lang.org.
+#
+# No theme. The stylesheet is burxt-lang.org's, copied rather than reimplemented, so the two sites
+# are one site: `assets/site.css` and `assets/site.js` are byte copies of the upstream files and
+# should be re-copied rather than edited when they change there.
 title: BMX
 description: "Burxt Markup Language, Extensible — markdown with one unambiguous reading and a typed hole in it."
-url: "https://bmx.burxt-lang.org"
+url: https://bmx.burxt-lang.org
+baseurl: ""
+
+# Flipped to true when the lockup and favicon land in assets/. Until then the topbar shows a
+# wordmark, because a broken <img> is worse than no <img> and a 404'd favicon is worse than none.
+has_branding: false
+
 markdown: kramdown
 kramdown:
   input: GFM

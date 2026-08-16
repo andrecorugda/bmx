@@ -2,52 +2,119 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{% if page.title == "BMX" %}BMX — Burxt Markup Language{% else %}{{ page.title }} · BMX{% endif %}</title>
-<meta name="description" content="{{ site.description }}">
-<style>
-  :root { --fg:#16181d; --bg:#fff; --muted:#5b6270; --line:#e3e6eb; --accent:#0b5fff; --code:#f5f6f8; }
-  @media (prefers-color-scheme: dark) {
-    :root { --fg:#e6e8ec; --bg:#14161a; --muted:#9aa2b1; --line:#282c34; --accent:#7aa2ff; --code:#1c1f25; }
-  }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg);
-         font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
-  .wrap { max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem 5rem; }
-  nav { border-bottom:1px solid var(--line); margin-bottom:2.5rem; padding-bottom:1rem;
-        display:flex; gap:1.25rem; flex-wrap:wrap; align-items:baseline; }
-  nav .brand { font-weight:700; letter-spacing:-.02em; }
-  nav a { color:var(--muted); text-decoration:none; }
-  nav a:hover, nav a.here { color:var(--fg); }
-  h1,h2,h3 { line-height:1.25; letter-spacing:-.02em; }
-  h1 { font-size:2rem; margin-top:0; }
-  h2 { margin-top:2.5rem; padding-top:.5rem; border-top:1px solid var(--line); }
-  a { color:var(--accent); }
-  code { background:var(--code); padding:.15em .35em; border-radius:3px; font-size:.9em; }
-  pre { background:var(--code); padding:1rem; border-radius:6px; overflow-x:auto; }
-  pre code { background:none; padding:0; font-size:.86rem; }
-  table { border-collapse:collapse; width:100%; display:block; overflow-x:auto; }
-  th,td { border:1px solid var(--line); padding:.5rem .7rem; text-align:left; vertical-align:top; }
-  blockquote { border-inline-start:3px solid var(--line); margin-inline:0; padding-inline-start:1rem; color:var(--muted); }
-  footer { margin-top:4rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.9rem; }
-</style>
+<meta name="description" content="{{ page.description | default: site.description }}">
+<meta name="theme-color" content="#ffffff">
+
+<!-- The stylesheet is burxt-lang.org's, copied rather than reimplemented, so the two sites are the
+     same site. Unused rules (the version picker, the search panel, the mascot) cost nothing and
+     keep the diff against upstream readable when it is updated. -->
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/site.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/bmx.css">
+{%- if site.has_branding %}
+<link rel="icon" href="{{ site.baseurl }}/assets/favicon.ico">
+<link rel="apple-touch-icon" href="{{ site.baseurl }}/assets/bmx-favicon-180.png">
+{%- endif %}
+
+<meta property="og:title" content="{{ page.title | default: 'BMX' }}">
+<meta property="og:description" content="{{ page.description | default: site.description }}">
+<meta property="og:type" content="article">
 </head>
 <body>
-<div class="wrap">
-<nav>
-  <span class="brand">BMX</span>
-  <a href="/"{% if page.title == "BMX" %} class="here"{% endif %}>Overview</a>
-  <a href="/syntax.html"{% if page.title == "Writing a document" %} class="here"{% endif %}>Syntax</a>
-  <a href="/rendering.html"{% if page.title == "Turning it into a page" %} class="here"{% endif %}>Rendering</a>
-  <a href="/styling.html"{% if page.title == "Styling the output" %} class="here"{% endif %}>Styling</a>
-  <a href="/building-on.html"{% if page.title == "Building on BMX" %} class="here"{% endif %}>Building on</a>
-  <a href="/errors.html"{% if page.title == "When it refuses" %} class="here"{% endif %}>Errors</a>
-  <a href="https://github.com/andrecorugda/bmx">GitHub</a>
+
+<a class="skip" href="#top">Skip to content</a>
+
+<nav class="bar">
+  <!-- The mark. A wordmark until the lockup exists: a missing <img> is worse than no <img>, so the
+       image only appears once `has_branding` is set in _config.yml. -->
+  <a class="mark" href="{{ site.baseurl }}/">
+    {%- if site.has_branding %}
+    <img src="{{ site.baseurl }}/assets/bmx-lockup-light.png" alt="BMX">
+    {%- else %}
+    <strong class="wordmark">BMX</strong>
+    {%- endif %}
+  </a>
+
+  <button class="burger" type="button" data-drawer aria-label="Open the menu" aria-expanded="false">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+      <path d="M3 5.5h14M3 10h14M3 14.5h14"/>
+    </svg>
+  </button>
+
+  <span class="links">
+    <a href="{{ site.baseurl }}/syntax.html"      class="{% if page.title == 'Writing a document' %}here{% endif %}">Syntax</a>
+    <a href="{{ site.baseurl }}/rendering.html"   class="{% if page.title == 'Turning it into a page' %}here{% endif %}">Rendering</a>
+    <a href="{{ site.baseurl }}/building-on.html" class="{% if page.title == 'Building on BMX' %}here{% endif %}">Building on</a>
+    <a href="https://burxt-lang.org">Burxt</a>
+    <a href="https://github.com/andrecorugda/bmx">GitHub</a>
+  </span>
 </nav>
-{{ content }}
-<footer>
-  BMX 0.1 · a format of the <a href="https://burxt-lang.org">Burxt</a> project · MIT OR Apache-2.0
-</footer>
+
+<main>
+<div class="docs">
+
+  <!-- The sidebar is page-level only. burxt-lang.org builds a second level from the headings in
+       each page via scripts/site-nav.py; here the client-side "On this page" does that job, so a
+       renamed heading cannot leave a dead anchor behind in a hand-written list. -->
+  <nav class="side" aria-label="Documentation contents">
+    <div class="group site">
+      <h2>BMX</h2>
+      <ul>
+        <li class="topic"><a href="{{ site.baseurl }}/"{% if page.title == "BMX" %} class="here" aria-current="page"{% endif %}><span>Overview</span></a></li>
+      </ul>
+    </div>
+
+    <div class="group">
+      <h2>Writing</h2>
+      <ul>
+        <li class="topic"><a href="{{ site.baseurl }}/syntax.html"{% if page.title == "Writing a document" %} class="here" aria-current="page"{% endif %}><span>Writing a document</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/styling.html"{% if page.title == "Styling the output" %} class="here" aria-current="page"{% endif %}><span>Styling the output</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/errors.html"{% if page.title == "When it refuses" %} class="here" aria-current="page"{% endif %}><span>When it refuses</span></a></li>
+      </ul>
+    </div>
+
+    <div class="group">
+      <h2>Implementing</h2>
+      <ul>
+        <li class="topic"><a href="{{ site.baseurl }}/rendering.html"{% if page.title == "Turning it into a page" %} class="here" aria-current="page"{% endif %}><span>Turning it into a page</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/building-on.html"{% if page.title == "Building on BMX" %} class="here" aria-current="page"{% endif %}><span>Building on BMX</span></a></li>
+      </ul>
+    </div>
+
+    <div class="group">
+      <h2>Normative</h2>
+      <ul>
+        <li class="topic"><a href="https://github.com/andrecorugda/bmx/blob/main/SPEC.md"><span>SPEC.md — the grammar</span></a></li>
+        <li class="topic"><a href="https://github.com/andrecorugda/bmx/blob/main/BOUNDARY.md"><span>BOUNDARY.md — the line</span></a></li>
+        <li class="topic"><a href="https://github.com/andrecorugda/bmx/blob/main/ESCAPING.md"><span>ESCAPING.md — escaping</span></a></li>
+        <li class="topic"><a href="https://github.com/andrecorugda/bmx/blob/main/VERSIONING.md"><span>VERSIONING.md — semver</span></a></li>
+        <li class="topic"><a href="https://github.com/andrecorugda/bmx/tree/main/tests"><span>tests/ — the suite</span></a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="doc-body" id="top">
+    {{ content }}
+  </div>
+
+  <nav class="toc" aria-label="On this page" data-toc hidden>
+    <h2>On this page</h2>
+    <ul></ul>
+  </nav>
+
 </div>
+</main>
+
+<footer>
+  <p>
+    BMX 0.1 — a format of the <a href="https://burxt-lang.org">Burxt</a> project.
+    <a href="https://github.com/andrecorugda/bmx">Open source</a>, MIT or Apache-2.0.
+  </p>
+</footer>
+
+<div class="scrim" data-close hidden></div>
+
+<script src="{{ site.baseurl }}/assets/site.js" defer></script>
 </body>
 </html>
