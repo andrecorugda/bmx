@@ -1,83 +1,96 @@
 ---
 layout: default
 title: BMX
+description: "Burxt Markup Language, Extensible — you write markdown, you get a page, and it tells you when the document is wrong."
 ---
 
 {% raw %}
 # BMX
 
-**Burxt Markup Language, Extensible** — markdown with one unambiguous reading and a typed hole
-in it.
+**Burxt Markup Language, Extensible.** You write markdown. You get a page. The difference is that
+BMX tells you when the document is wrong, instead of printing something that looks nearly right.
 
 ```bmx
 # Receipt {{ order.reference }}
 
-Thank you, **{{ customer.name }}**. Your total is {{ to_string(order.total) }}.
+Thank you, **{{ customer.name }}**. Your total is {{ order.total }}.
 
 - Delivery: {{ order.delivery }}
 - Paid: {{ order.paid_at }}
 ```
 
-That is a whole document. It renders to HTML, and in a host with a type system every `{{ … }}`
-is checked before the page exists.
+That is a whole document. If you have written a README you can already write BMX; the `{{ … }}`
+holes are the only new idea, and page 2 of the guide is about those.
 
-- **[Writing a document](syntax.html)** — every construct, with what it renders to
-- **[Turning it into a page](rendering.html)** — the two ways, and which to use
-- **[Styling the output](styling.html)** — the HTML you get, and how to write CSS against it
-- **[Building on BMX](building-on.html)** — for anyone writing a layer above it, star-burxt included
-- **[When it refuses](errors.html)** — every error code and what to do about it
+## Start here
 
-The normative documents live beside these: [`SPEC.md`](https://github.com/andrecorugda/bmx/blob/main/SPEC.md)
-is the grammar, [`BOUNDARY.md`](https://github.com/andrecorugda/bmx/blob/main/BOUNDARY.md) draws
-the line between the format and its host, and
-[`ESCAPING.md`](https://github.com/andrecorugda/bmx/blob/main/ESCAPING.md) is the one place BMX
-is opinionated about output. **These pages are for people writing documents. Those are for people
-writing parsers.**
+**[1. Your first document](guide/01-your-first-document.html)** — write one, render it, see the
+HTML that comes out. Five minutes.
 
-## Why not just markdown
+Then:
+
+- **[2. Putting values in](guide/02-putting-values-in.html)** — slots, and the form letter that
+  posts *"Dear ,"*
+- **[3. When BMX says no](guide/03-when-bmx-says-no.html)** — autocorrect versus spellcheck
+- **[4. Views that check themselves](guide/04-views-that-check-themselves.html)** — the recipe
+  card and the order ticket
+
+## Then look things up
+
+| | |
+|---|---|
+| [Writing a document](syntax.html) | every construct, with the HTML it produces |
+| [Styling the output](styling.html) | the tags you get, and how CSS, Tailwind and SCSS attach |
+| [When it refuses](errors.html) | every error code, with the input that causes it |
+| [Turning it into a page](rendering.html) | the two rendering paths, in detail |
+| [Building on BMX](building-on.html) | for anyone writing a framework on top |
+
+## Why it exists
 
 Two reasons, and neither is the syntax.
 
-### It always fails loudly
+### It tells you when a document is wrong
 
-Markdown is designed so that nothing is ever a syntax error. `*bold` with no closing star renders
-as the characters `*bold`. An unterminated code fence swallows the rest of the file. Three
-dialects — CommonMark, GFM, Pandoc — disagree about the rest, so the same document means
-different things in different tools.
+Markdown never fails. Whatever you give it, something comes out — which is lovely in a comment box
+and dangerous when the document was generated, truncated, or written in a hurry.
 
-BMX has one reading, and anything else is an error with a code:
-
-```
-BMX-E002 at 2: unterminated emphasis
+```bmx
+Your balance is **£240.00
 ```
 
-That matters most where documents are generated rather than typed. A truncated document gets
-told, instead of shipping a page with a stray asterisk in it.
+Markdown prints that with two stray asterisks and the page ships. BMX says:
 
-### The hole is typed
+```
+BMX-E002 at 16: unterminated strong
+```
 
-`{{ … }}` is where an expression goes, and **BMX does not define what an expression is.** That
-belongs to whichever language is rendering the document, which is why a format this small can be
-adopted by a language with types and by one without.
+Autocorrect quietly changes what you meant. Spellcheck stops and points. **BMX is spellcheck.**
 
-That gives two levels of conformance, and the second is the reason BMX exists:
+### The blanks can be checked before the page exists
 
-| Level | What it means | Who can reach it |
-|---|---|---|
-| **1 — renders** | parses, substitutes values, escapes on output | any language |
-| **2 — checks** | every expression verified against a declared interface *before* the document renders | a language with a type system |
+`{{ … }}` is a hole, and BMX deliberately has no opinion about what goes in it — that belongs to
+whatever language is doing the rendering. Which means a language with types can check it:
 
-**A template is the last place in most programs where nothing is checked.** The slot names a field
-that may not exist, holds a type it cannot state, and escapes by convention. Level 2 is where that
-stops being true — a missing field becomes a build error, and in [Burxt](https://burxt-lang.org) a
-rounding contract on a money value survives all the way to the tag.
+| | What happens to a typo like `{{ order.custmer }}` |
+|---|---|
+| Most template languages | prints nothing; the page ships |
+| **BMX, rendering** | **refuses; nothing renders** |
+| **BMX, compiled** | **a build error naming the field, and what the fields actually are** |
+
+**A template is the last place in most programs where nothing is checked.** The database checks
+your data, the API checks it, your code checks it — and then the template prints whatever it is
+handed. That is the gap BMX closes.
+
+In [Burxt](https://burxt-lang.org) it goes further: a money value keeps its rounding rule all the
+way to the tag, so a template cannot quietly round `£4.947525` to two places on your behalf.
 
 ## Status
 
-**0.1.** Two implementations, one author, so this is not yet a standard — see
-[`VERSIONING.md`](https://github.com/andrecorugda/bmx/blob/main/VERSIONING.md) for what 1.0
-requires. The reference parser is `reference/bmx.js`, zero dependencies, written to be read.
-Burxt's is `lib/bmx.bx` and is the only implementation at level 2.
+**0.1**, and honest about it: two implementations, both written by one author, so this is a format
+rather than a standard yet. [`VERSIONING.md`](https://github.com/andrecorugda/bmx/blob/main/VERSIONING.md)
+says what 1.0 requires — an implementation by somebody who did not write the spec.
 
-The format is [MIT OR Apache-2.0](https://github.com/andrecorugda/bmx).
+The grammar is [`SPEC.md`](https://github.com/andrecorugda/bmx/blob/main/SPEC.md), the
+conformance suite is [`tests/`](https://github.com/andrecorugda/bmx/tree/main/tests), and where
+they disagree the tests win. MIT OR Apache-2.0.
 {% endraw %}

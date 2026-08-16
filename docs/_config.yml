@@ -10,7 +10,7 @@ baseurl: ""
 
 # Flipped to true when the lockup and favicon land in assets/. Until then the topbar shows a
 # wordmark, because a broken <img> is worse than no <img> and a 404'd favicon is worse than none.
-has_branding: false
+has_branding: true
 
 markdown: kramdown
 kramdown:

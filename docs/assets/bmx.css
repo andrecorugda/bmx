@@ -12,3 +12,17 @@
   letter-spacing: -0.03em;
   line-height: 1;
 }
+
+/* The link back to the host language, in the Burxt ember red-orange (#E8502A — the wordmark's
+ * own colour). Last in the topbar and last in the sidebar: BMX is the thing you came for, Burxt
+ * is where you go next. Colour rather than position alone, because a link that leaves the site
+ * should look like it does. */
+.bar .links a.burxt,
+.side a.burxt {
+  color: #E8502A;
+}
+.bar .links a.burxt:hover,
+.side a.burxt:hover {
+  color: #c33d1b;
+}
+.side a.burxt span { color: inherit; }

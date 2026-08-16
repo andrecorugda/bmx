@@ -43,11 +43,12 @@
   </button>
 
   <span class="links">
+    <a href="{{ site.baseurl }}/guide/01-your-first-document.html" class="{% if page.section == 'guide' %}here{% endif %}">Guide</a>
     <a href="{{ site.baseurl }}/syntax.html"      class="{% if page.title == 'Writing a document' %}here{% endif %}">Syntax</a>
     <a href="{{ site.baseurl }}/rendering.html"   class="{% if page.title == 'Turning it into a page' %}here{% endif %}">Rendering</a>
     <a href="{{ site.baseurl }}/building-on.html" class="{% if page.title == 'Building on BMX' %}here{% endif %}">Building on</a>
-    <a href="https://burxt-lang.org">Burxt</a>
     <a href="https://github.com/andrecorugda/bmx">GitHub</a>
+    <a class="burxt" href="https://burxt-lang.org">Burxt</a>
   </span>
 </nav>
 
@@ -66,7 +67,17 @@
     </div>
 
     <div class="group">
-      <h2>Writing</h2>
+      <h2>Learn</h2>
+      <ul>
+        <li class="topic"><a href="{{ site.baseurl }}/guide/01-your-first-document.html"{% if page.title == "Your first document" %} class="here" aria-current="page"{% endif %}><span>1. Your first document</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/guide/02-putting-values-in.html"{% if page.title == "Putting values in" %} class="here" aria-current="page"{% endif %}><span>2. Putting values in</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/guide/03-when-bmx-says-no.html"{% if page.title == "When BMX says no" %} class="here" aria-current="page"{% endif %}><span>3. When BMX says no</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/guide/04-views-that-check-themselves.html"{% if page.title == "Views that check themselves" %} class="here" aria-current="page"{% endif %}><span>4. Views that check themselves</span></a></li>
+      </ul>
+    </div>
+
+    <div class="group">
+      <h2>Reference</h2>
       <ul>
         <li class="topic"><a href="{{ site.baseurl }}/syntax.html"{% if page.title == "Writing a document" %} class="here" aria-current="page"{% endif %}><span>Writing a document</span></a></li>
         <li class="topic"><a href="{{ site.baseurl }}/styling.html"{% if page.title == "Styling the output" %} class="here" aria-current="page"{% endif %}><span>Styling the output</span></a></li>
@@ -90,6 +101,15 @@
         <li class="topic"><a href="https://github.com/andrecorugda/bmx/blob/main/ESCAPING.md"><span>ESCAPING.md — escaping</span></a></li>
         <li class="topic"><a href="https://github.com/andrecorugda/bmx/blob/main/VERSIONING.md"><span>VERSIONING.md — semver</span></a></li>
         <li class="topic"><a href="https://github.com/andrecorugda/bmx/tree/main/tests"><span>tests/ — the suite</span></a></li>
+      </ul>
+    </div>
+
+    <div class="group">
+      <h2>The host</h2>
+      <ul>
+        <li class="topic"><a class="burxt" href="https://burxt-lang.org"><span>Burxt — the language</span></a></li>
+        <li class="topic"><a class="burxt" href="https://burxt-lang.org/guide/"><span>Burxt guide</span></a></li>
+        <li class="topic"><a class="burxt" href="https://burxt-lang.org/reference/bmx.html"><span>lib/bmx.bx reference</span></a></li>
       </ul>
     </div>
   </nav>

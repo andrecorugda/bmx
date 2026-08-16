@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 260" width="560" height="260">
+  
+  <g transform="translate(150,150) rotate(-90) scale(0.62)"><path d="M0 -115 C28 -70 46 -46 46 -7 C46 33 25 55 0 55 C-25 55 -46 33 -46 -7 C-46 -46 -28 -70 0 -115 Z" fill="#E8502A"/><path d="M0 -60 C16 -34 25 -20 25 2 C25 25 14 40 0 40 C-14 40 -25 25 -25 2 C-25 -20 -16 -34 0 -60 Z" fill="#F4701E"/><path d="M0 -30 C8 -16 13 -8 13 4 C13 18 7 26 0 26 C-7 26 -13 18 -13 4 C-13 -8 -8 -16 0 -30 Z" fill="#FFC24D"/></g>
+  <text x="188" y="190" font-family="DejaVu Sans, Arial, sans-serif" font-size="150" font-weight="600" fill="#E8502A" letter-spacing="1">bmx</text>
+</svg>
