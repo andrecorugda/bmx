@@ -5,7 +5,7 @@ const page = await browser.newPage();
 await page.setViewport({ width: 1000, height: 700, deviceScaleFactor: 2 });
 for (const j of jobs) {
   await page.goto('file://' + process.cwd() + '/' + j + '.html', { waitUntil: 'networkidle0' });
-  const el = await page.$('.pair');
+  const el = await page.$('.wrap');
   await el.screenshot({ path: j + '.png' });
   console.log('shot', j + '.png');
 }

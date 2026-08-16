@@ -1,8 +1,4 @@
-import subprocess, sys, html
-name, title = sys.argv[1], sys.argv[2]
-body = subprocess.run(["./bmxrender", name + ".bmx"], capture_output=True, text=True).stdout.strip()
-src  = open(name + ".bmx").read().rstrip()
-tpl = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<!doctype html><html lang="en"><head><meta charset="utf-8">
 <style>
  *{box-sizing:border-box} body{margin:0;background:#eef1f5;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:#16181d}
  .wrap{max-width:940px;margin:0 auto;padding:34px 30px}
@@ -22,8 +18,23 @@ tpl = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .bmx a{color:#E8502A}
  .bmx strong{font-weight:650}
 </style></head><body><div class="wrap"><div class="pair">
-<div class="panel"><div class="cap">%s.bmx</div><pre>%s</pre></div>
-<div class="panel"><div class="cap">rendered</div><div class="render">%s</div></div>
-</div></div></body></html>"""
-open(name + ".html","w").write(tpl % (name, html.escape(src), body))
-print("wrote", name + ".html")
+<div class="panel"><div class="cap">ex3.bmx</div><pre># A heading
+
+A paragraph with *emphasis*, **strong**, `code`, a [link](https://burxt-lang.org)
+and a slot: {{ name }}.
+
+- first item
+- second item
+
+1. step one
+2. step two
+
+&gt; A quotation
+
+```burxt
+let price: Decimal&lt;2&gt; = 19.99;
+```</pre></div>
+<div class="panel"><div class="cap">rendered</div><div class="render"><article class="bmx"><h1>A heading</h1><p>A paragraph with <em>emphasis</em>, <strong>strong</strong>, <code>code</code>, a <a href="https://burxt-lang.org">link</a>
+and a slot: Ada.</p><ul><li>first item</li><li>second item</li></ul><ol><li>step one</li><li>step two</li></ol><blockquote>A quotation</blockquote><pre><code class="language-burxt">let price: Decimal&lt;2&gt; = 19.99;
+</code></pre></article></div></div>
+</div></div></body></html>

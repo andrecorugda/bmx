@@ -1,8 +1,4 @@
-import subprocess, sys, html
-name = sys.argv[1]
-out = subprocess.run(["./bmxrender", name + ".bmx"], capture_output=True, text=True).stdout.strip()
-src = open(name + ".bmx").read().rstrip()
-tpl = """<!doctype html><html lang="en"><head><meta charset="utf-8"><style>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><style>
  *{box-sizing:border-box} body{margin:0;background:#eef1f5;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:#16181d}
  .wrap{max-width:940px;margin:0 auto;padding:34px 30px}
  .pair{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
@@ -13,9 +9,9 @@ tpl = """<!doctype html><html lang="en"><head><meta charset="utf-8"><style>
  .err{padding:18px;font:13px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:#b42318}
  .note{padding:0 18px 18px;color:#5b6270;font-size:14px}
 </style></head><body><div class="wrap"><div class="pair">
-<div class="panel"><div class="cap">%s.bmx</div><pre>%s</pre></div>
-<div class="panel"><div class="cap bad">refused</div><div class="err">%s</div>
+<div class="panel"><div class="cap">err1.bmx</div><pre># Invoice 4417
+
+Thank you for your order. Your balance is **£240.00</pre></div>
+<div class="panel"><div class="cap bad">refused</div><div class="err">BMX-E002 at 58: unterminated strong</div>
 <div class="note">Nothing renders. Markdown would have shipped this page with two stray asterisks in it.</div></div>
-</div></div></body></html>"""
-open(name + ".html","w").write(tpl % (name, html.escape(src), html.escape(out)))
-print("wrote", name + ".html")
+</div></div></body></html>
