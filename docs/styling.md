@@ -53,6 +53,11 @@ Descendant selectors on the one class:
 
 Because the markup is semantic, a **classless stylesheet** works with no configuration at all —
 point one at `.bmx` and a document is styled.
+<figure class="shot">
+  <img src="/assets/examples/one-document-two-stylesheets.png" alt="The same document under two different stylesheets">
+  <figcaption>The <strong>same document</strong>, twice, under two stylesheets. Nothing in the <code>.bmx</code> file changed — which is what it buys you to keep presentation out of it.</figcaption>
+</figure>
+
 
 ## Tailwind
 

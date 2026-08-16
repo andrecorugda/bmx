@@ -25,6 +25,11 @@ Bind `customer.name` to `Ada Lovelace` and `order.total` to `$59.97`, and out co
 ```html
 <article class="bmx"><p>Dear Ada Lovelace,</p><p>Your total is $59.97.</p></article>
 ```
+<figure class="shot">
+  <img src="/assets/examples/slots-receipt.png" alt="A receipt document with slots, and the rendered page">
+  <figcaption>Slots filled in. Change the values and the page changes; change the document and the layout does.</figcaption>
+</figure>
+
 
 ## Think of a form letter
 

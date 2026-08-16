@@ -26,3 +26,12 @@
   color: #c33d1b;
 }
 .side a.burxt span { color: inherit; }
+
+/* Rendered examples. Every one is a real screenshot of real renderer output — see tools/README.md
+ * for the pipeline. The frame is deliberately plain: the panels inside the image already carry
+ * their own chrome, and a second border around them reads as a bug. */
+.doc-body figure.shot { margin: 1.6rem 0 2rem; }
+.doc-body figure.shot img { width: 100%; height: auto; display: block; border-radius: 8px; }
+.doc-body figure.shot figcaption {
+  margin-top: .7rem; font-size: .875rem; line-height: 1.5; color: #5b6270;
+}

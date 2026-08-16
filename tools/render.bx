@@ -1,0 +1,16 @@
+use "/home/andre/burxt/lib/bmx.bx";
+use "/home/andre/burxt/lib/files.bx";
+use "/home/andre/burxt/lib/os.bx";
+function go(path: String, b: [Binding]) -> Int touches files {
+    match bmx_to_html(file_read(path), b) { Error(e) => { print(e); } Ok(p) => { print(p); } }
+    return 0;
+}
+let b: [Binding] = [
+    bmx_bind("name", "Ada"),
+    bmx_bind("customer.name", "Ada Lovelace"),
+    bmx_bind("order.reference", "R-4417"),
+    bmx_bind("order.total", "$59.97"),
+    bmx_bind("order.delivery", "Thursday"),
+    bmx_bind("order.paid_at", "16 August"),
+];
+let r: Int = go(os_arg(1), b);

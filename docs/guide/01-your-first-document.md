@@ -30,6 +30,11 @@ Render it and you get HTML:
 ```html
 <article class="bmx"><h1>Hello</h1><p>This is my first document.</p></article>
 ```
+<figure class="shot">
+  <img src="/assets/examples/first-document.png" alt="The document on the left, the page it renders to on the right">
+  <figcaption>The document and the page, side by side. The right-hand panel is real output from the renderer in <code>lib/bmx.bx</code> — not a mock-up.</figcaption>
+</figure>
+
 
 Three things happened, and none of them needed a decision from you:
 
@@ -89,6 +94,11 @@ And inside a sentence:
 ```bmx
 Some *emphasis*, some **strong**, and some `code`.
 ```
+<figure class="shot">
+  <img src="/assets/examples/every-construct.png" alt="Every construct in one document, and what it renders to">
+  <figcaption>Everything on this page in one document. Nothing here needed configuring.</figcaption>
+</figure>
+
 
 → `Some <em>emphasis</em>, some <strong>strong</strong>, and some <code>code</code>.`
 

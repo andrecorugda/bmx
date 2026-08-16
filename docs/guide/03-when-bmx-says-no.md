@@ -40,6 +40,11 @@ BMX stops:
 ```
 BMX-E002 at 46: unterminated strong
 ```
+<figure class="shot">
+  <img src="/assets/examples/refused-unterminated-strong.png" alt="A truncated document, and BMX refusing to render it">
+  <figcaption>The truncated invoice. Markdown renders this with two stray asterisks and the page ships; BMX renders nothing at all.</figcaption>
+</figure>
+
 
 Nothing renders. The build fails, the job fails, and you find out at the moment the document was
 wrong rather than at the moment a customer reads it.
