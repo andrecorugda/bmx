@@ -1,0 +1,1 @@
+{"type":"document","children":[{"type":"paragraph","children":[{"type":"text","value":"Hello "},{"type":"slot","expression":"user.name","offset":9},{"type":"text","value":"."}]}]}

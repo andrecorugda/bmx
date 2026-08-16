@@ -1,0 +1,1 @@
+# Total {{ order.total }}

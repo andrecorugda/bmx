@@ -1,0 +1,90 @@
+# BMX
+
+**Markdown with one unambiguous reading and a typed hole in it.**
+
+```bmx
+# Receipt {{ order.reference }}
+
+Thank you, {{ customer.name }}. Your total is **{{ order.total }}**.
+
+- Delivery: {{ order.delivery }}
+- Paid: {{ order.paid_at }}
+```
+
+Two things make it different from every other template format, and neither is the syntax.
+
+## 1. It always fails loudly
+
+Markdown's defining property is that nothing is ever a syntax error. `*bold` with no closing
+star renders as the characters `*bold`. An unterminated code fence swallows the rest of the
+document. Three dialects — CommonMark, GFM, Pandoc — disagree about the rest, so the same file
+means different things in different tools.
+
+BMX has one reading, and input that is not valid BMX is an **error with a code**, never output
+that looks nearly right:
+
+```
+BMX-E001 at 6: unterminated slot: no }} on this line
+```
+
+That matters most where documents are generated rather than typed. A truncated document gets
+told, instead of shipping a page with a stray brace in it.
+
+## 2. The expression slot belongs to the host language
+
+`{{ … }}` is where an expression goes. **BMX does not define what an expression is** — that is
+the host's, and it is why a format this small can be adopted by a language with types and by one
+without.
+
+[`BOUNDARY.md`](BOUNDARY.md) draws that line precisely, and defines two conformance levels:
+
+| Level | What it means | Who can reach it |
+|---|---|---|
+| **1 — renders** | parses per the spec, substitutes slot values, escapes on output | any language |
+| **2 — checks** | every slot expression verified against a declared interface *before* the document renders | a language with a type system |
+
+Level 2 is why the format was worth defining. **A template is the last place in most programs
+where nothing is checked** — the slot names a field that may not exist, holds a type it cannot
+state, and escapes by convention. Level 2 is the level at which that stops being true.
+
+## The documents
+
+| | |
+|---|---|
+| [`SPEC.md`](SPEC.md) | the grammar. Normative |
+| [`BOUNDARY.md`](BOUNDARY.md) | what BMX owns and what the host owns, and the conformance levels |
+| [`ESCAPING.md`](ESCAPING.md) | normative, and the one place BMX is opinionated about output |
+| [`VERSIONING.md`](VERSIONING.md) | the conformance suite *is* the semver |
+| [`tests/`](tests) | the specification's executable half |
+
+**Where the spec and the tests disagree, the tests win.** A claim not in `tests/` is a claim no
+implementation has to honour.
+
+## Running the suite
+
+The cases are **data** — `input → expected AST` files. That is the whole design: conformance
+costs an afternoon in any language rather than a port.
+
+```sh
+python3 tests/harness.py '<your parser command>'
+```
+
+The command is run once per case with the document's path appended, and must print the AST as
+JSON and exit 0, or print an error beginning with its `BMX-Ennn` code and exit non-zero.
+
+The harness is thirty lines and is deliberately not part of the specification. If it is
+inconvenient for your language, throw it away and write your own.
+
+## Status
+
+**0.1. One implementation, so this is a syntax and not yet a standard** — and the difference is
+worth being blunt about. [`VERSIONING.md`](VERSIONING.md) says what 1.0 requires: a second
+implementation written by someone who did not write this spec, and a real document set that has
+tested the absences in `SPEC.md` §7 against something other than imagination.
+
+The reference implementation is in [Burxt](https://burxt-lang.org) — `lib/bmx.bx`, currently
+**level 1**, with level 2 as a generator that turns a document into a typed function.
+
+## Licence
+
+MIT OR Apache-2.0.
