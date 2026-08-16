@@ -129,14 +129,25 @@ you would find out from a reader.
 
 That is what makes it possible to write documentation about BMX, in BMX.
 
-## No `if`, no loops
+## Slots are values — repetition and branching are blocks
 
-There is no `{{#if}}` and no `{{#each}}`. This is deliberate and it is worth a sentence, because
-every other template language has them.
+A slot is always **a value**. There is no `{{#if}}` and no `{{#each}}`, and that is not because
+BMX cannot repeat — it is because anything that opens and closes is a different shape:
 
-A template with control flow in it slowly becomes a program — and it is a program written in a tiny
-language, with no types, no tests and no debugger. The host language already has `if` and `while`
-and is much better at them. So: decide in your code, and pass the answer in.
+```bmx
+::: for line in order.lines
+- {{ line.sku }}
+:::
+```
+
+That is a **block**, and it is one construct that also gives you `::: if`, and components you
+declare yourself. [Writing a document](../syntax.html#blocks) has the whole of it, and
+[page 4](04-views-that-check-themselves.html) is where it gets interesting — inside that loop,
+`line` is a real value with a real type, and `{{ line.sk }}` is a build error naming the field.
+
+What blocks deliberately are **not** is a place to put logic. `for` and `if` describe *structure* —
+what repeats, what appears. Deciding *what is true* stays in the host language, which has types,
+tests and a debugger, and is much better at it.
 
 ---
 

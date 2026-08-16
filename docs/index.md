@@ -19,8 +19,20 @@ Thank you, **{{ customer.name }}**. Your total is {{ order.total }}.
 - Paid: {{ order.paid_at }}
 ```
 
-That is a whole document. If you have written a README you can already write BMX; the `{{ … }}`
+That is a whole document. If you have written a README you can already write BMX — the `{{ … }}`
 holes are the only new idea, and page 2 of the guide is about those.
+
+And when a page needs to repeat, branch, or be built from reusable pieces, there is exactly one
+more thing to learn:
+
+```bmx
+::: for line in order.lines
+- {{ line.sku }} × {{ to_string(line.qty) }}
+:::
+```
+
+One construct — a **block** — which also gives you `::: if` and components you declare yourself.
+BMX does not know what `for` means; the host does.
 
 ## Start here
 

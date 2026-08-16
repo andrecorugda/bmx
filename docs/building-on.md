@@ -53,7 +53,7 @@ author opened rather than in whatever you generated. It is mandatory, and it is 
 **Adjacent text nodes are merged.** `a` `b` is one text node, always. Two implementations that
 disagree about that disagree about the document.
 
-**A code block's content is never parsed.** No slots, no inline markup. That is what makes it
+**A code block's content is never parsed.** No slots, no blocks, no inline markup. That is what makes it
 possible to document BMX in BMX — and what lets you put a framework's own syntax in a fenced block
 without the format touching it.
 
@@ -135,19 +135,23 @@ touches nothing.
 Stated plainly because a document that lets you infer capabilities you do not have is worse than
 one that says nothing.
 
-**No reactivity, no DOM updates, no event handling, no stores, no lifecycle.** star-burxt is the
-plan for these and they are unbuilt. What exists today is: a document becomes a typed function,
-that function produces HTML, and that HTML can be served over CGI or compiled to WebAssembly and
-called from JavaScript.
+**What DOES exist**, as of 0.2, and did not when this page was first written: components with
+declared props, repetition, conditionals, nesting, classes and ids on a block, event bindings
+captured as head text, and inline blocks. All of it through **one construct** — see
+[Writing a document](syntax.html#blocks).
 
-**No component composition beyond calling a function.** Which may be enough — a view *is* a
-function, so composing views is ordinary code — but there is no slot-filling, no children, no
-props system.
+What does not:
 
-**No hot reload, no dev server, no bundler integration.**
+**No reactivity, no DOM updates, no lifecycle, no watchers, in the format.** Those are a host's,
+and BMX will not grow them — a format with a runtime cannot be implemented by a language that has
+none.
 
-**No nesting in documents** — no nested lists or quotes. If a framework needs them, that is a
-format change with conformance cases, and a real document that needs it is what earns it.
+**No `match`.** It reduces to `if` for presence, and branching on data shape is host logic.
+
+**No nested lists or quotes.** Blocks nest; those do not.
+
+**No cross-file component resolution in the format.** A block names a component; how a host finds
+it is the host's module system, not BMX's.
 
 ## If you extend the format anyway
 

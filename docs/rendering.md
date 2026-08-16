@@ -104,6 +104,53 @@ use "receipt_view.bx";
 print(html_render(receipt_view(order)));
 ```
 
+### A document that repeats, branches, and declares itself
+
+A block becomes real Burxt, which is why the compiler can see inside it:
+
+```bmx
+::: props order: Order
+:::
+
+# Receipt {{ order.reference }}
+
+::: for line in order.lines
+- {{ line.sku }} × {{ to_string(line.qty) }}
+:::
+
+::: if order.paid
+Paid in full.
+:::
+```
+
+```sh
+./bmx-generate receipt.bmx receipt_view ""     # the props block supplies the signature
+```
+
+```burxt
+pure function receipt_view(order: Order) -> Html
+{
+    let mutable kids: [Html] = [];
+    let p_0_0: Int = push(kids, html_element("h1", [], [...]));
+    for line in order.lines {
+        let p_0_1_0: Int = push(kids, html_element("ul", [], [...]));
+    }
+    if order.paid {
+        let p_0_2_0: Int = push(kids, html_element("p", [], [...]));
+    }
+    return html_element("article", [html_attr("class", "bmx")], kids);
+}
+```
+
+**`::: for` is a real Burxt `for`.** Which means `line` inside it is a real `Line` with a real
+type — so a typo in the loop body is a compile error naming the field, and money that would round
+without a contract is refused *in there*. No other template language checks the body of a loop,
+because no other one hands that body to a compiler that already knows the types.
+
+A block whose name is not `for` or `if` is a **component**: it becomes a call, taking its head as
+text and its children as `[Html]`. An unknown name is then an unknown function, which the compiler
+reports along with the ones that do exist.
+
 ### What the compiler catches
 
 None of this is implemented by the generator. It emits ordinary code and the **language** does the

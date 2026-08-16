@@ -75,18 +75,18 @@ BMX-E011 at 0: a heading needs exactly one space after its #
 Also: seven or more `#`, and an empty heading. **It is not read as a paragraph beginning with
 `#`** — that reading is how a typo'd heading silently becomes body text.
 
-### `BMX-E012` — nesting, which 0.1 does not have
+### `BMX-E012` — list or quote nesting, which 0.2 does not have
 
 ```
 - one
   - nested
 ```
 ```
-BMX-E012 at 6: 0.1 has no nesting; this line is indented
+BMX-E012 at 6: 0.2 has no list nesting; this line is indented
 ```
 
-Refused rather than guessed at. The tree already nests; only the parser declines, and a real
-document that needs it is what would earn it a version.
+Refused rather than guessed at. **Blocks nest** — see [`:::` blocks](syntax.html#blocks) — lists
+and quotes do not, and a real document that needs it is what would earn it a version.
 
 ### `BMX-E020` — unterminated code span
 
@@ -108,6 +108,44 @@ ends up with a different answer.
 
 `{{ }}` — nothing to evaluate.
 
+### `BMX-E030` — a block name that is not a name
+
+```
+:::9lives
+:::
+```
+
+A block name is a letter, then letters, digits, `-` and `_`. A line of **only** colons closes a
+block, so a block with no name cannot be written at all — it would be indistinguishable from a
+closing fence.
+
+### `BMX-E031` — unterminated block
+
+A `:::` that never closes. Never closed implicitly at end of file, for the same reason an
+unterminated code fence is not.
+
+### `BMX-E032` — a closing fence with nothing open
+
+A `:::` line where no block is open. Note that a **longer** fence legitimately closes a shorter
+one — `::::` closes a `:::` block, exactly as with code fences.
+
+### `BMX-E033` — a second `#id` on one block
+
+```
+:::card #one #two
+:::
+```
+
+An id is an address. Two of them leaves *"where is it"* with no answer. Classes are unlimited.
+
+### `BMX-E034` — unterminated inline block
+
+```
+Press ::key[Ctrl+S to save.
+```
+
+An inline block is `::name[head]::` and must close on its own line.
+
 ---
 
 ## Render-time errors
@@ -124,6 +162,18 @@ BMX-R001: refused a link target whose scheme is not http, https or mailto: javas
 Not a character-escaping problem — the danger is the scheme, and escaping every byte of
 `javascript:` changes nothing. An implementation written in an afternoon will not think of this,
 which is why the spec requires it rather than suggesting it.
+
+### `BMX-R003` — a block the renderer does not declare
+
+```
+BMX-R003: this renderer declares no blocks, and `card` at 3 is one.
+          Compile the document instead.
+```
+
+The spec **requires** a host to refuse a block name it did not declare — never render it, never
+skip it silently. A level-1 renderer declares none, because a component's whole value is the
+compiler checking the call. Compile the document instead: see
+[Views that check themselves](guide/04-views-that-check-themselves.html).
 
 ### `BMX-R002` — a slot with no binding
 

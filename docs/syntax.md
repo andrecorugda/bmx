@@ -6,12 +6,13 @@ title: Writing a document
 {% raw %}
 # Writing a document
 
-Every construct BMX 0.1 has, what it renders to, and the rule that decides it. **Every HTML
+Every construct BMX 0.2 has, what it renders to, and the rule that decides it. **Every HTML
 sample on this page was produced by running a real renderer, not typed by hand.**
 
 If you know markdown you already know most of this. The differences are deliberate and there are
-only a few: **one spelling per construct**, no nesting yet, and anything malformed is an error
-rather than literal text.
+only a few: **one spelling per construct**, anything malformed is an error rather than literal
+text, and one construct markdown has no equivalent for — the [block](#blocks), which is how a
+document repeats, branches, and calls a component.
 
 ## Blocks
 
@@ -57,7 +58,8 @@ that changes the output cannot be reviewed.
 - **Numbers are content, not instructions.** A list written `1. 1. 1.` renders as `1. 1. 1.` —
   nothing renumbers, because a format whose output does not match its source is a format you
   cannot review.
-- **No nesting in 0.1.** An indented line is an error rather than a guess.
+- **List nesting is not in 0.2.** An indented line is an error rather than a guess. (Blocks
+  nest — see below — lists do not.)
 
 ### Quotes
 
@@ -68,7 +70,7 @@ that changes the output cannot be reviewed.
 
 → `<blockquote>A quotation\nover two lines</blockquote>`
 
-No nested quotes in 0.1.
+No nested quotes in 0.2.
 
 ### Code blocks
 
@@ -118,6 +120,94 @@ does not allow** — `[click](javascript:steal())` is a working attack that no c
 addresses, because the danger is the scheme and not the bytes. Burxt's renderer allows `http`,
 `https`, `mailto` and relative targets, and refuses the rest at build time.
 
+## Blocks
+
+Everything above is markdown. **This is the one construct that is not**, and it is where a document
+stops being a page and starts being a component.
+
+```bmx
+::: for line in order.lines
+- {{ line.sku }} × {{ to_string(line.qty) }}
+:::
+```
+
+A block is `:::`, a **name**, an optional **head**, a body, and a closing `:::`. And the important
+part is what BMX does with the head: **nothing**. It captures the text and hands it to whatever is
+rendering the document, exactly like a slot.
+
+**So BMX does not know what `for` means.** The host declares it — which is why `for`, `if` and a
+component you wrote are not three features. They are one feature used three times:
+
+```bmx
+::: if order.has_discount
+You saved {{ to_string(order.saved) }}.
+:::
+
+::: card title="Pricing" .featured #plans
+Any **markdown** in here, and slots too.
+:::
+```
+
+### Nesting
+
+**A longer fence contains a shorter one** — the rule code fences already use, so there is nothing
+to count:
+
+```bmx
+:::: for section in page.sections
+## {{ section.title }}
+
+::: card title="Detail"
+{{ section.body }}
+:::
+::::
+```
+
+### Classes, ids and attributes
+
+A head may carry them, and this is the one part of a head BMX has an opinion about:
+
+```bmx
+::: card title="Pricing" .featured .wide #plans
+```
+
+- `.name` is a class, `#name` is an id, both using the name rule above.
+- **At most one `#id`** — a second is `BMX-E033`, because an id is an address and a block with two
+  has no answer to *"where is it"*.
+- **Everything else is the host's**, including `title="Pricing"` and `on:click=save(line.id)`. BMX
+  captures the text and does not decide what an attribute means.
+
+**A block emits nothing by itself.** The host decides what `card` renders and whether `on:click`
+becomes anything at all — which is what keeps a format with no runtime from acquiring one.
+
+### Declaring what a document needs
+
+A `props` block gives a document its own signature, so another document can call it:
+
+```bmx
+::: props title: String, featured: Bool
+:::
+
+# {{ title }}
+```
+
+`props` is a block name like any other; the head is captured opaquely like every other head. See
+[Views that check themselves](guide/04-views-that-check-themselves.html) for what the compiler then
+does with it.
+
+### Inline blocks
+
+The same idea inside a sentence:
+
+```bmx
+Press ::key["Ctrl+S"]:: to save.
+```
+
+`::`, a name, `[`, a head, `]`, `::`. **An inline block is not a slot**, and the difference is the
+guarantee: a slot's value is always escaped, while an inline block is a call to something the host
+declared. They look different because they are different, and you should be able to tell at a
+glance which one can produce markup.
+
 ## Slots
 
 ```bmx
@@ -166,17 +256,25 @@ and a slot: Ada.</p><ul><li>first item</li><li>second item</li></ul>
 
 (Line breaks added here for reading; the renderer emits one line.)
 
-## What 0.1 does not have
+## What 0.2 does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons invites someone to fix them at random.
 
 | Absent | What would earn it |
 |---|---|
-| Nested lists and quotes | a real document that needs one — the tree already nests, only the parser refuses |
-| Tables | the same |
-| Images | a decision about whether a target is a URL or a host expression, which makes it a slot question |
+| Nested **lists** and quotes | a real document that needs one. Blocks nest; these do not |
+| Tables | the same — the most-requested markdown extension and the least uniform |
+| Images | a decision about whether a target is a URL or a host expression. A host can declare an `image` block today |
 | Raw HTML passthrough | it would put an unescaped hole in the format; that waiver belongs to the host |
-| Loops and conditionals | a view is a function, and the host has control flow |
-| Front matter | it is how a host will declare a view's signature, and it must be designed *with* a host rather than guessed at |
-{% endraw %}
+| `match` | it reduces to `if` for presence, and branching on data shape is host logic |
+| Error recovery | one error at a time, so two implementations cannot disagree about how to carry on |
+
+**Loops, conditionals, components and event bindings are not on this list**, and 0.1's reasoning
+for refusing them is worth knowing because it was half right. *A view is a function and the host
+already has control flow* — true when the host compiles the view, false everywhere else. A receipt
+with N line items could not be written in BMX at all: the host had to build the list, so the markup
+for a line lived in the host's code rather than in the document.
+
+They arrived as **one construct**, which is why the grammar went from ten rules to thirteen rather
+than to thirty.

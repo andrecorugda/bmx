@@ -83,8 +83,10 @@ Here are the ones you will actually meet:
 | `a *bold sentence` | `BMX-E002` — unterminated emphasis |
 | `Hi {{ name` | `BMX-E001` — unterminated slot |
 | `see [docs](x` | `BMX-E004` — unterminated link target |
-| an indented `- item` | `BMX-E012` — 0.1 has no nesting |
+| an indented `- item` | `BMX-E012` — 0.2 has no list nesting |
 | `a \q b` | `BMX-E021` — only `` ` `` `*` `[` `{` `\` may be escaped |
+| `:::card` never closed | `BMX-E031` — unterminated block |
+| `:::9lives` | `BMX-E030` — a block name is a letter, then letters, digits, `-` and `_` |
 
 The [full list](../errors.html) has one entry for each, with the input that produces it.
 

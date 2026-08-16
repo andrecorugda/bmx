@@ -125,14 +125,40 @@ highlighting pass, read `textContent` and not `innerHTML`.
 The info string is checked as a name before it becomes a class, so a document cannot inject an
 attribute through it.
 
-## What you cannot style, and why
+## Putting a class on something
 
-**There is no way to put a class on a paragraph from inside a document.** No attribute syntax, no
-`{: .class}` blocks. That is a real limitation and it is deliberate: the moment a document can
-carry presentation, documents stop being restylable and every one of them has to be revisited
-when the design changes.
+**A block takes classes and an id in its head:**
 
-If a particular block genuinely needs different treatment, it is a different **view** — and in a
-host at level 2 a view is a function, so composing two of them is ordinary code rather than a
-templating feature.
-{% endraw %}
+```bmx
+::: card .featured .wide #plans
+Any **markdown** in here.
+:::
+```
+
+At most one `#id` — a second is an error, because an id is an address and two of them leaves *"where
+is it"* with no answer.
+
+**What you still cannot do is put a class on a paragraph or a heading.** There is no `{: .class}`
+attribute syntax and there will not be one. That is deliberate, and the reason is worth stating
+because it explains why the block form is the answer instead:
+
+> The moment ordinary prose can carry presentation, documents stop being restylable — every one of
+> them has to be revisited when the design changes.
+
+A `.featured` class on a **component** is different in kind. It is a hook on something whose meaning
+the host already declared, and the host decides what `featured` does. A `.featured` on a random
+paragraph is a decoration the document is now responsible for forever.
+
+So: if a block genuinely needs different treatment, it is a **component** — and composing two of
+them is ordinary code rather than a templating feature.
+
+## What the host owns
+
+A block emits nothing by itself, so what `::: card .featured` becomes is entirely the host's
+decision — including whether those classes reach the output at all. `lib/bmx.bx`'s level-1 renderer
+declares no blocks and refuses them; a framework like star-burxt declares them and decides their
+markup.
+
+That means **the class you write in a document is a request, not an instruction**, and a host that
+does not recognise a component refuses rather than guessing. See
+[Building on BMX](building-on.html).
