@@ -1,0 +1,156 @@
+---
+layout: default
+title: When it refuses
+---
+
+{% raw %}
+# When it refuses
+
+**Every error carries a code, a byte offset and a message.** The code is the part that is the
+same in every implementation; the wording after it is that implementation's own, and may be
+better in some languages than others.
+
+A conforming parser **stops at the first error**. Recovery — reporting every error at once — is a
+0.2 question and a real want, but recovery that differs between implementations is worse than
+none.
+
+Every message below was produced by running a parser, not typed from the spec.
+
+## Structural errors
+
+### `BMX-E001` — unterminated slot
+
+```
+Hi {{ name
+```
+```
+BMX-E001 at 3: unterminated slot: no }} on this line
+```
+
+A slot must close on its own line. If it could span lines, an unterminated one would look exactly
+like an ordinary paragraph — which is the failure this rule exists to prevent.
+
+### `BMX-E002` — unterminated emphasis or strong
+
+```
+a *bold sentence
+```
+```
+BMX-E002 at 2: unterminated emphasis
+```
+
+**This is the difference from markdown in one line.** Markdown renders that as the characters
+`a *bold sentence`. BMX tells you.
+
+### `BMX-E003` — unterminated code fence
+
+The commonest way a page becomes one giant code block. Markdown closes the fence for you at end
+of file and says nothing.
+
+### `BMX-E004` — unterminated link
+
+```
+see [docs](x
+```
+```
+BMX-E004 at 4: unterminated link target
+```
+
+Also fires when a `[text]` is not followed by `(`.
+
+### `BMX-E010` — a tab in significant whitespace
+
+A tab is four columns, or eight, or one, depending on who is looking. A format that promises one
+reading cannot contain a character whose width is a matter of opinion.
+
+### `BMX-E011` — malformed heading
+
+```
+#Heading
+```
+```
+BMX-E011 at 0: a heading needs exactly one space after its #
+```
+
+Also: seven or more `#`, and an empty heading. **It is not read as a paragraph beginning with
+`#`** — that reading is how a typo'd heading silently becomes body text.
+
+### `BMX-E012` — nesting, which 0.1 does not have
+
+```
+- one
+  - nested
+```
+```
+BMX-E012 at 6: 0.1 has no nesting; this line is indented
+```
+
+Refused rather than guessed at. The tree already nests; only the parser declines, and a real
+document that needs it is what would earn it a version.
+
+### `BMX-E020` — unterminated code span
+
+An unclosed `` ` ``.
+
+### `BMX-E021` — invalid escape
+
+```
+a \q b
+```
+```
+BMX-E021 at 2: only ` * [ { and \ may be escaped
+```
+
+A backslash that sometimes escapes and sometimes is a backslash is how every markdown dialect
+ends up with a different answer.
+
+### `BMX-E022` — empty slot expression
+
+`{{ }}` — nothing to evaluate.
+
+---
+
+## Render-time errors
+
+These are the host's rather than the format's, so the codes are Burxt's. Another implementation
+may name them differently; **it must still refuse.**
+
+### `BMX-R001` — a link target with a disallowed scheme
+
+```
+BMX-R001: refused a link target whose scheme is not http, https or mailto: javascript:steal
+```
+
+Not a character-escaping problem — the danger is the scheme, and escaping every byte of
+`javascript:` changes nothing. An implementation written in an afternoon will not think of this,
+which is why the spec requires it rather than suggesting it.
+
+### `BMX-R002` — a slot with no binding
+
+```
+BMX-R002: no binding for slot `order.totl` at 10
+```
+
+**An error, never an empty string.** Every template language in wide use renders the empty string
+here, and that is how a page ships with a missing total that nobody sees.
+
+At level 2 you never meet this one: the same typo is a compile error naming the field and listing
+what the type actually has.
+
+### `BMX-G001` — a dangerous link target, at build time
+
+The generator refuses it before a page exists. A document's targets are static text, so this
+never needs to reach a render.
+
+---
+
+## Reading an offset
+
+The offset is a **byte index into the document**, and for a slot it points at the first byte of
+the **expression** — not at the `{{`. For `Hello {{ user.name }}.` it is 9, the `u`.
+
+That is so a host can underline the text it is complaining about. It is the only reason the field
+exists, and getting it wrong is caught by the conformance suite: `023-slot-offset-survives-a-stripped-line`
+exists because an early implementation reported an offset three bytes early inside a multi-line
+paragraph, off by the trailing spaces stripped from an earlier line.
+{% endraw %}

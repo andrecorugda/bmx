@@ -66,6 +66,9 @@ state, and escapes by convention. Level 2 is the level at which that stops being
 **Where the spec and the tests disagree, the tests win.** A claim not in `tests/` is a claim no
 implementation has to honour.
 
+**Documentation: [bmx.burxt-lang.org](https://bmx.burxt-lang.org)** — how to write a document,
+how to turn it into a page, how to style the output, and every error it can give you.
+
 ## Two implementations, on purpose
 
 BMX ships a **reference parser** — [`reference/bmx.js`](reference/bmx.js), zero dependencies,

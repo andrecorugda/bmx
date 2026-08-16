@@ -1,0 +1,8 @@
+title: BMX
+description: "Burxt Markup Language, Extensible — markdown with one unambiguous reading and a typed hole in it."
+url: "https://bmx.burxt-lang.org"
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+exclude: [_site]
