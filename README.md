@@ -1,6 +1,12 @@
 # BMX
 
-**Markdown with one unambiguous reading and a typed hole in it.**
+**Burxt Markup Language, Extensible** — markdown with one unambiguous reading and a typed hole
+in it.
+
+The name says where it came from and not where it can go. **Any language can implement BMX**;
+the format is a grammar and a conformance suite, and [`BOUNDARY.md`](BOUNDARY.md) exists to keep
+one host's semantics out of it. What the name honestly signals is where it goes *furthest* — the
+checking level below is one only a language with types and contracts can reach.
 
 ```bmx
 # Receipt {{ order.reference }}
