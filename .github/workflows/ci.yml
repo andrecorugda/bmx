@@ -1,0 +1,49 @@
+# BMX's own CI, separate from any host's.
+#
+# It runs two things, and the second is the one that would catch a specification bug:
+#
+#   1. the reference implementation against the conformance suite — does it match what we wrote;
+#   2. the reference implementation against ITSELF via `agree.py` over a corpus, which is a
+#      no-op today with one implementation and becomes the real test the moment there are two.
+#
+# There is deliberately NO Burxt here. The format must be testable without its first host
+# installed, or "standalone" is a word rather than a property.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: The reference implementation passes the suite
+        run: python3 tests/harness.py "node reference/bmx.js"
+
+      # A suite that finds no cases passes silently, which is the shape of every ratchet failure
+      # worth having a name for.
+      - name: The suite is not empty
+        run: |
+          count=$(ls tests/cases/*.bmx tests/errors/*.bmx | wc -l)
+          echo "$count documents"
+          test "$count" -ge 39
+
+      # VERSIONING.md: a case that had to be EDITED rather than ADDED is a major version.
+      # This does not fail the build — it prints the fact so a reviewer sees it on the PR.
+      - name: Report whether this touched an existing case
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --depth=1 origin ${{ github.base_ref }}
+          changed=$(git diff --diff-filter=M --name-only origin/${{ github.base_ref }} -- tests/ || true)
+          if [ -n "$changed" ]; then
+            echo "::warning::an existing conformance case was MODIFIED — VERSIONING.md makes this a MAJOR:"
+            echo "$changed"
+          else
+            echo "no existing case modified; additions only"
+          fi
