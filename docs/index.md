@@ -24,6 +24,7 @@ is checked before the page exists.
 - **[Writing a document](syntax.html)** — every construct, with what it renders to
 - **[Turning it into a page](rendering.html)** — the two ways, and which to use
 - **[Styling the output](styling.html)** — the HTML you get, and how to write CSS against it
+- **[Building on BMX](building-on.html)** — for anyone writing a layer above it, star-burxt included
 - **[When it refuses](errors.html)** — every error code and what to do about it
 
 The normative documents live beside these: [`SPEC.md`](https://github.com/andrecorugda/bmx/blob/main/SPEC.md)
