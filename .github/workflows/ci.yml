@@ -120,7 +120,10 @@ jobs:
           sudo install -d /usr/local/bin /usr/local/lib/burxt
           sudo install -m 755 /tmp/burxt/burxt /usr/local/bin/burxt
           sudo install -m 644 /tmp/burxt/lib/*.bx /usr/local/lib/burxt/
-          burxt --version
+          # `burxt --version` prints the banner and exits 2, so under `set -e` it kills the step
+          # even though the install worked. Piped so the exit status is `head`'s: this line is here
+          # to put the version in the log, not to be a test. Reported to Burxt.
+          burxt --version 2>&1 | head -1
 
       - name: The Burxt implementation passes the format's own suite
         run: |
