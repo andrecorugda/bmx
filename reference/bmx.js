@@ -283,7 +283,6 @@ function parseLines(rows, offsetOf, textOf) {
 
 // ---- blocks -----------------------------------------------------------------
 
-// How many colons a line opens or closes with.
 // **A block opens with `:name:` and closes with `:!name:`, and nesting is by NAME.** 0.6 nested by
 // fence length — a longer `::::` contained a shorter `:::` — and that rule is gone, along with the
 // counting it asked of a reader. Andre's spelling, and the argument for it is one line of a real

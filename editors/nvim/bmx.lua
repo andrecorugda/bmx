@@ -30,7 +30,10 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.opt_local.expandtab = true
     vim.opt_local.shiftwidth = 2
     vim.opt_local.commentstring = "<!-- %s -->"
-    -- A block fence and a slot are the two things worth jumping between.
+    -- A slot, so `%` jumps between `{{` and `}}`. **Not the fence**, and the comment here used to
+    -- imply otherwise: `matchpairs` takes two DIFFERENT characters, and a block's `:name:` /
+    -- `:!name:` are neither single nor different. Jumping between those wants `matchit`'s
+    -- `b:match_words`, which is a feature this file does not have rather than one it provides.
     vim.opt_local.matchpairs:append("{:}")
   end,
 })
