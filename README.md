@@ -118,7 +118,7 @@ inconvenient for your language, throw it away and write your own.
 
 ## Status
 
-**0.2. Two implementations, one author — so this is not yet a standard**, and the difference is
+**0.3. Two implementations, one author — so this is not yet a standard**, and the difference is
 worth being blunt about. [`VERSIONING.md`](VERSIONING.md) says what 1.0 requires: an
 implementation written by someone who did **not** write this spec, and a real document set that
 has tested the absences in `SPEC.md` §7 against something other than imagination.

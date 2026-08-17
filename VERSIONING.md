@@ -30,6 +30,24 @@ This is deliberately the same idea as `burxt review` — a promise diffed rather
 applied to a format instead of a signature. A format whose compatibility claim is a human's
 judgement is a format that will break someone quietly.
 
+## 0.3 is the worked example of a major
+
+0.2 added node kinds and edited no case: a minor. **0.3 added an `offset` field to eight node types
+and turned a list item from a bare array into a node** — thirty-one of fifty-six expectations had to
+be edited, so the rule above makes it a major mechanically, with no judgement involved.
+
+Worth saying plainly, because "it only adds a field" is how a major gets called a minor: **a
+document valid under 0.2 is still valid under 0.3 and still means the same thing.** What broke is
+every implementation and every consumer reading the tree. The rule versions the *suite*, not the
+prose, and the suite is what an implementation is judged against.
+
+**How it was checked, because regenerating expectations is how a real change hides inside a
+mechanical one.** Every new expectation was compared against its old one with the added fields
+stripped back out — `offset` on the eight new types, and the `item` wrapper unwrapped — and all
+fifty-six matched. So thirty-one files changed and **zero documents changed meaning**, which is a
+fact rather than an intention. The first version of that check stripped `offset` unconditionally and
+reported fourteen false alarms on the slot and block cases, which already had one.
+
 ## An implementation's version is not this version
 
 The rule above versions **the format**. A library that parses BMX has a second surface the format

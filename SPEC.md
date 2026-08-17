@@ -1,4 +1,4 @@
-# BMX 0.2 — the grammar
+# BMX 0.3 — the grammar
 
 **BMX is markdown with one unambiguous reading and a typed hole in it.**
 
@@ -85,7 +85,7 @@ exactly one space after the marker. Consecutive item lines form one list. A blan
 - An ordered list's numbers are **content, not instructions**: a renderer emits them as written.
   A list numbered `1. 1. 1.` renders as `1. 1. 1.`, because a format that silently renumbers is
   a format whose output does not match its source.
-- A list item's content is inline content. **List nesting is not in 0.2** — a line beginning with
+- A list item's content is inline content. **List nesting is not in 0.3** — a line beginning with
   spaces then `- ` is `BMX-E012`, refused rather than guessed at, and the trigger for adding it
   is a real document that needs it.
 
@@ -116,7 +116,7 @@ lines of content, then exactly three backticks at the start of a line.
 ```
 
 `> ` at the start of a line. Consecutive lines form one quote; the content of each is inline
-content. **No nested quotes in 0.2** — `> > ` is `BMX-E012`.
+content. **No nested quotes in 0.3** — `> > ` is `BMX-E012`.
 
 ## 3. Inline content
 
@@ -297,16 +297,30 @@ implementation may build whatever it likes in memory.
 |---|---|
 | `document` | `children` |
 | `heading` | `level` (1–6), `children` |
-| `paragraph` | `children` |
-| `list` | `ordered` (bool), `items` — each an array of inline nodes |
-| `code` | `info` (string, `""` if absent), `value` (string) |
-| `quote` | `children` |
+| `paragraph` | `children`, `offset` |
+| `list` | `ordered` (bool), `items` — each an `item` node, `offset` |
+| `item` | `children`, `offset` |
+| `code` | `info` (string, `""` if absent), `value` (string), `offset` |
+| `quote` | `children`, `offset` |
 | `text` | `value` |
-| `emphasis` \| `strong` \| `link` | `children`; `link` also `target` |
+| `emphasis` \| `strong` \| `link` | `children`, `offset`; `link` also `target` |
 | `code_span` | `value` |
 | `slot` | `expression`, `offset` |
 | `block` | `name`, `head`, `offset` (of the head), `children` |
 | `inline_block` | `name`, `head`, `offset` |
+
+**Every node except `text` and `code_span` carries an `offset`, and it is the byte index of the
+first byte the author wrote for that construct** — the `#` of a heading, the `-` of a list item, the
+first `*` of a strong run, the `[` of a link. A slot's is the exception it always was: the first byte
+of the *trimmed expression*, per §4.
+
+Two nodes have none on purpose. `text` and `code_span` are the leaves a host never reports against:
+a diagnostic points at the construct that is wrong, and "your text is wrong" is not a diagnostic.
+
+**0.2 had offsets on three node types only**, which meant a host could say where a slot was and not
+where anything containing it was — so a framework refusing *"a heading inside a button"* pointed at
+the button. That is a position a reader cannot act on, and **a confidently wrong position is worse
+than none**, which is why this is a major rather than something deferred.
 
 Adjacent `text` nodes are **always merged**. A parser that emits `text("a")`,`text("b")` where
 another emits `text("ab")` fails the conformance suite, and rightly: they are the same document.
@@ -325,7 +339,7 @@ others.
 | `BMX-E004` | unterminated link |
 | `BMX-E010` | tab in significant whitespace |
 | `BMX-E011` | malformed heading |
-| `BMX-E012` | list or quote nesting, which 0.2 does not have (blocks nest — see §4a.2) |
+| `BMX-E012` | list or quote nesting, which 0.3 does not have (blocks nest — see §4a.2) |
 | `BMX-E020` | unterminated code span |
 | `BMX-E021` | invalid escape |
 | `BMX-E022` | empty slot expression |
@@ -335,18 +349,18 @@ others.
 | `BMX-E033` | a second `#id` on one block |
 | `BMX-E034` | unterminated inline block |
 
-A conforming parser **stops at the first error**. Recovery is a 0.2 question and it is a real
+A conforming parser **stops at the first error**. Recovery is a later question and it is a real
 one — an editor wants every error at once — but recovery that differs between implementations is
 worse than no recovery.
 
-## 7. What 0.2 deliberately does not have
+## 7. What 0.3 deliberately does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons is a list somebody will "fix" at random.
 
 | Absent | Trigger to add it |
 |---|---|
-| Nested lists and quotes | a real document that needs one; the AST already nests, only the parser refuses |
+| Nested lists and quotes | a real document that needs one. **The AST does NOT already nest** — an earlier version of this row said it did, and it was wrong: an `item`'s children are INLINE nodes, so a nested list has nowhere to go. It needs a field, which makes it a major |
 | Tables | the same; they are the most-requested markdown extension and the least uniform |
 | Images | a decision about whether a target is a URL or a host expression — probably the latter, which makes it a slot question. A host may declare an `image` block today |
 | Raw HTML passthrough | it would put an unescaped hole in the format, and [`ESCAPING.md`](ESCAPING.md) says why that is the host's `raw` to grant, not the format's |

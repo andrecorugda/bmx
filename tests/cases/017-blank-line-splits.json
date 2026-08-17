@@ -1,1 +1,1 @@
-{"type":"document","children":[{"type":"paragraph","children":[{"type":"text","value":"one"}]},{"type":"paragraph","children":[{"type":"text","value":"two"}]}]}
+{"type":"document","children":[{"type":"paragraph","children":[{"type":"text","value":"one"}],"offset":0},{"type":"paragraph","children":[{"type":"text","value":"two"}],"offset":5}]}

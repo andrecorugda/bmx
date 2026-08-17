@@ -160,6 +160,9 @@ Not BMX's. They measure different promises, and 0.2 is the worked example of why
 0.2 added two node kinds — `Fenced` and `InlineBlock`. Against the conformance suite that is a
 **minor**: cases were added, none edited, every 0.1 document still parses to what it did before.
 
+0.3 is the other side of it. Adding an `offset` to eight node types edited thirty-one expectations,
+so it is a **major** — even though every 0.2 document still means exactly what it did.
+
 If your library **exports its AST**, the same change is a **major** for you. Anyone matching on a
 node kind now has a case they do not handle — and in a language with exhaustive matching that is a
 compile error in code nobody touched.

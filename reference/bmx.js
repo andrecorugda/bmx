@@ -154,6 +154,7 @@ function parseInline(text, base) {
       out.push({
         type: strong ? 'strong' : 'emphasis',
         children: parseInline(text.slice(from, close), base + from),
+        offset: base + i,
       })
       i = close + marker.length
       continue
@@ -195,6 +196,7 @@ function parseInline(text, base) {
         type: 'link',
         target: text.slice(shut + 2, end),
         children: parseInline(text.slice(i + 1, shut), base + i + 1),
+        offset: base + i,
       })
       i = end + 1
       continue
@@ -282,7 +284,7 @@ function parseBlocks(rows, from, depth) {
       throw new BmxError('BMX-E010', row.offset, 'a tab in leading whitespace has no defined width')
     }
     if (text[0] === ' ') {
-      throw new BmxError('BMX-E012', row.offset, '0.1 has no nesting; this line is indented')
+      throw new BmxError('BMX-E012', row.offset, "a list may not nest; this line is indented. A block nests — see the format's §4a.2")
     }
 
     const fence = fenceLength(text)
@@ -339,7 +341,12 @@ function parseBlocks(rows, from, depth) {
       }
       const body = text.slice(level + 1)
       if (body.length === 0) throw new BmxError('BMX-E011', row.offset, 'a heading may not be empty')
-      children.push({ type: 'heading', level, children: parseInline(body, row.offset + level + 1) })
+      children.push({
+        type: 'heading',
+        level,
+        children: parseInline(body, row.offset + level + 1),
+        offset: row.offset,
+      })
       i++
       continue
     }
@@ -358,14 +365,14 @@ function parseBlocks(rows, from, depth) {
       // becomes one giant code block with nobody told why.
       if (!closed) throw new BmxError('BMX-E003', row.offset, 'unterminated code fence')
       // Content is never parsed for inline content — a `{{` in here is two characters.
-      children.push({ type: 'code', info, value })
+      children.push({ type: 'code', info, value, offset: row.offset })
       i = j
       continue
     }
 
     if (text.startsWith('> ')) {
       if (text.startsWith('> > ')) {
-        throw new BmxError('BMX-E012', row.offset, '0.1 has no nested quotes')
+        throw new BmxError('BMX-E012', row.offset, "a quote may not nest. A block nests — see the format's §4a.2")
       }
       const quoted = []
       let j = i
@@ -376,6 +383,7 @@ function parseBlocks(rows, from, depth) {
       children.push({
         type: 'quote',
         children: parseLines(quoted, (r) => r.offset + 2, (r) => stripEnd(r.text).slice(2)),
+        offset: row.offset,
       })
       i = j
       continue
@@ -391,11 +399,17 @@ function parseBlocks(rows, from, depth) {
           ? (inner.startsWith('- ') ? 2 : -1)
           : orderedMarker(inner)
         if (skip < 0) break
-        items.push(parseInline(inner.slice(skip), rows[j].offset + skip))
+        // An ITEM is a node rather than a bare array, so it can carry its own position: "point
+        // at the third item" is what a host needs and a list-level offset cannot say it.
+        items.push({
+          type: 'item',
+          children: parseInline(inner.slice(skip), rows[j].offset + skip),
+          offset: rows[j].offset,
+        })
         j++
       }
       // An ordered list's numbers are content, not instructions: nothing renumbers them.
-      children.push({ type: 'list', ordered: !unordered, items })
+      children.push({ type: 'list', ordered: !unordered, items, offset: row.offset })
       i = j
       continue
     }
@@ -419,6 +433,7 @@ function parseBlocks(rows, from, depth) {
     children.push({
       type: 'paragraph',
       children: parseLines(paragraph, (r) => r.offset, (r) => stripEnd(r.text)),
+      offset: row.offset,
     })
     i = j
   }

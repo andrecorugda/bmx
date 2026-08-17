@@ -80,9 +80,9 @@ use "std/math.bx";
 // offset mandatory for that reason.
 public class BmxSlot { expression: String, offset: Int }
 
-public class BmxWrap { children: [Bmx] }
+public class BmxWrap { children: [Bmx], offset: Int }
 
-public class BmxLink { target: String, children: [Bmx] }
+public class BmxLink { target: String, children: [Bmx], offset: Int }
 
 // Inline content.
 // An inline block — `::key[Ctrl+S]::`. NOT a slot: a slot's value is escaped and this is a call
@@ -99,12 +99,12 @@ public enum Bmx {
     InlineBlock(BmxInline),
 }
 
-public class BmxItem { children: [Bmx] }
+public class BmxItem { children: [Bmx], offset: Int }
 
-public class BmxHeading { level: Int, children: [Bmx] }
-public class BmxList { ordered: Bool, items: [BmxItem] }
-public class BmxCode { info: String, value: String }
-public class BmxWords { children: [Bmx] }
+public class BmxHeading { level: Int, children: [Bmx], offset: Int }
+public class BmxList { ordered: Bool, items: [BmxItem], offset: Int }
+public class BmxCode { info: String, value: String, offset: Int }
+public class BmxWords { children: [Bmx], offset: Int }
 
 // Block content. `Paragraph` and `Quote` carry the same shape and are still two variants: they
 // mean different things and render differently, and a `kind` field would put the distinction
@@ -356,7 +356,7 @@ function bmx_parse_inline(text: String, base: Int) -> Result<[Bmx], String> {
                             match bmx_parse_inline(substring(text, i + 2, close - i - 2), base + i + 2) {
                                 Error(e) => { return Result.Error(e); }
                                 Ok(kids) => {
-                                    let added: Int = push(out, Bmx.Strong(BmxWrap { children: kids }));
+                                    let added: Int = push(out, Bmx.Strong(BmxWrap { children: kids, offset: base + i }));
                                 }
                             }
                             i = close + 2;
@@ -372,7 +372,7 @@ function bmx_parse_inline(text: String, base: Int) -> Result<[Bmx], String> {
                             match bmx_parse_inline(substring(text, i + 1, close - i - 1), base + i + 1) {
                                 Error(e) => { return Result.Error(e); }
                                 Ok(kids) => {
-                                    let added: Int = push(out, Bmx.Emphasis(BmxWrap { children: kids }));
+                                    let added: Int = push(out, Bmx.Emphasis(BmxWrap { children: kids, offset: base + i }));
                                 }
                             }
                             i = close + 1;
@@ -425,7 +425,7 @@ function bmx_parse_inline(text: String, base: Int) -> Result<[Bmx], String> {
                                 Error(e) => { return Result.Error(e); }
                                 Ok(kids) => {
                                     let target: String = substring(text, shut + 2, end - shut - 2);
-                                    let added: Int = push(out, Bmx.Link(BmxLink { target: target, children: kids }));
+                                    let added: Int = push(out, Bmx.Link(BmxLink { target: target, children: kids, offset: base + i }));
                                 }
                             }
                             i = end + 1;
@@ -567,7 +567,7 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
             }
             // Indented content is 0.1's spelling of nesting, and 0.1 does not have nesting.
             if len(text) > 0 && byte_at(text, 0) == 32 {
-                return Result.Error(bmx_error("BMX-E012", line.offset, "0.1 has no nesting; this line is indented"));
+                return Result.Error(bmx_error("BMX-E012", line.offset, "a list may not nest; this line is indented. A block nests — see the format's §4a.2"));
             }
 
             let fence: Int = bmx_fence(text);
@@ -644,7 +644,7 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
                 match bmx_parse_inline(body, line.offset + level + 1) {
                     Error(e) => { return Result.Error(e); }
                     Ok(kids) => {
-                        let added: Int = push(out, Block.Heading(BmxHeading { level: level, children: kids }));
+                        let added: Int = push(out, Block.Heading(BmxHeading { level: level, children: kids, offset: line.offset }));
                     }
                 }
                 i += 1;
@@ -668,12 +668,12 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
                     if !closed {
                         return Result.Error(bmx_error("BMX-E003", line.offset, "unterminated code fence"));
                     }
-                    let added: Int = push(out, Block.Code(BmxCode { info: info, value: body }));
+                    let added: Int = push(out, Block.Code(BmxCode { info: info, value: body, offset: line.offset }));
                     i = j;
                 } else {
                     if bmx_starts_with(text, "> ") {
                         if bmx_starts_with(text, "> > ") {
-                            return Result.Error(bmx_error("BMX-E012", line.offset, "0.1 has no nested quotes"));
+                            return Result.Error(bmx_error("BMX-E012", line.offset, "a quote may not nest. A block nests — see the format's §4a.2"));
                         }
                         let mutable kids: [Bmx] = [];
                         let mutable j: Int = i;
@@ -694,7 +694,7 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
                             }
                             j += 1;
                         }
-                        let added: Int = push(out, Block.Quote(BmxWords { children: bmx_merge_text(kids) }));
+                        let added: Int = push(out, Block.Quote(BmxWords { children: bmx_merge_text(kids), offset: line.offset }));
                         i = j;
                     } else {
                         let ordered_at: Int = bmx_ordered_marker(text);
@@ -716,13 +716,13 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
                                     match bmx_parse_inline(substring(inner, skip, len(inner) - skip), lines[j].offset + skip) {
                                         Error(e) => { return Result.Error(e); }
                                         Ok(kids) => {
-                                            let added: Int = push(items, BmxItem { children: kids });
+                                            let added: Int = push(items, BmxItem { children: kids, offset: lines[j].offset });
                                         }
                                     }
                                     j += 1;
                                 }
                             }
-                            let added: Int = push(out, Block.List(BmxList { ordered: !unordered, items: items }));
+                            let added: Int = push(out, Block.List(BmxList { ordered: !unordered, items: items, offset: line.offset }));
                             i = j;
                         } else {
                             // A paragraph: consecutive non-blank lines that begin no other
@@ -756,7 +756,7 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
                                     j += 1;
                                 }
                             }
-                            let added: Int = push(out, Block.Paragraph(BmxWords { children: bmx_merge_text(kids) }));
+                            let added: Int = push(out, Block.Paragraph(BmxWords { children: bmx_merge_text(kids), offset: line.offset }));
                             i = j;
                         }
                     }
@@ -789,12 +789,14 @@ function bmx_inline_json(nodes: [Bmx]) -> Json {
                 let added: Int = push(out, json_object([
                     json_field("type", json_text("emphasis")),
                     json_field("children", bmx_inline_json(wrap.children)),
+                    json_field("offset", json_int(wrap.offset)),
                 ]));
             }
             Strong(wrap) => {
                 let added: Int = push(out, json_object([
                     json_field("type", json_text("strong")),
                     json_field("children", bmx_inline_json(wrap.children)),
+                    json_field("offset", json_int(wrap.offset)),
                 ]));
             }
             CodeSpan(value) => {
@@ -808,6 +810,7 @@ function bmx_inline_json(nodes: [Bmx]) -> Json {
                     json_field("type", json_text("link")),
                     json_field("target", json_text(link.target)),
                     json_field("children", bmx_inline_json(link.children)),
+                    json_field("offset", json_int(link.offset)),
                 ]));
             }
             Slot(slot) => {
@@ -842,31 +845,39 @@ function bmx_json_children(blocks: [Block]) -> Json {
                     json_field("type", json_text("heading")),
                     json_field("level", json_int(heading.level)),
                     json_field("children", bmx_inline_json(heading.children)),
+                    json_field("offset", json_int(heading.offset)),
                 ]));
             }
             Paragraph(words) => {
                 let added: Int = push(out, json_object([
                     json_field("type", json_text("paragraph")),
                     json_field("children", bmx_inline_json(words.children)),
+                    json_field("offset", json_int(words.offset)),
                 ]));
             }
             Quote(words) => {
                 let added: Int = push(out, json_object([
                     json_field("type", json_text("quote")),
                     json_field("children", bmx_inline_json(words.children)),
+                    json_field("offset", json_int(words.offset)),
                 ]));
             }
             List(list) => {
                 let mutable items: [Json] = [];
                 let mutable k: Int = 0;
                 while k < len(list.items) {
-                    let one: Int = push(items, bmx_inline_json(list.items[k].children));
+                    let one: Int = push(items, json_object([
+                        json_field("type", json_text("item")),
+                        json_field("children", bmx_inline_json(list.items[k].children)),
+                        json_field("offset", json_int(list.items[k].offset)),
+                    ]));
                     k += 1;
                 }
                 let added: Int = push(out, json_object([
                     json_field("type", json_text("list")),
                     json_field("ordered", json_truth(list.ordered)),
                     json_field("items", json_list(items)),
+                    json_field("offset", json_int(list.offset)),
                 ]));
             }
             Code(code) => {
@@ -874,6 +885,7 @@ function bmx_json_children(blocks: [Block]) -> Json {
                     json_field("type", json_text("code")),
                     json_field("info", json_text(code.info)),
                     json_field("value", json_text(code.value)),
+                    json_field("offset", json_int(code.offset)),
                 ]));
             }
             Fenced(fenced) => {

@@ -11,7 +11,7 @@ same in every implementation; the wording after it is that implementation's own,
 better in some languages than others.
 
 A conforming parser **stops at the first error**. Recovery — reporting every error at once — is a
-0.2 question and a real want, but recovery that differs between implementations is worse than
+a later question and a real want, but recovery that differs between implementations is worse than
 none.
 
 Every message below was produced by running a parser, not typed from the spec.
@@ -75,14 +75,14 @@ BMX-E011 at 0: a heading needs exactly one space after its #
 Also: seven or more `#`, and an empty heading. **It is not read as a paragraph beginning with
 `#`** — that reading is how a typo'd heading silently becomes body text.
 
-### `BMX-E012` — list or quote nesting, which 0.2 does not have
+### `BMX-E012` — list or quote nesting, which 0.3 does not have
 
 ```
 - one
   - nested
 ```
 ```
-BMX-E012 at 6: 0.2 has no list nesting; this line is indented
+BMX-E012 at 6: a list may not nest; this line is indented. A block nests — see §4a.2
 ```
 
 Refused rather than guessed at. **Blocks nest** — see [`:::` blocks](syntax.html#blocks) — lists
