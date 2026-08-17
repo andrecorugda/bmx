@@ -75,7 +75,11 @@ run "every doc page closes its raw tag" bash -c '
   exit $bad'
 
 echo
-if command -v burxt >/dev/null && [ -n "${BURXT_LIB:-}" ]; then
+# **The guard checks the toolchain WORKS, not that a `burxt` exists on PATH.** With `PATH` pointing at a
+# directory that had been cleaned out of /tmp, `command -v burxt` happily found the system's 0.0.153 —
+# which predates `use "std/…"` — and five checks reported FAIL for a missing standard library. A check
+# that cannot tell "this is broken" from "you have not set this up" sends you to debug the wrong thing.
+if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /dev/null -o /dev/null 2>&1 | grep -qv 'standard library'; then
   echo "the Burxt implementation — needs a released burxt on PATH and BURXT_LIB set"
   run "it compiles" bash -c 'burxt build burxt/examples/parse.bx -o /tmp/check-parse'
   run "it passes the format's own suite" python3 tests/harness.py /tmp/check-parse
