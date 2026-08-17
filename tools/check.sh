@@ -33,6 +33,9 @@ run() {
 
 echo "the format, and both implementations of it"
 run "the reference implementation passes the suite" python3 tests/harness.py "node reference/bmx.js"
+run "indenting a document does not change it" bash -c '
+  python3 tests/roundtrip.py "node reference/bmx.js" &&
+  python3 tests/roundtrip.py "node reference/bmx.js" --prove-it'
 run "the suite is not empty" bash -c '[ "$(ls tests/cases/*.bmx | wc -l)" -ge 20 ]'
 run "the linter fires where it should and stays quiet where it should" node tests/lints.mjs
 

@@ -28,6 +28,16 @@ jobs:
 
       # A suite that finds no cases passes silently, which is the shape of every ratchet failure
       # worth having a name for.
+      # **The check that found 0.8, kept rather than thrown away.** It indents every document that
+      # parses and asserts the structure did not move — which sees a rule that is too BROAD, and the
+      # conformance suite cannot, because every case in it was written by someone who believed the
+      # rules. `--prove-it` is its negative control and runs in the same step: a check nobody has
+      # watched fail is a check nobody has tested.
+      - name: Indenting a document does not change it
+        run: |
+          python3 tests/roundtrip.py "node reference/bmx.js"
+          python3 tests/roundtrip.py "node reference/bmx.js" --prove-it
+
       - name: The suite is not empty
         run: |
           count=$(ls tests/cases/*.bmx tests/errors/*.bmx | wc -l)
