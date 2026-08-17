@@ -22,7 +22,7 @@ So it is a dependency, named in your `burxt.package`:
 ```
 name        my-app
 version     0.1.0
-dependency  bmx  https://github.com/andrecorugda/bmx  <tag>
+dependency  bmx  https://github.com/andrecorugda/bmx  burxt-0.1.0
 ```
 
 ```sh
@@ -56,7 +56,7 @@ must declare BMX yourself, under the same name that package uses**:
 
 ```
 dependency  star  https://github.com/andrecorugda/star-burxt  v0.1.0
-dependency  bmx   https://github.com/andrecorugda/bmx         <commit>   # star needs this
+dependency  bmx   https://github.com/andrecorugda/bmx         burxt-0.1.0  # star needs this
 ```
 
 Leave the second line out and you get:
@@ -79,9 +79,8 @@ here declares one — and it is the same rule seen from the other side. Whether 
 Burxt's to decide; until it does, one extra line is the whole workaround, and the versions have to
 be kept in step by hand.
 
-> **Today this needs a Burxt built from source.** `use "std/…"` — how a package reaches the standard
-> library — is not in a release yet, so no published Burxt can compile this file. That is temporary
-> and it is why no tag is minted above.
+> **Needs Burxt 1.2.0 or later.** That is the first release that knows `use "std/…"`, which is how
+> a package reaches the standard library — so it is the first Burxt that can compile BMX at all.
 
 ### The two command-line tools
 

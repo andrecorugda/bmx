@@ -78,25 +78,36 @@ jobs:
   # same reason. The difference is that `reference/` is a role and `burxt/` is an audience:
   # `bmx.js` exists to define what the format does, `bmx.bx` exists to be used by Burxt programs.
   #
-  # **It builds Burxt from source rather than installing a release, and that is temporary but not
-  # optional.** `use "std/…"` — how a package reaches the standard library — is unreleased. So no
-  # published Burxt can compile this file, and pinning one would be pinning a compiler that cannot
-  # build the thing it is pinned for. When Burxt ships `std/`, this becomes an install step and the
-  # build disappears.
+  # **It installs a RELEASED Burxt and never builds `develop`, and that is the boundary rather than
+  # a convenience.** A package that builds its compiler from a moving branch has no reproducible
+  # build — `burxt.lock` pins dependency commits precisely so a build is a fact, and building the
+  # compiler from a branch undoes that one layer down. It also consumes unreleased features
+  # silently: `std/` was depended on for hours before it shipped and nobody could see it.
+  #
+  # The tempting counter-argument is that building `develop` would catch Burxt regressions early.
+  # That is a trap. It makes this badge go red for reasons that are not BMX's, and **a badge that
+  # goes red for somebody else's reasons is one people learn to ignore.** Catching Burxt
+  # regressions is Burxt's suite's job.
+  #
+  # BURXT is the version BMX supports. Raise it deliberately, in its own commit, with the suite
+  # green against it — never as a side effect of something else.
   burxt-implementation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build the compiler that can read `std/`
+      - name: Install the Burxt this release of BMX supports
+        env:
+          BURXT: 1.2.0
         run: |
           set -eux
-          git clone --depth 1 --branch develop https://github.com/andrecorugda/burxt.git /tmp/burxt
-          sudo apt-get update -qq && sudo apt-get install -y llvm-18-dev libpolly-18-dev
-          cd /tmp/burxt && LLVM_SYS_181_PREFIX=/usr/lib/llvm-18 cargo build --release
+          curl -fsSL -o /tmp/burxt.tar.gz \
+            "https://github.com/andrecorugda/burxt/releases/download/v$BURXT/burxt-$BURXT-linux-x86_64.tar.gz"
+          mkdir -p /tmp/burxt && tar xzf /tmp/burxt.tar.gz -C /tmp/burxt --strip-components=1
           sudo install -d /usr/local/bin /usr/local/lib/burxt
-          sudo install -m 755 target/release/burxt /usr/local/bin/burxt
-          sudo install -m 644 lib/*.bx /usr/local/lib/burxt/
+          sudo install -m 755 /tmp/burxt/burxt /usr/local/bin/burxt
+          sudo install -m 644 /tmp/burxt/lib/*.bx /usr/local/lib/burxt/
+          burxt --version
 
       - name: The Burxt implementation passes the format's own suite
         run: |
