@@ -9,8 +9,8 @@ So there are two audiences here. If you write documents, install the extension. 
 framework on BMX — [star-burxt](https://star.burxt-lang.org) is the first — the rest of this file is
 the interface you extend, and it is designed so you never patch a file in this repository.
 
-    editors/vscode/          the extension: grammar, language configuration, packaging
-    editors/vscode/test/     tokenises real documents and asserts the scopes
+    editors/vscode/          the extension: grammar, language configuration, preview, packaging
+    editors/vscode/test/     tokenises real documents, asserts the scopes, drives the preview
     editors/helix/           Helix language configuration
     editors/nvim/            Neovim filetype + tree-sitter-free highlighting hook
 
@@ -78,6 +78,21 @@ it. `L:` means the injection is tried *before* the base grammar's own rules at t
 
 Two documents' worth of the same idea: a slot's contents are the host's language, so the host's
 grammar colours them. BMX only had to name the place.
+
+## The preview
+
+The extension renders a document beside itself — a button in the title bar, `Ctrl+K V`, or the
+command palette — **using the reference implementation bundled inside it, so it needs no toolchain.**
+
+That is why `reference/bmx.js` grew a `render`. It was listed as level 1 in `README.md` while it
+exported only `parse`, and [`BOUNDARY.md`](../BOUNDARY.md) defines level 1 as parsing *and*
+substituting slot values with escaping applied — so the claim described a level it had not reached.
+`tests/renders.py` now compares its pages against Burxt's renderer over the whole corpus, which is
+the check that makes the claim true rather than restated.
+
+**A host writing its own preview should not need this file.** `render(source, bindings)` is exported,
+takes a plain object of slot values, and throws a `BmxError` carrying a code and an offset — so a
+framework that wants its own panel, with its own blocks, calls it and adds what it knows.
 
 ## Extending the diagnostics
 
@@ -176,7 +191,8 @@ Helix and Neovim configurations are in their directories, each a few lines.
 **No language server binary.** The library half above is what a host needs, and BMX shipping its own
 server would be the thing this page argues against — two servers, one file. If it turns out that
 every host writes the same fifty lines of framing, that is the trigger to ship a reference server,
-and it will be reported as such rather than assumed.
+and it will be reported as such rather than assumed. The preview is not a server: it renders on
+demand inside the extension, so it costs a host nothing and cannot conflict with one.
 
 **No formatter.** A formatter has to decide what a head means to reflow it, which is the host's.
 

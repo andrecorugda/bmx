@@ -1,7 +1,7 @@
 # BMX for VS Code
 
-Highlighting for `.bmx` documents — **markdown with one unambiguous reading and a typed hole in
-it**.
+Highlighting and a live preview for `.bmx` documents — **markdown with one unambiguous reading and a
+typed hole in it**.
 
 ```bmx
 # Receipt {{ order.reference }}
@@ -46,12 +46,41 @@ Or build it from a checkout — no toolchain, no npm:
 python3 editors/vscode/pack.py
 ```
 
+## Preview
+
+**Open Preview to the Side** — the button in the editor title bar, `Ctrl+K V` (`Cmd+K V` on a Mac),
+or the command palette. It renders the document beside itself and repaints as you type.
+
+It renders with the reference implementation bundled in this extension, so **it needs nothing
+installed** — no compiler, no toolchain. The trade is stated rather than hidden: that implementation
+is level 1, so it substitutes slot values and does not check them.
+
+Give it values to substitute in your settings:
+
+```json
+"bmx.preview.bindings": {
+  "customer.name": "Ada Lovelace",
+  "order.total": "£59.97"
+}
+```
+
+**A slot with no binding is an error in the preview, not a blank.** The empty string is how a page
+ships with a missing total nobody sees, so the panel shows the refusal instead of a page — which is
+the same thing a real render does.
+
+And a `:::` block is refused by name. A block is a component, the host decides what `card` renders,
+and a preview is not a host. That is the format's rule rather than a limit of the button, so the
+message says which block and why.
+
 ## Diagnostics
 
-**This extension is highlighting only, and that is a decision rather than a stage.** Most editors let
-one language server own a file, so a BMX server and a framework's server would compete for `.bmx`.
-BMX gives a host the structural checks as ordinary functions — `bmx_check` answers a code, a message,
-and a line and character column — and the host ships one server reporting both halves.
+**This extension ships no language server, and that is a decision rather than a stage.** Most editors
+let one server own a file, so a BMX server and a framework's server would compete for `.bmx`. BMX
+gives a host the structural checks as ordinary functions — `bmx_check` answers a code, a message, and
+a line and character column — and the host ships one server reporting both halves.
+
+The preview above is not a server: it renders on demand in the extension, so it costs a host nothing
+and cannot conflict with one.
 
 ## Links
 

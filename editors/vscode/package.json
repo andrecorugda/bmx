@@ -1,7 +1,7 @@
 {
   "name": "bmx",
   "displayName": "BMX",
-  "description": "BMX \u2014 markdown with one unambiguous reading and a typed hole in it. Highlighting for .bmx documents, with injection points a host builds on.",
+  "description": "BMX \u2014 markdown with one unambiguous reading and a typed hole in it. Highlighting and a live preview for .bmx documents, with injection points a host builds on.",
   "version": "0.1.0",
   "publisher": "andrecorugda",
   "license": "MIT OR Apache-2.0",
@@ -9,7 +9,8 @@
     "vscode": "^1.75.0"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Visualization"
   ],
   "keywords": [
     "bmx",
@@ -45,11 +46,55 @@
         "scopeName": "text.bmx",
         "path": "./syntaxes/bmx.tmLanguage.json"
       }
-    ]
+    ],
+    "commands": [
+      {
+        "command": "bmx.preview",
+        "title": "BMX: Open Preview to the Side",
+        "icon": "$(open-preview)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "bmx.preview",
+          "when": "editorLangId == bmx",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "bmx.preview",
+          "when": "editorLangId == bmx"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "bmx.preview",
+        "key": "ctrl+k v",
+        "mac": "cmd+k v",
+        "when": "editorLangId == bmx"
+      }
+    ],
+    "configuration": {
+      "title": "BMX",
+      "properties": {
+        "bmx.preview.bindings": {
+          "type": "object",
+          "default": {},
+          "markdownDescription": "Slot values the preview substitutes, as `expression: value`. A slot with no binding is an **error** rather than a blank \u2014 the empty string is how a page ships with a missing total nobody sees, so the preview shows the refusal instead."
+        }
+      }
+    }
   },
   "extensionKind": [
     "ui",
     "workspace"
   ],
-  "icon": "icon.png"
+  "icon": "icon.png",
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:bmx"
+  ]
 }

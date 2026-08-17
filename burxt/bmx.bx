@@ -996,7 +996,8 @@ function bmx_inline_html(nodes: [Bmx], bindings: [Binding]) -> Result<[Html], St
             }
             Link(link) => {
                 if !bmx_target_allowed(link.target) {
-                    return Result.Error("BMX-R001: refused a link target whose scheme is not http, https or mailto: " + link.target);
+                    return Result.Error(bmx_error("BMX-R001", link.offset,
+                        "refused a link target whose scheme is not http, https or mailto: " + link.target));
                 }
                 match bmx_inline_html(link.children, bindings) {
                     Error(e) => { return Result.Error(e); }
@@ -1008,7 +1009,8 @@ function bmx_inline_html(nodes: [Bmx], bindings: [Binding]) -> Result<[Html], St
             Slot(slot) => {
                 match bmx_lookup(bindings, slot.expression) {
                     None => {
-                        return Result.Error("BMX-R002: no binding for slot `" + slot.expression + "` at " + to_string(slot.offset));
+                        return Result.Error(bmx_error("BMX-R002", slot.offset,
+                            "no binding for slot `" + slot.expression + "`"));
                     }
                     Some(value) => {
                         // `html_text`, never `html_raw`: a slot's value is escaped on render,
@@ -1021,8 +1023,9 @@ function bmx_inline_html(nodes: [Bmx], bindings: [Binding]) -> Result<[Html], St
             // or skip it silently. This renderer declares none — components are a level-2 idea,
             // because their whole value is the compiler checking the call.
             InlineBlock(call) => {
-                return Result.Error("BMX-R003: this renderer declares no blocks, and `" + call.name
-                    + "` at " + to_string(call.offset) + " is one. Compile the document instead.");
+                return Result.Error(bmx_error("BMX-R003", call.offset,
+                    "this renderer declares no blocks, and `" + call.name
+                    + "` is one. Compile the document instead."));
             }
         }
         i += 1;
@@ -1074,8 +1077,9 @@ function bmx_html(blocks: [Block], bindings: [Binding]) -> Result<Html, String> 
                 let added: Int = push(out, html_element(tag, [], items));
             }
             Fenced(fenced) => {
-                return Result.Error("BMX-R003: this renderer declares no blocks, and `" + fenced.name
-                    + "` at " + to_string(fenced.offset) + " is one. Compile the document instead.");
+                return Result.Error(bmx_error("BMX-R003", fenced.offset,
+                    "this renderer declares no blocks, and `" + fenced.name
+                    + "` is one. Compile the document instead."));
             }
             Code(code) => {
                 // The info string becomes a class the way every highlighter expects, and it is

@@ -57,6 +57,18 @@ jobs:
       - name: The site's colours and the editor's agree
         run: node editors/vscode/test/agrees.mjs
 
+      # **The failure modes of a preview all look fine in a diff**: a command under the wrong id, a
+      # panel that renders once and never again, an error path that shows a blank page instead of the
+      # reason. VS Code cannot be scripted here; extension.js can, against a stub `vscode`.
+      #
+      # The blank-page case is the one that matters — a preview showing nothing where a slot had no
+      # binding would have quietly done the thing BMX exists to refuse.
+      - name: The preview does what the button promises
+        run: |
+          mkdir -p editors/vscode/reference
+          cp reference/bmx.js editors/vscode/reference/bmx.mjs
+          node editors/vscode/test/preview.js
+
       # A .vsix nobody built is a .vsix that does not package — and the file list in pack.py is
       # written out rather than globbed, so a missing entry is only found by packaging.
       - name: The extension packages
@@ -147,6 +159,18 @@ jobs:
           set -eux
           burxt build burxt/examples/parse.bx -o /tmp/bmx-parse
           python3 tests/harness.py /tmp/bmx-parse
+
+      # **Level 1 is "renders", not "parses".** Two implementations can agree on every AST in the
+      # corpus and still disagree about the page — a different heading tag, a different escape set,
+      # a link scheme one allows. This compares the PAGES.
+      #
+      # It exists because the claim came before the code: README listed the reference implementation
+      # as level 1 while it exported only `parse`. It found the two disagreeing about the shape of a
+      # render error on its first run, and that was Burxt's file speaking two error formats.
+      - name: The two renderers produce the same page
+        run: |
+          burxt build tools/render.bx -o /tmp/bmxrender
+          python3 tests/renders.py /tmp/bmxrender
 
       # The question the suite cannot ask: do two implementations reach the same answer where
       # nothing was written down? That is where a specification's ambiguities live, and it is how

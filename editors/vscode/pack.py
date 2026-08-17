@@ -34,6 +34,11 @@ HERE = Path(__file__).resolve().parent
 # file in the directory never ships by accident.
 FILES = [
     "package.json",
+    "extension.js",
+    # **The reference implementation ships INSIDE the extension**, so the preview renders with no
+    # toolchain installed. Copied by `pack.py` from the repository root rather than duplicated in
+    # this directory, because two copies of a parser is how they drift.
+    "reference/bmx.mjs",
     "language-configuration.json",
     "syntaxes/bmx.tmLanguage.json",
     "icon.png",
@@ -104,6 +109,12 @@ def manifest(pkg):
 def main():
     pkg = json.loads((HERE / "package.json").read_text())
     out = HERE / f"{pkg['name']}-{pkg['version']}.vsix"
+
+    # `reference/bmx.js` lives at the repository root, not here. Staged rather than symlinked,
+    # because a .vsix is a zip and a symlink in one is a file nobody can read.
+    staged = HERE / "reference"
+    staged.mkdir(exist_ok=True)
+    (staged / "bmx.mjs").write_text((HERE.parent.parent / "reference" / "bmx.js").read_text())
 
     missing = [f for f in FILES if not (HERE / f).exists()]
     if missing:

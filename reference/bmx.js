@@ -443,6 +443,129 @@ function parseBlocks(rows, from, depth) {
   return [children, i]
 }
 
+// ---- level 1: rendering ------------------------------------------------------
+//
+// **This existed as a claim before it existed as code.** `README.md` listed this file as "1 —
+// renders" while it exported only `parse`, and `BOUNDARY.md` defines level 1 as parsing *and*
+// substituting slot values with escaping applied. So the table was describing a level this
+// implementation had not reached — the third claim of that shape found in these docs, and this one
+// was load-bearing, because "any language can reach level 1" is the sentence that makes BMX
+// adoptable and the reference implementation is the proof.
+//
+// Every rule below is measured against Burxt's renderer rather than inferred from the spec, and
+// `tests/renders.mjs` compares the two over the whole corpus. Where they differ, one of them is
+// wrong and the suite says so.
+
+const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
+
+/** The one escaping rule, and there is no way to opt out of it — that is ESCAPING.md. */
+const escape = (s) => s.replace(/[&<>"']/g, (c) => ESCAPES[c])
+
+/** `/path`, or a scheme BMX's renderer allows. A scheme it does not know is refused, not stripped. */
+function targetAllowed(target) {
+  const colon = target.indexOf(':')
+  const slash = target.indexOf('/')
+  if (slash >= 0 && (colon < 0 || slash < colon)) return true
+  if (colon < 0) return true
+  return ['http', 'https', 'mailto'].includes(target.slice(0, colon))
+}
+
+function renderInline(nodes, bindings) {
+  let out = ''
+  for (const node of nodes) {
+    switch (node.type) {
+      case 'text':
+        out += escape(node.value)
+        break
+      case 'emphasis':
+        out += `<em>${renderInline(node.children, bindings)}</em>`
+        break
+      case 'strong':
+        out += `<strong>${renderInline(node.children, bindings)}</strong>`
+        break
+      case 'code_span':
+        out += `<code>${escape(node.value)}</code>`
+        break
+      case 'link':
+        if (!targetAllowed(node.target)) {
+          throw new BmxError('BMX-R001', node.offset,
+            `refused a link target whose scheme is not http, https or mailto: ${node.target}`)
+        }
+        out += `<a href="${escape(node.target)}">${renderInline(node.children, bindings)}</a>`
+        break
+      case 'slot': {
+        // **A missing binding is an error, never an empty string.** The empty string is how a page
+        // ships with a missing total nobody sees, which is the whole thing BMX exists to stop.
+        if (!(node.expression in bindings)) {
+          throw new BmxError('BMX-R002', node.offset,
+            `no binding for slot \`${node.expression}\``)
+        }
+        // Escaped, always. There is no syntax that opts out.
+        out += escape(String(bindings[node.expression]))
+        break
+      }
+      case 'inline_block':
+        // SPEC §4a.5: a host must refuse a block it did not declare, and never render it or skip it
+        // silently. This renderer declares none — a component's value is the compiler checking the
+        // call, which is level 2.
+        throw new BmxError('BMX-R003', node.offset,
+          `this renderer declares no blocks, and \`${node.name}\` is one. Compile the document instead.`)
+      default:
+        throw new BmxError('BMX-R004', node.offset ?? 0, `unknown inline node \`${node.type}\``)
+    }
+  }
+  return out
+}
+
+function renderBlocks(blocks, bindings) {
+  let out = ''
+  for (const block of blocks) {
+    switch (block.type) {
+      case 'heading':
+        out += `<h${block.level}>${renderInline(block.children, bindings)}</h${block.level}>`
+        break
+      case 'paragraph':
+        out += `<p>${renderInline(block.children, bindings)}</p>`
+        break
+      case 'quote':
+        out += `<blockquote>${renderInline(block.children, bindings)}</blockquote>`
+        break
+      case 'list': {
+        const tag = block.ordered ? 'ol' : 'ul'
+        const items = block.items
+          .map((item) => `<li>${renderInline(item.children, bindings)}</li>`)
+          .join('')
+        out += `<${tag}>${items}</${tag}>`
+        break
+      }
+      case 'code': {
+        // The info string becomes the class every highlighter expects — and is checked as a NAME
+        // first, because an info string is author text and an unchecked one is a markup hole.
+        const cls = block.info && isName(block.info) ? ` class="language-${escape(block.info)}"` : ''
+        out += `<pre><code${cls}>${escape(block.value)}</code></pre>`
+        break
+      }
+      case 'block':
+        throw new BmxError('BMX-R003', block.offset,
+          `this renderer declares no blocks, and \`${block.name}\` is one. Compile the document instead.`)
+      default:
+        throw new BmxError('BMX-R004', block.offset ?? 0, `unknown block \`${block.type}\``)
+    }
+  }
+  return out
+}
+
+/**
+ * A document and its slot values, in; a page, out.
+ *
+ * `bindings` maps a slot's expression text to a value. BMX does not evaluate expressions — that is
+ * the host's, per BOUNDARY.md — so a level-1 renderer can only look one up by the exact text the
+ * author wrote. A level-2 host compiles them instead, which is why only a typed language reaches it.
+ */
+export function render(source, bindings = {}) {
+  return `<article class="bmx">${renderBlocks(parse(source).children, bindings)}</article>`
+}
+
 // ---- the command line the conformance harness drives ------------------------
 
 if (process.argv[1] && process.argv[1].endsWith('bmx.js')) {
