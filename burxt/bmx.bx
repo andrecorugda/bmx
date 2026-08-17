@@ -233,6 +233,16 @@ pure function bmx_is_space(b: Int) -> Bool {
 // A line's content with trailing spaces removed. The format strips them because the two-space
 // line break is an invisible character that changes output, which is unreviewable by
 // construction.
+// Removes up to `n` leading spaces — the opening fence's indentation and no more. A content line
+// indented LESS than its fence keeps what it has rather than going negative.
+pure function bmx_strip_fence_indent(raw: String, n: Int) -> String {
+    let mutable i: Int = 0;
+    while i < n && i < len(raw) && byte_at(raw, i) == 32 {
+        i += 1;
+    }
+    return substring(raw, i, len(raw) - i);
+}
+
 public pure function bmx_strip_end(text: String) -> String {
     let mutable n: Int = len(text);
     while n > 0 && byte_at(text, n - 1) == 32 {
@@ -505,7 +515,7 @@ pure function bmx_merge_text(nodes: [Bmx]) -> [Bmx] {
 
 // ---- lines ---------------------------------------------------------------------
 
-class BmxLine { text: String, offset: Int }
+class BmxLine { text: String, raw: String, indent: Int, offset: Int }
 
 // Split into lines, keeping each line's byte offset. `\r\n` ends a line and a lone `\r` does
 // not — a stray carriage return in the middle of a line is far more likely to be data than
@@ -521,7 +531,7 @@ pure function bmx_lines(source: String) -> [BmxLine] {
             if stop > start && byte_at(source, stop - 1) == 13 {
                 stop -= 1;
             }
-            let added: Int = push(out, BmxLine { text: substring(source, start, stop - start), offset: start });
+            let added: Int = push(out, bmx_row(substring(source, start, stop - start), start));
             i += 1;
             start = i;
         } else {
@@ -529,9 +539,39 @@ pure function bmx_lines(source: String) -> [BmxLine] {
         }
     }
     if start < n {
-        let added: Int = push(out, BmxLine { text: substring(source, start, n - start), offset: start });
+        let added: Int = push(out, bmx_row(substring(source, start, n - start), start));
     }
     return out;
+}
+
+// **Leading spaces come off HERE and nowhere else**, which is the whole implementation of SPEC §1's
+// insignificance rule. Doing it once at the row rather than at each of the twenty places that read a
+// line means every offset downstream is already a real source position — the alternative is
+// `offset + indent` at each of them, which is twenty chances to forget one and hand the language
+// server a column pointing at whitespace.
+//
+// `raw` is kept because a code block's content is the one thing that must not be dedented line by
+// line: it loses its FENCE's indentation and keeps the rest (§2.4).
+pure function bmx_row(raw: String, offset: Int) -> BmxLine {
+    let mutable n: Int = 0;
+    while n < len(raw) && byte_at(raw, n) == 32 {
+        n += 1;
+    }
+    return BmxLine {
+        text: substring(raw, n, len(raw) - n),
+        raw: raw,
+        indent: n,
+        offset: offset + n,
+    };
+}
+
+// The nesting refusal, in one place with three callers — three loops consume lines and each consumes
+// its own, so the top of the block loop never sees a continuation line. The FIXTURES are what hold
+// this rather than the structure: `- one` / `  - two` silently became a flat list until
+// `014-nested-list` failed, and the quote shape had no fixture at all until this pass added one.
+pure function bmx_no_nesting(offset: Int, what: String, fix: String) -> String {
+    return bmx_error("BMX-E012", offset,
+        "a " + what + " may not nest; this line is indented. " + fix + " — see §4a.2");
 }
 
 // ---- block parsing -------------------------------------------------------------
@@ -566,14 +606,31 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
         if bmx_is_blank(text) {
             i += 1;
         } else {
-            // A tab in leading whitespace. Every dialect gives it a different width, so a
-            // format promising one reading cannot accept it at all.
+            // A tab in leading whitespace. Every dialect gives it a different width, so a format
+            // promising one reading cannot accept it — even though the SPACES around it mean
+            // nothing, a reader aligning by eye and a parser counting bytes would disagree about
+            // what they are looking at.
             if len(text) > 0 && byte_at(text, 0) == 9 {
                 return Result.Error(bmx_error("BMX-E010", line.offset, "a tab in leading whitespace has no defined width"));
             }
-            // Indented content is 0.1's spelling of nesting, and 0.1 does not have nesting.
-            if len(text) > 0 && byte_at(text, 0) == 32 {
-                return Result.Error(bmx_error("BMX-E012", line.offset, "a list may not nest; this line is indented. A block nests — see the format's §4a.2"));
+            // **Indentation is insignificant, with exactly two exceptions** (§1). They are
+            // exceptions because a list and a quote have no nesting AT ALL in this version, so an
+            // indented one is not a second spelling of something legal — it is the illegal thing
+            // with space in front of it.
+            //
+            // Until 0.5.1 this was a blanket refusal of every indented line, wearing the
+            // nested-list message: `::: div` / `  hello` / `:::` was told *a list may not nest*
+            // about a document with no list in it. That is the worst shape a diagnostic can have —
+            // confident, specific, and naming something the reader did not write.
+            if line.indent > 0 {
+                if bmx_starts_with(text, "- ") || bmx_ordered_marker(text) > 0 {
+                    return Result.Error(bmx_no_nesting(line.offset, "list",
+                        "Put the `- ` at the start of the line, or make it a block"));
+                }
+                if bmx_starts_with(text, "> ") {
+                    return Result.Error(bmx_no_nesting(line.offset, "quote",
+                        "Put the `> ` at the start of the line, or make it a block"));
+                }
             }
 
             let fence: Int = bmx_fence(text);
@@ -666,7 +723,10 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
                         if inner == "```" {
                             closed = true;
                         } else {
-                            body = body + lines[j].text + "\n";
+                            // The FENCE's indentation comes off; everything past it stays, so an
+                            // indented fence holds exactly the code you would have written at
+                            // column 0. Dedenting each line by its own indent would flatten it.
+                            body = body + bmx_strip_fence_indent(lines[j].raw, line.indent) + "\n";
                         }
                         j += 1;
                     }
@@ -685,6 +745,10 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
                         let mutable kids: [Bmx] = [];
                         let mutable j: Int = i;
                         while j < len(lines) && bmx_starts_with(bmx_strip_end(lines[j].text), "> ") {
+                            if lines[j].indent > 0 {
+                                return Result.Error(bmx_no_nesting(lines[j].offset, "quote",
+                                    "Put the `> ` at the start of the line, or make it a block"));
+                            }
                             let inner: String = bmx_strip_end(lines[j].text);
                             if j > i {
                                 let broke: Int = push(kids, Bmx.Text("\n"));
@@ -720,6 +784,14 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
                                 if skip < 0 {
                                     going = false;
                                 } else {
+                                    // The third caller: a continuation line never reaches the top of
+                                    // the block loop, because this loop consumes it. Without this,
+                                    // `- one` / `  - two` becomes two flat items — a nest silently
+                                    // answered as a list, which is worse than the refusal it replaced.
+                                    if lines[j].indent > 0 {
+                                        return Result.Error(bmx_no_nesting(lines[j].offset, "list",
+                                            "Put the `- ` at the start of the line, or make it a block"));
+                                    }
                                     match bmx_parse_inline(substring(inner, skip, len(inner) - skip), lines[j].offset + skip) {
                                         Error(e) => { return Result.Error(e); }
                                         Ok(kids) => {

@@ -6,7 +6,7 @@ title: Writing a document
 {% raw %}
 # Writing a document
 
-Every construct BMX 0.4 has, what it renders to, and the rule that decides it. **Every HTML
+Every construct BMX 0.6 has, what it renders to, and the rule that decides it. **Every HTML
 sample on this page was produced by running a real renderer, not typed by hand.**
 
 If you know markdown you already know most of this. The differences are deliberate and there are
@@ -163,6 +163,42 @@ to count:
 ::::
 ```
 
+### Indentation
+
+**Indent it however you like — the parser does not look.** Leading spaces are removed before a line is
+read, so these two documents are the same document:
+
+```bmx
+::: section class=card
+  # Today
+  ::: for task in model.tasks key to_string(task.id)
+    ::: button on:click=Msg.Toggle(string_to_int(key, 0))
+      {{ task.label }}
+    :::
+  :::
+:::
+```
+
+Without it, four closers stack at the bottom and nothing says what any of them closes — a reader has
+to count openers upward to find out whether the third `:::` ends the button or the loop. Indented, each
+closer sits at the column of the thing it closes and **nothing has to be counted**.
+
+Two things this deliberately is not:
+
+**It is not a second nesting rule.** A block nests by *containment* — its fences say where it ends —
+and indentation says nothing at all. Two rules that can disagree is markdown's indented-list problem,
+and one document cannot have two answers about its own shape.
+
+**It is not a named closer.** `::: /for` was proposed and rejected: a named closer can be *wrong*,
+which is a new refusal to write and a new way for a document to lie about its structure. Indentation
+cannot be wrong, because it means nothing.
+
+The exceptions are the two constructs that have no nesting at all — an indented `- ` or `> ` is
+[`BMX-E012`](errors.html#bmx-e012--list-or-quote-nesting-which-06-does-not-have), and a tab in leading
+whitespace is [`BMX-E010`](errors.html) whatever it is doing there, because its width is a matter of
+opinion in every dialect. A code fence may be indented too, and its content keeps everything past the
+fence's own indentation.
+
 ### Classes, ids and attributes
 
 A head may carry them, and this is the one part of a head BMX has an opinion about:
@@ -256,7 +292,7 @@ and a slot: Ada.</p><ul><li>first item</li><li>second item</li></ul>
 
 (Line breaks added here for reading; the renderer emits one line.)
 
-## What 0.2 does not have
+## What 0.6 does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons invites someone to fix them at random.

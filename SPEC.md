@@ -1,4 +1,4 @@
-# BMX 0.4 — the grammar
+# BMX 0.6 — the grammar
 
 **BMX is markdown with one unambiguous reading and a typed hole in it.**
 
@@ -30,9 +30,36 @@ normalisation, width or case.
 parse identically, and a lone `\r` in the middle of a line is far more likely to be data than
 intent.
 
-**Tabs are an error** (`BMX-E010`) anywhere a line's leading whitespace is significant. A tab is
-where every markdown dialect diverges — four columns, eight columns, or one — and a format that
-promises one reading cannot have a byte whose width is a matter of opinion.
+**Leading spaces are not content and carry no meaning.** They are removed before a line is
+classified, so these two documents have the same AST:
+
+```
+::: card                 ::: card
+# Today                    # Today
+:::                      :::
+```
+
+A block already nests by **containment** — its opening and closing fences say where it ends. Letting
+leading space nest things too would give one document two nesting rules that can disagree, which is
+the defect markdown's indented-list handling is famous for. So indentation here is what it is in HTML:
+a courtesy to the reader, invisible to the parser. Write it or do not; the answer does not change.
+
+Two consequences worth stating, because both are places a reader could reasonably expect otherwise:
+
+- **A list and a quote still may not nest, indented or not.** A line whose first non-space bytes are
+  `- `, `<digits>. ` or `> ` **and which is indented** is `BMX-E012` — see §2.3 and §2.5. Those two
+  constructs have no nesting in 0.6 at all, so indenting them is not a second spelling of something
+  legal; it is the illegal thing with space in front of it.
+- **A code block's content keeps its own shape.** Content lines have the *opening fence's* indentation
+  removed and nothing more, so a fence indented inside a block still holds exactly the code you wrote,
+  relative indentation included. Content is never reinterpreted (§2.4).
+
+**Tabs are an error** (`BMX-E010`) in a line's leading whitespace. A tab is where every markdown
+dialect diverges — four columns, eight columns, or one — and a format that promises one reading cannot
+have a byte whose width is a matter of opinion. This holds even though the *spaces* around it are
+insignificant: the reason to refuse a tab is that a reader aligning by eye and a parser counting bytes
+would disagree about what they are looking at, and that is true whether or not the count means
+anything.
 
 **The final line need not end with `\n`.**
 
@@ -85,9 +112,14 @@ exactly one space after the marker. Consecutive item lines form one list. A blan
 - An ordered list's numbers are **content, not instructions**: a renderer emits them as written.
   A list numbered `1. 1. 1.` renders as `1. 1. 1.`, because a format that silently renumbers is
   a format whose output does not match its source.
-- A list item's content is inline content. **List nesting is not in 0.4** — a line beginning with
+- A list item's content is inline content. **List nesting is not in 0.6** — a line beginning with
   spaces then `- ` is `BMX-E012`, refused rather than guessed at, and the trigger for adding it
   is a real document that needs it.
+- This is the **one** thing indentation still decides, and it decides it by refusing. Everywhere else
+  leading space is discarded (§1); here it is the difference between one list and an error, because
+  `- ` at column 0 after a `- ` line is a second item and `- ` further in is a nest that does not
+  exist. An implementation that refuses *every* indented line passes this bullet and is still wrong:
+  0.5.0 shipped exactly that, and told anyone who indented a paragraph that their list may not nest.
 
 ### 2.4 Code block
 
@@ -106,7 +138,10 @@ lines of content, then exactly three backticks at the start of a line.
 - An unterminated fence at end of document is `BMX-E003`. Markdown closes it for you at EOF,
   which is the single most common way a document renders as one giant code block and nobody is
   told why.
-- There is no indented code block. It is the other half of the tab problem.
+- There is no indented code block. It is the other half of the tab problem — indentation opens
+  nothing, so four spaces are four spaces.
+- **A fence may itself be indented**, and then its content lines lose that same indentation and keep
+  the rest. `value` is what you would have written at column 0.
 
 ### 2.5 Block quote
 
@@ -115,8 +150,9 @@ lines of content, then exactly three backticks at the start of a line.
 > still quoted
 ```
 
-`> ` at the start of a line. Consecutive lines form one quote; the content of each is inline
-content. **No nested quotes in 0.4** — `> > ` is `BMX-E012`.
+`> ` at the start of a line, after any leading spaces (§1). Consecutive lines form one quote; the
+content of each is inline content. **No nested quotes in 0.6** — `> > ` is `BMX-E012`, and so is an
+indented `> `, for the same reason an indented `- ` is.
 
 ## 3. Inline content
 
@@ -351,9 +387,9 @@ others.
 | `BMX-E002` | unterminated emphasis or strong |
 | `BMX-E003` | unterminated code fence |
 | `BMX-E004` | unterminated link |
-| `BMX-E010` | tab in significant whitespace |
+| `BMX-E010` | tab in leading whitespace |
 | `BMX-E011` | malformed heading |
-| `BMX-E012` | list or quote nesting, which 0.4 does not have (blocks nest — see §4a.2) |
+| `BMX-E012` | list or quote nesting, which 0.6 does not have (blocks nest — see §4a.2). An indented `- `, `<digits>. ` or `> ` only; an indented line is otherwise ordinary (§1) |
 | `BMX-E020` | unterminated code span |
 | `BMX-E021` | invalid escape |
 | `BMX-E022` | empty slot expression |
@@ -367,7 +403,7 @@ A conforming parser **stops at the first error**. Recovery is a later question a
 one — an editor wants every error at once — but recovery that differs between implementations is
 worse than no recovery.
 
-## 7. What 0.4 deliberately does not have
+## 7. What 0.6 deliberately does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons is a list somebody will "fix" at random.
@@ -380,6 +416,7 @@ reasons is a list somebody will "fix" at random.
 | Raw HTML passthrough | it would put an unescaped hole in the format, and [`ESCAPING.md`](ESCAPING.md) says why that is the host's `raw` to grant, not the format's |
 | Error recovery | §6 |
 | Front matter | it is how a host will declare a view's signature, and it must be designed WITH a host rather than guessed at |
+| A **named closer** — `::: /for` | nothing. This one is refused rather than deferred, and the reason is that it can be WRONG: `::: /for` closing a `button` is a document lying about its own structure, which means a new refusal to write and a new way to be refused. Indentation (§1) answers the same need — *which opener does this close* — and cannot be wrong, because it means nothing. Proposed by star-burxt with the recommendation that it be rejected, which is the right way to raise one |
 
 **Loops, conditionals, components and event bindings are NOT on this list any more**, and how they
 left it is worth recording. They were refused in 0.1 on the reasoning that *a view is a function

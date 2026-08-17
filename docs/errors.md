@@ -75,18 +75,35 @@ BMX-E011 at 0: a heading needs exactly one space after its #
 Also: seven or more `#`, and an empty heading. **It is not read as a paragraph beginning with
 `#`** — that reading is how a typo'd heading silently becomes body text.
 
-### `BMX-E012` — list or quote nesting, which 0.4 does not have
+### `BMX-E012` — list or quote nesting, which 0.6 does not have
 
 ```
 - one
   - nested
 ```
 ```
-BMX-E012 at 6: a list may not nest; this line is indented. A block nests — see §4a.2
+BMX-E012 at 6: a list may not nest; this line is indented. Put the `- ` at the start of the line, or make it a block — see §4a.2
 ```
 
 Refused rather than guessed at. **Blocks nest** — see [`:::` blocks](syntax.html#blocks) — lists
 and quotes do not, and a real document that needs it is what would earn it a version.
+
+**It fires for an indented `- `, `<digits>. ` or `> ` and nothing else.** Indentation elsewhere is
+invisible to the parser (see [Indentation](syntax.html#indentation)), so this is one of two places
+where leading space still decides anything, and it decides it by refusing.
+
+*Every version through 0.5.1 refused **every** indented line with this error, so a document like*
+
+```
+::: div
+  hello
+:::
+```
+
+*was told a list may not nest, about a document containing no list.* That is the worst shape a
+diagnostic can have — confident, specific, and naming something the reader never wrote — and it is why
+0.6 exists. If you are on 0.5.1 and see this on a line with no `- ` in it, upgrade; the document was
+always fine.
 
 ### `BMX-E020` — unterminated code span
 

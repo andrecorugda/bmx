@@ -39,19 +39,57 @@ const TAB = 0x09
 // ordinary byte: a stray carriage return mid-line is far more likely to be data than intent,
 // and the format decides that once rather than leaving each parser to guess.
 
+// **Leading spaces are removed HERE and nowhere else**, and that is the whole implementation of
+// SPEC §1's insignificance rule. Doing it in the row builder rather than at each of the twenty
+// places that read a line means every offset downstream is already a real source position — the
+// alternative was `row.offset + indent` at each of them, which is twenty chances to forget one and
+// hand the language server a column that points at whitespace.
+//
+// `raw` is kept because a code block's content is the one thing that must not be dedented per-line:
+// it loses its FENCE's indentation and keeps the rest (§2.4).
+function dedent(text) {
+  let n = 0
+  while (n < text.length && text[n] === ' ') n++
+  return n
+}
+
 function lines(source) {
   const out = []
   let start = 0
+  const push = (raw, offset) => {
+    const indent = dedent(raw)
+    out.push({ text: raw.slice(indent), raw, indent, offset: offset + indent })
+  }
   for (let i = 0; i < source.length; i++) {
     if (source[i] === '\n') {
       let stop = i
       if (stop > start && source[stop - 1] === '\r') stop--
-      out.push({ text: source.slice(start, stop), offset: start })
+      push(source.slice(start, stop), start)
       start = i + 1
     }
   }
-  if (start < source.length) out.push({ text: source.slice(start), offset: start })
+  if (start < source.length) push(source.slice(start), start)
   return out
+}
+
+// **The nesting refusal, in one place with three callers**, because three loops consume lines and
+// each consumes its own: the top of the block loop sees a construct that STARTS indented, while the
+// list and quote loops swallow their continuation lines before that top is ever reached again. I
+// could not collapse them into one arm the way a recursion allows, so the thing holding this is the
+// FIXTURES — a fourth consuming loop added later will not call this by itself. `- one` / `  - two`
+// silently became a flat list until `014-nested-list` failed, and the quote shape was silently
+// flattened with no fixture to say so until this pass added one.
+function noNesting(row, what, fix) {
+  throw new BmxError('BMX-E012', row.offset,
+    `a ${what} may not nest; this line is indented. ${fix} — see §4a.2`)
+}
+
+// Removes up to `n` leading spaces — the opening fence's indentation and no more. A content line
+// indented LESS than its fence keeps what it has rather than going negative.
+function stripFenceIndent(raw, n) {
+  let i = 0
+  while (i < n && i < raw.length && raw[i] === ' ') i++
+  return raw.slice(i)
 }
 
 // Trailing spaces go. There is no two-space line break in BMX — an invisible character that
@@ -279,13 +317,28 @@ function parseBlocks(rows, from, depth) {
       continue
     }
 
-    // A tab has a different width in every dialect, so a format promising one reading cannot
-    // accept one where indentation matters.
+    // A tab has a different width in every dialect, so a format promising one reading cannot accept
+    // one in leading whitespace — even though the spaces around it mean nothing, a reader aligning by
+    // eye and a parser counting bytes would disagree about what they are looking at.
     if (text[0] === '\t') {
       throw new BmxError('BMX-E010', row.offset, 'a tab in leading whitespace has no defined width')
     }
-    if (text[0] === ' ') {
-      throw new BmxError('BMX-E012', row.offset, "a list may not nest; this line is indented. A block nests — see the format's §4a.2")
+
+    // **Indentation is insignificant, with exactly two exceptions**, and they are exceptions because
+    // those two constructs have no nesting at all in 0.4 (§2.3, §2.5) — so an indented one is not a
+    // second spelling of something legal, it is the illegal thing with space in front of it.
+    //
+    // Until 0.5.1 this was a blanket refusal of every indented line, wearing the nested-list message.
+    // `::: div` / `  hello` / `:::` was told *a list may not nest* about a document containing no
+    // list, which is the worst shape a diagnostic can have: it is confident, it is specific, and it
+    // names something the reader did not write.
+    if (row.indent > 0) {
+      if (text.startsWith('- ') || orderedMarker(text) > 0) {
+        noNesting(row, 'list', 'Put the `- ` at the start of the line, or make it a block')
+      }
+      if (text.startsWith('> ')) {
+        noNesting(row, 'quote', 'Put the `> ` at the start of the line, or make it a block')
+      }
     }
 
     const fence = fenceLength(text)
@@ -360,7 +413,10 @@ function parseBlocks(rows, from, depth) {
       let closed = false
       while (j < rows.length && !closed) {
         if (stripEnd(rows[j].text) === '```') closed = true
-        else value += rows[j].text + '\n'
+        // The FENCE's indentation comes off; everything past it stays. So an indented fence holds
+        // exactly the code you would have written at column 0, relative indentation included —
+        // dedenting each line by its own indent would silently flatten the code instead.
+        else value += stripFenceIndent(rows[j].raw, row.indent) + '\n'
         j++
       }
       // Markdown closes an open fence at end of document, which is the commonest way a page
@@ -379,6 +435,9 @@ function parseBlocks(rows, from, depth) {
       const quoted = []
       let j = i
       while (j < rows.length && stripEnd(rows[j].text).startsWith('> ')) {
+        if (rows[j].indent > 0) {
+          noNesting(rows[j], 'quote', 'Put the `> ` at the start of the line, or make it a block')
+        }
         quoted.push(rows[j])
         j++
       }
@@ -401,6 +460,15 @@ function parseBlocks(rows, from, depth) {
           ? (inner.startsWith('- ') ? 2 : -1)
           : orderedMarker(inner)
         if (skip < 0) break
+        // **The nesting refusal has to be HERE as well as at the top of the loop**, because a
+        // continuation line never reaches the top: this loop consumes it. The check above guards a
+        // list that STARTS indented; this one guards an indented item inside one that did not, which
+        // is the actual `- one` / `  - two` shape. Missing it turned a refusal into a silent
+        // flattening — two items where the author wrote a nest — and `014-nested-list` said so on
+        // the first run.
+        if (rows[j].indent > 0) {
+          noNesting(rows[j], 'list', 'Put the `- ` at the start of the line, or make it a block')
+        }
         // An ITEM is a node rather than a bare array, so it can carry its own position: "point
         // at the third item" is what a host needs and a list-level offset cannot say it.
         items.push({

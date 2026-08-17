@@ -145,3 +145,24 @@ carry breaking changes, and each one will say so in the changelog with the case 
    have been tested against something other than imagination.
 
 Until then, the number stays below one, however finished it looks.
+
+## 0.6 is the worked example of a minor that WIDENS
+
+0.6 made leading spaces insignificant (§1). Nothing about it needed judgement:
+
+    git diff --stat tests/     # six files ADDED, none modified  ->  minor
+
+Three cases added that 0.5.1 fails (an indented block, an indented content line, an indented code
+fence keeping its shape) and three refusals added that it already passes for the wrong reason. **The
+two existing `BMX-E012` cases — a nested list and a nested quote — still pass unchanged**, because the
+rule narrowed to exactly what §2.3 and §2.5 always said and no further.
+
+Worth stating because it is the direction people fear: **a document valid under 0.5.1 is valid under
+0.6 and means the same thing.** Everything 0.6 adds was previously an *error*, so nothing that existed
+can break. The only implementations affected are ones that must now accept what they used to refuse,
+which is what a minor is for.
+
+And the thing that made it findable: the format's tooling had already assumed indentation was legal.
+`bmx.tmLanguage.json` and `docs/assets/code.js` both match `^\s*` and always did — so the editor
+coloured a document the parser would refuse, and nothing compared the two. **A highlighter is a second
+opinion about the grammar, and it disagreed with the parser for two releases in silence.**
