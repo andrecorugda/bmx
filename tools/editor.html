@@ -1,0 +1,30 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<style>
+ *{box-sizing:border-box} body{margin:0;background:#eef1f5;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:#16181d}
+ .wrap{max-width:940px;margin:0 auto;padding:34px 30px}
+ .pair{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+ .panel{background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(16,24,40,.08),0 8px 24px rgba(16,24,40,.06);overflow:hidden}
+ .cap{font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em;text-transform:uppercase;color:#6b7280;padding:12px 16px;border-bottom:1px solid #eceff3;background:#fafbfc}
+ pre{margin:0;padding:16px;font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;color:#1f2937}
+ .render{padding:20px 22px}
+ .bmx h1{font-size:1.5rem;margin:.1em 0 .5em;letter-spacing:-.02em}
+ .bmx p{margin:.7em 0}
+ .bmx ul,.bmx ol{margin:.7em 0;padding-left:1.3em}
+ .bmx li{margin:.25em 0}
+ .bmx blockquote{margin:.9em 0;padding-left:.9em;border-left:3px solid #dfe3e8;color:#5b6270}
+ .bmx code{background:#f3f4f6;padding:.13em .35em;border-radius:3px;font-size:.9em}
+ .bmx pre{background:#f6f8fa;border-radius:6px;padding:12px 14px}
+ .bmx pre code{background:none;padding:0}
+ .bmx a{color:#E8502A}
+ .bmx strong{font-weight:650}
+</style></head><body><div class="wrap"><div class="pair">
+<div class="panel"><div class="cap">editor.bmx</div><pre># Receipt {{ order.reference }}
+
+Thank you, **{{ customer.name }}**. Your total is {{ order.total }}.
+
+- Delivery: {{ order.delivery }}
+- Paid: {{ order.paid_at }}
+
+&gt; Kept for your records.</pre></div>
+<div class="panel"><div class="cap">rendered</div><div class="render"><article class="bmx"><h1>Receipt R-4417</h1><p>Thank you, <strong>Ada Lovelace</strong>. Your total is $59.97.</p><ul><li>Delivery: Thursday</li><li>Paid: 16 August</li></ul><blockquote>Kept for your records.</blockquote></article></div></div>
+</div></div></body></html>

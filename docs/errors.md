@@ -265,8 +265,9 @@ reads as significant and is not — and that is the kind of noise a reviewer sto
 
 ## Where you see these
 
-Install the [editor extension](install.html) and they appear as you type. Under the hood it is
-`bmx-lsp`, which reports the refusal and these warnings and deliberately nothing else — completion
-and hover need to know what a block *means*, and that belongs to whatever is rendering your document.
+Install the [editor extension](editor.html) and every code on this page appears as you type — red for
+a refusal, yellow for a warning. Under the hood it is `bmx-lsp`, which reports these and deliberately
+nothing else: completion and hover need to know what a block *means*, and that belongs to whatever is
+rendering your document.
 
 {% endraw %}

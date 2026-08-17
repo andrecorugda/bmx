@@ -10,6 +10,20 @@ description: BMX ships with Burxt. In any other language it is one file, or a sp
 BMX is a **format**, so what you install depends on what you want to do with it. Three answers,
 shortest first.
 
+## In your editor — first, because it needs nothing else
+
+Colour, a live preview and inline diagnostics come from an extension that bundles its own renderer,
+so it needs **no compiler and no toolchain**:
+
+```sh
+code --install-extension bmx-0.1.0.vsix
+```
+
+Helix and Neovim get diagnostics from a language server that needs only Node. All three are on
+[In your editor](editor.html).
+
+Everything below is for *rendering* documents from a program, which is a different job.
+
 ## In Burxt — a package you pin
 
 BMX used to ship inside the language, as `lib/bmx.bx`. **It does not any more**, and the change is

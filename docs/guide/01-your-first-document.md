@@ -125,6 +125,11 @@ meant and moves on. Spellcheck stops and points. BMX is spellcheck.
 
 That is the whole personality of the format, and the next two pages are about what it buys you.
 
+**And you do not have to run anything to see this.** Install the
+[editor extension](../editor.html) and the page appears beside your document as you type, with that
+refusal underlined where it happened. It bundles its own renderer, so there is no compiler to install
+first — which matters most on the page where somebody is deciding whether to bother.
+
 ---
 
 **Next:** [Putting values in](02-putting-values-in.html) — the part that makes a document a page

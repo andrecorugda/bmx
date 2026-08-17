@@ -51,6 +51,7 @@ Then:
 
 | | |
 |---|---|
+| [In your editor](editor.html) | colour, a live preview, and mistakes underlined as you type |
 | [How do I…?](how-do-i.html) | short answers — a list, a component, a class for CSS, a click |
 | [Writing a document](syntax.html) | every construct, with the HTML it produces |
 | [Styling the output](styling.html) | the tags you get, and how CSS, Tailwind and SCSS attach |

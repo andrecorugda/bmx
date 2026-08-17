@@ -49,6 +49,7 @@
   <span class="links">
     <a href="{{ site.baseurl }}/guide/01-your-first-document.html" class="{% if page.section == 'guide' %}here{% endif %}">Guide</a>
     <a href="{{ site.baseurl }}/how-do-i.html"    class="{% if page.title == 'How do I…?' %}here{% endif %}">How do I…?</a>
+    <a href="{{ site.baseurl }}/editor.html"      class="{% if page.title == 'In your editor' %}here{% endif %}">Editor</a>
     <a href="{{ site.baseurl }}/syntax.html"      class="{% if page.title == 'Writing a document' %}here{% endif %}">Syntax</a>
     <!-- Install sits immediately before GitHub, the position it holds on burxt-lang.org. It was
          only in the sidebar, so someone who reads the topbar concluded the page did not exist. -->
@@ -98,6 +99,7 @@
       <h2>How do I…?</h2>
       <ul>
         <li class="topic"><a href="{{ site.baseurl }}/how-do-i.html"{% if page.title == "How do I…?" %} class="here" aria-current="page"{% endif %}><span>Short answers</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/editor.html"{% if page.title == "In your editor" %} class="here" aria-current="page"{% endif %}><span>Use it in my editor</span></a></li>
         <li class="topic"><a href="{{ site.baseurl }}/styling.html"{% if page.title == "Styling the output" %} class="here" aria-current="page"{% endif %}><span>Style it with CSS</span></a></li>
         <li class="topic"><a href="{{ site.baseurl }}/rendering.html"{% if page.title == "Turning it into a page" %} class="here" aria-current="page"{% endif %}><span>Turn it into a page</span></a></li>
       </ul>
