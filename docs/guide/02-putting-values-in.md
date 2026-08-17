@@ -136,7 +136,7 @@ BMX cannot repeat — it is because anything that opens and closes is a differen
 
 ```bmx
 :for: line in order.lines
-- {{ line.sku }}
+  - {{ line.sku }}
 :!for:
 ```
 

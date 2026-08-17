@@ -21,7 +21,7 @@ A bar is a brand and a row of links, and BMX renders both today. What BMX has no
 *attributes* — so the stylesheet selects structurally (`.bmx > h1` is the brand, `.bmx > p:first-of-type`
 is the link row) instead of by class. That is the real boundary, and it is far narrower than the one I
 had asserted in two captions. The honest caveat, which the page states rather than hides: a positional
-selector is brittle, and `::: nav` is the fix — a block names the region, and a host that declares `nav`
+selector is brittle, and `:nav:` is the fix — a block names the region, and a host that declares `nav`
 renders it however it likes. `bmxrender` refuses blocks by design (`BMX-R003`), which is why this page
 does not use one, and it is exactly the hook a framework builds on.
 
@@ -87,7 +87,7 @@ __BODY__
   <p class="showcase-note bar-note">The bar is <strong>the heading and the row of links</strong> — the
   first two lines of the document. BMX has no attribute syntax, so the stylesheet reaches them by
   position rather than by class: <code>.bmx &gt; h1</code> is the brand, the first <code>p</code> is the
-  links. Brittle on purpose, to show where the seam is — <code>::: nav</code> is how you name the region
+  links. Brittle on purpose, to show where the seam is — <code>:nav:</code> is how you name the region
   instead, and your framework decides what it renders as.</p>
   <p class="showcase-note body-note">The content is markdown doing what markdown does: a heading, a
   paragraph, a list, a quote, a link. The cards are list items and the thumbnails are CSS gradients —

@@ -75,7 +75,7 @@ BMX-E011 at 0: a heading needs exactly one space after its #
 Also: seven or more `#`, and an empty heading. **It is not read as a paragraph beginning with
 `#`** — that reading is how a typo'd heading silently becomes body text.
 
-### `BMX-E012` — list or quote nesting, which 0.7 does not have
+### `BMX-E012` — list or quote nesting, which 0.8 does not have
 
 ```
 - one
@@ -299,6 +299,36 @@ A [dead]() link.
 
 An empty target points at the current page, which nobody means. Give it a target, or write the text
 without brackets.
+
+### `BMX-W005` — indentation that contradicts the nesting
+
+```bmx
+:section:
+  :card:
+    :inner:
+      text
+    :!inner:
+  :!card:
+:!section:
+```
+
+```
+BMX-W005 at 20: this block sits at column 6 but is 2 levels deep, where the document indents by 2, so 4 is expected.
+```
+
+**Indentation means nothing to the parser, which is exactly why a wrong one needs saying.** A block at the
+wrong column is a perfectly legal document that misleads a reader — and a reviewer who trusts the columns
+is trusted into the wrong block. It is the one hazard that came with making leading space insignificant,
+and a warning is the only thing that can see it. `python3 tools/fmt.py` fixes the file.
+
+**It says nothing about a document that does not indent at all.** A flat document is correct and always
+was, so a rule that flagged one would be flagging correct code — the mistake `BMX-W002` made in 0.5.0,
+which people answer by turning the linter off and losing the useful half. This fires only where a document
+has already chosen to indent and then contradicts itself.
+
+**And the step is the document's own.** A file indenting by four is consistent; being told that two is
+correct would be the format having an opinion about whitespace, which it spends [§1](syntax.html#indentation)
+refusing to have.
 
 ## Where you see these
 

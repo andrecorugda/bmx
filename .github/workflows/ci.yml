@@ -102,6 +102,12 @@ jobs:
       # Checked here rather than trusted, because there is no Ruby on the machine these pages are
       # written on: Jekyll only ever runs on the remote, so a green local anything says nothing
       # about whether the site builds.
+      # **Indentation is insignificant, so nothing else can catch a wrong one.** The examples on the
+      # site are what a reader copies, and a wrongly-indented example teaches the wrong shape while
+      # parsing perfectly. `tools/fmt.py` decides the shape; this asserts the docs are in it.
+      - name: Every example is indented the way the format says
+        run: python3 tools/fmt.py --check docs/*.md docs/guide/*.md README.md editors/vscode/README.md
+
       - name: Every doc page closes its raw tag
         run: |
           bad=0

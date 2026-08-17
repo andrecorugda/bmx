@@ -6,7 +6,7 @@ title: Writing a document
 {% raw %}
 # Writing a document
 
-Every construct BMX 0.7 has, what it renders to, and the rule that decides it. **Every HTML
+Every construct BMX 0.8 has, what it renders to, and the rule that decides it. **Every HTML
 sample on this page was produced by running a real renderer, not typed by hand.**
 
 If you know markdown you already know most of this. The differences are deliberate and there are
@@ -127,7 +127,7 @@ stops being a page and starts being a component.
 
 ```bmx
 :for: line in order.lines
-- {{ line.sku }} × {{ to_string(line.qty) }}
+  - {{ line.sku }} × {{ to_string(line.qty) }}
 :!for:
 ```
 
@@ -140,11 +140,11 @@ component you wrote are not three features. They are one feature used three time
 
 ```bmx
 :if: order.has_discount
-You saved {{ to_string(order.saved) }}.
+  You saved {{ to_string(order.saved) }}.
 :!if:
 
 :card: title="Pricing" .featured #plans
-Any **markdown** in here, and slots too.
+  Any **markdown** in here, and slots too.
 :!card:
 ```
 
@@ -155,11 +155,11 @@ to count:
 
 ```bmx
 :for: section in page.sections
-## {{ section.title }}
+  ## {{ section.title }}
 
-:card: title="Detail"
-{{ section.body }}
-:!card:
+  :card: title="Detail"
+    {{ section.body }}
+  :!card:
 :!for:
 ```
 
@@ -293,7 +293,7 @@ and a slot: Ada.</p><ul><li>first item</li><li>second item</li></ul>
 
 (Line breaks added here for reading; the renderer emits one line.)
 
-## What 0.7 does not have
+## What 0.8 does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons invites someone to fix them at random.

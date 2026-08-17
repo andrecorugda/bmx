@@ -344,14 +344,20 @@ function parseBlocks(rows, from, open, openRow) {
     // `::: div` / `  hello` / `:::` was told *a list may not nest* about a document containing no
     // list, which is the worst shape a diagnostic can have: it is confident, it is specific, and it
     // names something the reader did not write.
-    if (row.indent > 0) {
-      if (text.startsWith('- ') || orderedMarker(text) > 0) {
-        noNesting(row, 'list', 'Put the `- ` at the start of the line, or make it a block')
-      }
-      if (text.startsWith('> ')) {
-        noNesting(row, 'quote', 'Put the `> ` at the start of the line, or make it a block')
-      }
-    }
+    // **An indented list or quote is NOT a nest, and 0.6 through 0.7 refused it as one.**
+    //
+    // Found by round-tripping the suite through `tools/fmt.py`: indenting `:for:` / `- item` produced
+    // *a list may not nest* on a document with one list in it. So the readable form of the single most
+    // motivating example — a loop over a list — was illegal, in the release whose entire point was
+    // making that form legal.
+    //
+    // The rules that replace it are narrower and say what nesting actually is:
+    //
+    // - **A quote's nesting is spelled `> > `**, so indentation plays no part in it at all. An indented
+    //   `> ` is just an indented quote. Refusing it was symmetry copied from the list rule, and the
+    //   list rule's reason did not transfer.
+    // - **A list nests when a marker is DEEPER than the list already open** — `- one` / `  - two`.
+    //   A marker with no list open starts one, whatever column it is in.
 
     // **A 0.6 document is refused by name rather than rendered as text.** This is the one diagnostic
     // in 0.7 that most people will meet, so it says what to run.
@@ -491,9 +497,6 @@ function parseBlocks(rows, from, open, openRow) {
       const quoted = []
       let j = i
       while (j < rows.length && stripEnd(rows[j].text).startsWith('> ')) {
-        if (rows[j].indent > 0) {
-          noNesting(rows[j], 'quote', 'Put the `> ` at the start of the line, or make it a block')
-        }
         quoted.push(rows[j])
         j++
       }
@@ -516,14 +519,12 @@ function parseBlocks(rows, from, open, openRow) {
           ? (inner.startsWith('- ') ? 2 : -1)
           : orderedMarker(inner)
         if (skip < 0) break
-        // **The nesting refusal has to be HERE as well as at the top of the loop**, because a
-        // continuation line never reaches the top: this loop consumes it. The check above guards a
-        // list that STARTS indented; this one guards an indented item inside one that did not, which
-        // is the actual `- one` / `  - two` shape. Missing it turned a refusal into a silent
-        // flattening — two items where the author wrote a nest — and `014-nested-list` said so on
-        // the first run.
-        if (rows[j].indent > 0) {
-          noNesting(rows[j], 'list', 'Put the `- ` at the start of the line, or make it a block')
+        // **This is where list nesting is caught, and it is the only place it can be.** A
+        // continuation line never reaches the top of the block loop, because this loop consumes it.
+        // Deeper than the item that opened the list is a nest; the same column, or shallower, is
+        // another item — indentation means nothing except this one thing.
+        if (rows[j].indent > row.indent) {
+          noNesting(rows[j], 'list', 'Put the `- ` in the same column as the item above it, or make it a block')
         }
         // An ITEM is a node rather than a bare array, so it can carry its own position: "point
         // at the third item" is what a host needs and a list-level offset cannot say it.
@@ -653,6 +654,62 @@ const LINTS = [
         }
       }
       walk(blocks)
+    },
+  },
+  {
+    code: 'BMX-W005',
+    // **Indentation cannot be wrong, which is exactly why it needs a warning.**
+    //
+    // Leading space means nothing to the parser (SPEC §1), so a block indented to the wrong depth is a
+    // perfectly legal document that LIES to a reader — and a reviewer who trusts the columns is
+    // trusted into the wrong block. That is the one hazard the insignificance rule introduced, and a
+    // lint is the only thing that can see it.
+    //
+    // **It stays silent on a document that does not indent at all**, because a flat document is
+    // correct and always was: every star-burxt component is flat and none is wrong. A warning that
+    // fired on those would be the `BMX-W002` mistake again — a rule that flags correct code is a rule
+    // people disable, taking the useful half with it. So it fires only where a document has ALREADY
+    // chosen to indent and then contradicts itself, which is a mistake rather than a style.
+    check(blocks, source, warn) {
+      // Column of a line by byte offset, and the depth the document itself uses per level.
+      const columnOf = (offset) => {
+        const start = source.lastIndexOf('\n', offset - 1) + 1
+        return offset - start
+      }
+      // The step is measured from the document rather than assumed: a file indenting by four is
+      // consistent, and telling its author that two is correct would be this format having an opinion
+      // about whitespace, which §1 spends its whole length refusing.
+      let step = 0
+      const learn = (list, depth) => {
+        for (const block of list) {
+          if (block.type !== 'block') continue
+          const col = columnOf(block.offset)
+          if (depth === 1 && col > 0 && step === 0) step = col
+          learn(block.children, depth + 1)
+        }
+      }
+      // Depth 0 is the top level, whose blocks sit at column 0 — so the step is learned from the
+      // first block one level IN. Numbering the top level 1 meant looking for an indented block where
+      // there cannot be one, and the rule stayed silent on every document.
+      learn(blocks, 0)
+      if (step === 0) return          // a flat document, or one whose first nested block is flat
+
+      const walk = (list, depth) => {
+        for (const block of list) {
+          if (block.type !== 'block') continue
+          const col = columnOf(block.offset)
+          const want = depth * step
+          if (col !== want) {
+            warn(block.offset,
+              `this block sits at column ${col} but is ${depth} level${depth === 1 ? '' : 's'} deep, ` +
+              `where the document indents by ${step}, so ${want} is expected. ` +
+              'Indentation means nothing to the parser, which is why a wrong one misleads a reader ' +
+              'with nothing to catch it — `python3 tools/fmt.py` fixes the file.')
+          }
+          walk(block.children, depth + 1)
+        }
+      }
+      walk(blocks, 0)
     },
   },
   {

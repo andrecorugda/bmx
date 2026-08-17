@@ -33,7 +33,7 @@ Most template languages print nothing there and ship the page.
 
 ```bmx
 :for: line in order.lines
-- {{ line.sku }} × {{ to_string(line.qty) }}
+  - {{ line.sku }} × {{ to_string(line.qty) }}
 :!for:
 ```
 
@@ -51,7 +51,7 @@ each one.
 
 ```bmx
 :if: order.has_discount
-You saved {{ to_string(order.saved) }}.
+  You saved {{ to_string(order.saved) }}.
 :!if:
 ```
 
@@ -85,7 +85,7 @@ already writing becomes reusable the moment it says what it needs.
 
 ```bmx
 :card: title="Pricing" .featured .wide #plans
-Any **markdown** in here.
+  Any **markdown** in here.
 :!card:
 ```
 
@@ -129,7 +129,7 @@ that matters, name the region with a block — `:nav: .bar` — and your host de
 
 ```bmx
 :button: on:click=save(line.id)
-Save
+  Save
 :!button:
 ```
 

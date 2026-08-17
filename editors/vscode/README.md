@@ -8,15 +8,15 @@ typed hole in it**.
 
 Thank you, **{{ customer.name }}**. Your total is {{ order.total }}.
 
-::: for line in order.lines
-- {{ line.sku }} × {{ to_string(line.qty) }}
-:::
+:for: line in order.lines
+  - {{ line.sku }} × {{ to_string(line.qty) }}
+:!for:
 ```
 
 ## What it colours
 
 Markdown structure — headings, lists, quotes, code, emphasis, links, escapes — plus the two things
-BMX adds: the `:::` block and the `{{ … }}` slot.
+BMX adds: the `:name:` block and the `{{ … }}` slot.
 
 **It deliberately does not colour what is inside a slot or a block's head.** BMX captures those
 opaquely and hands them to whatever renders the document, so an editor that coloured them would be
@@ -68,7 +68,7 @@ Give it values to substitute in your settings:
 ships with a missing total nobody sees, so the panel shows the refusal instead of a page — which is
 the same thing a real render does.
 
-And a `:::` block is refused by name. A block is a component, the host decides what `card` renders,
+And a `:name:` block is refused by name. A block is a component, the host decides what `card` renders,
 and a preview is not a host. That is the format's rule rather than a limit of the button, so the
 message says which block and why.
 

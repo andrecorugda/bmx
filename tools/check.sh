@@ -63,6 +63,8 @@ sys.exit(\"corrupt\") if z.testzip() else None
 
 echo
 echo "the documentation"
+run "every example is indented the way the format says" bash -c '
+  python3 tools/fmt.py --check docs/*.md docs/guide/*.md README.md editors/vscode/README.md'
 run "every doc page closes its raw tag" bash -c '
   bad=0
   for f in docs/*.md docs/guide/*.md; do

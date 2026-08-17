@@ -10,7 +10,7 @@
 // with no binding is an error here, the same as it is on a real page — it is not silently blank,
 // because a blank is how a page ships with a missing total nobody sees.
 //
-// What it deliberately cannot do is render a `:::` block. A block is a component, the host decides
+// What it deliberately cannot do is render a `:name:` block. A block is a component, the host decides
 // what `card` means, and this preview is not a host — so it refuses by name and says why, which is
 // SPEC §4a.5 rather than a limitation of the button.
 

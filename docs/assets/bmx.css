@@ -77,7 +77,7 @@
  * **Every selector below styles renderer output, not markup written by hand.** `bmxrender` emits
  * `<article class="bmx">` and nothing else — no classes, no wrappers, because BMX has no attribute
  * syntax. So the bar is reached by POSITION: the `h1` is the brand and the first `p` is the row of
- * links. That is the honest boundary and the page says so; `::: nav` is the mechanism that replaces it,
+ * links. That is the honest boundary and the page says so; `:nav:` is the mechanism that replaces it,
  * and it belongs to whatever host declares the block.
  *
  * **CSS only — radio inputs and sibling selectors, no JavaScript.** The `.picker` buttons in site.css

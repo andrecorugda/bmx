@@ -7,6 +7,8 @@ the same defect as a spec sentence nobody ran.
     burxt build render.bx -o bmxrender      # the level-1 renderer, from burxt/bmx.bx
     python3 page.py ex2                     # source + rendered, side by side
     python3 errpage.py err1                 # source + the refusal
+    python3 fmt.py docs/*.md                # indent every example, one level per open block
+    python3 migrate-0.7.py FILE...          # 0.6 fences -> 0.7, tracking a stack
     python3 showcase.py                     # the landing page, as LIVE HTML -> docs/_includes/
     node shot.mjs ex1 ex2 ex3 err1 editor skins        # -> PNG, 2x, cropped to the panels
 
@@ -37,7 +39,7 @@ A bar is a brand and a row of links, and both render today — the whole shop pa
 included, comes out of `shop.bmx` and a stylesheet. **The real limit is one step narrower: BMX has no
 ATTRIBUTE syntax.** So the stylesheet reaches the bar by position (`.bmx > h1` is the brand, the first
 `p` is the links) rather than by class, and a positional selector is brittle — insert a paragraph and the
-bar restyles. `::: nav` is the mechanism that fixes it: a block names the region, a host that declares
+bar restyles. `:nav:` is the mechanism that fixes it: a block names the region, a host that declares
 `nav` renders it however it likes, and `bmxrender` refuses blocks by design (`BMX-R003`) because deciding
 what `nav` means is not the format's job. The landing page says all of this rather than hiding it.
 
@@ -52,3 +54,14 @@ one, and it goes stale the moment the renderer does.
 site that cannot fail a test when it goes stale — `docs/` has no check that an image still matches
 what the code does, which is exactly why the pipeline lives here in the repository rather than in
 somebody's shell history.
+
+## `fmt.py` is a gate, not a convenience
+
+CI runs `fmt.py --check` over every page, because **indentation is insignificant to the parser and
+therefore invisible to every other check.** An example indented wrongly parses perfectly and teaches a
+reader the wrong shape, which is worse than a broken example — a broken one gets fixed.
+
+It also found the defect that produced 0.8. Round-tripping the conformance suite through it — indent,
+reparse, compare — made two fixtures stop parsing, because `BMX-E012` was refusing an indented list
+inside a block. Nothing in the suite could have caught that: every case was written by someone who
+believed the rule. **The tool that consumes a rule is what finds the rule too broad.**

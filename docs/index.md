@@ -31,7 +31,7 @@ more thing to learn:
 
 ```bmx
 :for: line in order.lines
-- {{ line.sku }} × {{ to_string(line.qty) }}
+  - {{ line.sku }} × {{ to_string(line.qty) }}
 :!for:
 ```
 

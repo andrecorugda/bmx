@@ -47,8 +47,29 @@ head `some :::`, body `hello`. Under a trailing-fence rule it becomes a one-line
 paragraph, and the `:::` becomes `BMX-E032`. **A valid document becomes an error, which is the
 definition of a major**, and the rule above would have said otherwise.
 
-So the rule stands as a *floor*, not a proof: **an edited case proves a major; added cases only fail
-to prove one.** Before calling a change minor, the question that has to be asked by hand is *what
+### And the other direction, found the same week
+
+**A deleted case in `tests/errors/` is not a major either**, and the letter of the rule said it was.
+
+0.8 narrowed `BMX-E012`, so two refusals became acceptances and their fixtures had to go — mechanically
+an edit, and by the sentence above a major. But an `errors/` case asserts what is *refused*, and
+un-refusing something cannot break a document that exists: nothing valid changes meaning, only invalid
+things become valid. That is the definition of a **minor**.
+
+So the rule splits by directory, which is still mechanical:
+
+> **`tests/cases/` edited → major.** Those are valid documents with expected output; changing one means a
+> document's meaning moved.
+>
+> **`tests/errors/` deleted → minor.** A refusal withdrawn is a widening. (An errors case *added* is a
+> major, though: something that parsed now does not.)
+
+Both fixtures were repurposed rather than dropped — `> one` / `  > two` became a passing case asserting
+it is one quote — which is better than deleting, because the behaviour that changed is now pinned in the
+direction it changed to.
+
+So the rule stands as a *floor*, not a proof: **an edited `cases/` entry proves a major; added entries
+only fail to prove one.** Before calling a change minor, the question that has to be asked by hand is *what
 document is valid today whose meaning this changes* — and if the answer is not "none", the fixture
 for it is missing and belongs in the same commit. The proof obligation was pointing the wrong way:
 the suite can convict, it cannot acquit.
@@ -220,3 +241,25 @@ Three things rode along, and each was only cheap *because* a major was already h
 inside markdown, tracking a stack — because a bare `:::` carries no name, so what it becomes depends on
 what is open, so a `sed` cannot do it. Handing a consumer a regex would have handed them a silent
 mis-migration on their first nested component.
+
+## 0.8 is what happens when a tool consumes a rule
+
+0.8 narrowed `BMX-E012` — an indented list or quote is no longer read as an attempted nest — and it exists
+because of a five-line script.
+
+0.7 made leading space insignificant so that nesting could be *seen*. `tools/fmt.py` was written to do
+that indenting mechanically, and the first thing it did was round-trip the conformance suite: indent every
+fixture, reparse, compare. **Two fixtures stopped parsing.** Indenting `:for:` / `- item` produced *a list
+may not nest* about a document containing exactly one list — so the readable form of the single most
+motivating example was illegal in the release whose purpose was making it legal.
+
+Nothing in the suite could have caught that. Every fixture was written by someone who believed the rule,
+so no case asserted that a list inside an indented block works, because nobody writes a case for something
+they think is forbidden. **The tool that consumes a rule is what finds the rule too broad**, and that is a
+different instrument from a test: a test asks *does this do what I expect*, a tool asks *can I use this at
+all*.
+
+The shape of the mistake is worth keeping too. `- ` and `> ` were refused **as lines**, when nesting is a
+property of a line's *relationship to another line* — a marker deeper than the list already open. A rule
+stated about the wrong subject will be implemented too widely every time, and it was, twice: every version
+through 0.5.1 refused any indented line at all, and 0.6–0.7 refused any indented marker.

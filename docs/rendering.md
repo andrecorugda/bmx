@@ -115,11 +115,11 @@ A block becomes real Burxt, which is why the compiler can see inside it:
 # Receipt {{ order.reference }}
 
 :for: line in order.lines
-- {{ line.sku }} × {{ to_string(line.qty) }}
+  - {{ line.sku }} × {{ to_string(line.qty) }}
 :!for:
 
 :if: order.paid
-Paid in full.
+  Paid in full.
 :!if:
 ```
 

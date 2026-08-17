@@ -131,7 +131,7 @@ attribute through it.
 
 ```bmx
 :card: .featured .wide #plans
-Any **markdown** in here.
+  Any **markdown** in here.
 :!card:
 ```
 
@@ -182,8 +182,8 @@ thing restyles, because `:first-of-type` now points at prose. That is exactly wh
 
 ```bmx
 :nav: .bar
-- [Coffee](/coffee)
-- [Kit](/kit)
+  - [Coffee](/coffee)
+  - [Kit](/kit)
 :!nav:
 ```
 

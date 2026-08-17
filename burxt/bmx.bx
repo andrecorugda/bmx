@@ -650,16 +650,12 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: I
             // nested-list message: `::: div` / `  hello` / `:::` was told *a list may not nest*
             // about a document with no list in it. That is the worst shape a diagnostic can have —
             // confident, specific, and naming something the reader did not write.
-            if line.indent > 0 {
-                if bmx_starts_with(text, "- ") || bmx_ordered_marker(text) > 0 {
-                    return Result.Error(bmx_no_nesting(line.offset, "list",
-                        "Put the `- ` at the start of the line, or make it a block"));
-                }
-                if bmx_starts_with(text, "> ") {
-                    return Result.Error(bmx_no_nesting(line.offset, "quote",
-                        "Put the `> ` at the start of the line, or make it a block"));
-                }
-            }
+            // **An indented list or quote is NOT a nest, and 0.6 through 0.7 refused it as one.**
+            // Found by round-tripping the suite through `tools/fmt.py`: indenting `:for:` / `- item`
+            // produced *a list may not nest* about a document with one list in it, so the readable
+            // form of the most motivating example was illegal in the release that existed to allow it.
+            // A quote nests as `> > `, where indentation plays no part; a list nests when a marker is
+            // DEEPER than the list already open, which is checked where the items are consumed.
 
             // ---- a 0.6 document, refused by name so nobody meets it as paragraph text --------
             if bmx_is_old_fence(text) {
@@ -819,10 +815,6 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: I
                         let mutable kids: [Bmx] = [];
                         let mutable j: Int = i;
                         while j < len(lines) && bmx_starts_with(bmx_strip_end(lines[j].text), "> ") {
-                            if lines[j].indent > 0 {
-                                return Result.Error(bmx_no_nesting(lines[j].offset, "quote",
-                                    "Put the `> ` at the start of the line, or make it a block"));
-                            }
                             let inner: String = bmx_strip_end(lines[j].text);
                             if j > i {
                                 let broke: Int = push(kids, Bmx.Text("\n"));
@@ -858,13 +850,13 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: I
                                 if skip < 0 {
                                     going = false;
                                 } else {
-                                    // The third caller: a continuation line never reaches the top of
-                                    // the block loop, because this loop consumes it. Without this,
-                                    // `- one` / `  - two` becomes two flat items — a nest silently
-                                    // answered as a list, which is worse than the refusal it replaced.
-                                    if lines[j].indent > 0 {
+                                    // **The only place list nesting can be caught**: a continuation
+                                    // line never reaches the top of the block loop, because this loop
+                                    // consumes it. Deeper than the item that opened the list is a
+                                    // nest; the same column or shallower is another item.
+                                    if lines[j].indent > line.indent {
                                         return Result.Error(bmx_no_nesting(lines[j].offset, "list",
-                                            "Put the `- ` at the start of the line, or make it a block"));
+                                            "Put the `- ` in the same column as the item above it, or make it a block"));
                                     }
                                     match bmx_parse_inline(substring(inner, skip, len(inner) - skip), lines[j].offset + skip) {
                                         Error(e) => { return Result.Error(e); }

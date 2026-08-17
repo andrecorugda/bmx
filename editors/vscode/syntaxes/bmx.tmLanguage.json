@@ -20,8 +20,7 @@
     "an AST field.",
     "Order matters twice below. A fenced code block wins over everything, because \u00a75 says its content",
     "is never parsed \u2014 a `{{` inside one is text and colouring it as a slot would be a lie an author",
-    "could not turn off. And a longer ::: fence must be tried before a shorter one, or `::::` reads as",
-    "`:::` followed by a stray colon."
+    "is never parsed \u2014 a `{{` inside one is text and colouring it as a slot would be a lie an author could not turn off. There used to be a second reason \u2014 a longer `::::` fence had to be tried before `:::` \u2014 and 0.7 deleted it along with the fence-length rule: one `:name:` rule now, whose `end` backreferences the name capture so a block stays open until ITS OWN closer."
   ],
   "patterns": [
     {

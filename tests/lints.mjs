@@ -31,6 +31,12 @@ expect('a heading skip within the document', '# One\n\n### Three\n', ['BMX-W001'
 expect('an empty block with no head', ':card:\n:!card:\n', ['BMX-W002'])
 expect('a link with an empty target', 'A [dead]() link.\n', ['BMX-W003'])
 
+// BMX-W005 — indentation that contradicts the nesting. The interesting half of this rule is the
+// negatives below: a flat document is correct and must stay quiet, or the rule flags every component
+// star-burxt has ever written.
+expect('a block indented to the wrong depth', ':a:\n  :b:\n      :c:\ntext\n      :!c:\n  :!b:\n:!a:\n', ['BMX-W005'])
+expect('and one level too shallow', ':a:\n  :b:\n :c:\ntext\n :!c:\n  :!b:\n:!a:\n', ['BMX-W005'])
+
 console.log('\nwhat it must NOT catch — correct code a warning would drive people to disable it over');
 // A component's headings are relative to the page embedding it, so opening at `##` is correct. The
 // rule is about a JUMP, never about starting at h1.
@@ -64,3 +70,12 @@ expect('reports nothing, because there is no tree to lint', 'Unterminated **bold
 console.log()
 if (failures) { console.log(`${failures} failed`); process.exit(1) }
 console.log('every rule fires where it should and stays quiet where it should')
+
+// A document that does not indent at all is correct, and always was.
+expect('a flat document', ':a:\n:b:\ntext\n:!b:\n:!a:\n', [])
+// The step is the document's own: a file indenting by four is consistent, and telling its author that
+// two is right would be this format having an opinion about whitespace.
+expect('a four-space document is its own standard', ':a:\n    :b:\n        :c:\n        text\n        :!c:\n    :!b:\n:!a:\n', [])
+expect('a correctly indented two-space document', ':a:\n  :b:\n    :c:\n    text\n    :!c:\n  :!b:\n:!a:\n', [])
+// A one-liner does not open a level, so what follows it is not one level deeper.
+expect('a one-liner beside a block', ':a:\n  :b: x :!b:\n  :c:\n  text\n  :!c:\n:!a:\n', [])
