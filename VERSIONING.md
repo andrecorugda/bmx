@@ -30,6 +30,29 @@ This is deliberately the same idea as `burxt review` — a promise diffed rather
 applied to a format instead of a signature. A format whose compatibility claim is a human's
 judgement is a format that will break someone quietly.
 
+### Where that rule has a hole, found 2026-08-17
+
+**The suite is the semver only as far as the suite covers the language.** A change that breaks a
+document no fixture contains passes the mechanical test and is still a major.
+
+The case that found it: a one-line block, `::: name head :::`. No fixture has a head ending in
+` :::`, so `git diff --stat tests/` would have shown added files only — a minor. But this document is
+valid today:
+
+    ::: p some :::
+    hello
+    :::
+
+head `some :::`, body `hello`. Under a trailing-fence rule it becomes a one-liner, `hello` becomes a
+paragraph, and the `:::` becomes `BMX-E032`. **A valid document becomes an error, which is the
+definition of a major**, and the rule above would have said otherwise.
+
+So the rule stands as a *floor*, not a proof: **an edited case proves a major; added cases only fail
+to prove one.** Before calling a change minor, the question that has to be asked by hand is *what
+document is valid today whose meaning this changes* — and if the answer is not "none", the fixture
+for it is missing and belongs in the same commit. The proof obligation was pointing the wrong way:
+the suite can convict, it cannot acquit.
+
 ## 0.3 is the worked example of a major
 
 0.2 added node kinds and edited no case: a minor. **0.3 added an `offset` field to eight node types
