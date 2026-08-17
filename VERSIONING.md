@@ -30,6 +30,34 @@ This is deliberately the same idea as `burxt review` — a promise diffed rather
 applied to a format instead of a signature. A format whose compatibility claim is a human's
 judgement is a format that will break someone quietly.
 
+## An implementation's version is not this version
+
+The rule above versions **the format**. A library that parses BMX has a second surface the format
+knows nothing about — its AST — and the two move at different speeds in a way that will bite
+anyone who assumes one number covers both.
+
+0.2 is the worked example. It added `Fenced` to the block type and `InlineBlock` to the inline
+type. Against the suite that is unambiguously a **minor**: cases were added, none edited, and every
+0.1 document still parses to what it did before.
+
+For a library that *exports* those types it is a **major**, because a consumer matching on the
+block type now has an unhandled variant. In a language whose `match` must be exhaustive, that is a
+compile error in code nobody touched.
+
+> **Adding an AST variant is a minor for the format and a major for any package that exposes the
+> AST.** Neither number is wrong; they are measuring different promises.
+
+So an implementation carries its own version rather than mirroring this one, and says which BMX
+version it targets. The alternative — one number for both — forces a choice between calling a
+purely additive format change breaking, or shipping a silent break to every consumer. Both are
+worse than two numbers.
+
+The narrower lesson, for anyone building on this: **exporting an AST is a bigger promise than
+exporting a parse function.** A parser that returns only rendered output, or only a documented
+subset of node kinds, keeps this problem away from its consumers entirely. Exporting the tree is
+worth doing — it is what makes a host able to reach level 2 — but it should be a decision, not a
+side effect of making the tests compile.
+
 ## Error codes
 
 A code, once assigned, means that thing forever. Codes are never reused and never renumbered.
