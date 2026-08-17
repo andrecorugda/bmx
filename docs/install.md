@@ -48,6 +48,37 @@ arrangement had a real virtue — the format and its host could not drift apart 
 by making drift *unrepresentable* rather than *visible*, which is only the same thing while nobody
 needs to upgrade one without the other.
 
+### If you reached BMX through another package, you still have to declare it
+
+This is the one thing about installing BMX that will look like your mistake and is not. If you
+depend on something that depends on BMX — [star-burxt](https://star.burxt-lang.org/), say — **you
+must declare BMX yourself, under the same name that package uses**:
+
+```
+dependency  star  https://github.com/andrecorugda/star-burxt  v0.1.0
+dependency  bmx   https://github.com/andrecorugda/bmx         <commit>   # star needs this
+```
+
+Leave the second line out and you get:
+
+```
+error: cannot read <star-burxt>/bmx/burxt/bmx.bx: No such file or directory
+  ...used by <star-burxt>/star.bx
+  ...used by app.bx
+```
+
+**Read that error carefully, because it names nobody.** It looks like a broken install of
+star-burxt, so the natural next move is to go looking for a mistake in your own program — and there
+is none. What happened is that `use "bmx/…"` inside star-burxt was resolved against *your*
+dependency list, found nothing there, and fell back to a relative path inside star-burxt's own
+directory.
+
+Burxt resolves package imports against the **root** manifest only: a dependency's own manifest is
+never read. That is what keeps this repository from having to be a Burxt package at all — nothing
+here declares one — and it is the same rule seen from the other side. Whether it should change is
+Burxt's to decide; until it does, one extra line is the whole workaround, and the versions have to
+be kept in step by hand.
+
 > **Today this needs a Burxt built from source.** `use "std/…"` — how a package reaches the standard
 > library — is not in a release yet, so no published Burxt can compile this file. That is temporary
 > and it is why no tag is minted above.
@@ -60,6 +91,35 @@ Both are ordinary Burxt programs, in this repository beside the implementation:
 burxt build burxt/examples/parse.bx    -o bmx-parse      # a document -> its AST, as JSON
 burxt build burxt/examples/generate.bx -o bmx-generate   # a document -> a typed Burxt view
 ```
+
+### Read your document from a file, not a string literal
+
+The first thing most people try is passing a document straight to `bmx_parse`, and it does not
+compile:
+
+```burxt
+bmx_parse("Total: {{ order.total }}")
+```
+
+```
+error: in the interpolation `{{ order.total }}`: expected an expression, found `{`
+```
+
+**Burxt has its own `{ … }` interpolation inside string literals, and it reaches BMX's slot first.**
+Nothing is wrong with either language — they simply want the same two characters, and the error
+names Burxt's feature rather than the collision, so it reads as a puzzle rather than an answer.
+
+Read the document from a file and it goes away:
+
+```burxt
+match file_read_maybe("doc.bmx") {
+    None => { print("no document"); }
+    Some(source) => { /* bmx_parse(source) */ }
+}
+```
+
+That is what `.bmx` files are for anyway. It is worth knowing before you write your first test
+rather than during it.
 
 `bmx-generate` is the interesting one — it is [level 2](guide/04-views-that-check-themselves.html),
 where a document becomes a function the compiler checks:
