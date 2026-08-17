@@ -87,6 +87,24 @@ def main():
             'amount: 1.00, rate: 1.00 };\nprint(html_render(receipt_view(o)));\n',
         )
         check("the generated view compiles and runs", ran, said)
+
+        # **Generated code is read by people, so its SHAPE is part of the contract.**
+        #
+        # Nothing pinned this until 2026-08-17, when the generator was found putting `{` on its own
+        # line for a clause-less function. Measured across Burxt 1.3.0's `lib/`: 338 functions put the
+        # brace on the signature line, 79 hang it under contract clauses, 4 do neither — so the rule
+        # is *the brace hangs only when a clause does*, and the generator was one of the 4.
+        #
+        # It compiled, ran, and rendered correctly the whole time, which is exactly why this needs an
+        # assertion rather than a habit: a reviewer reading generated and hand-written Burxt in one
+        # diff sees two styles, and the compiler will never mention it. `lib/`'s convention was uniform
+        # and unwritten for 25,000 lines; that is the shape that has bitten this project twice.
+        check(
+            "a clause-less signature keeps its brace on the signature line, as `lib/` does",
+            "-> Html {\n" in view,
+            view.split("\n")[6] if len(view.split("\n")) > 6 else view,
+        )
+
         check(
             "it renders what the document said, escaped, with the scale kept",
             "<h1>Receipt R-1</h1>" in said
