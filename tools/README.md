@@ -4,7 +4,7 @@
 mock-up and none is hand-written HTML, because a picture of what the format *ought* to produce is
 the same defect as a spec sentence nobody ran.
 
-    burxt build render.bx -o bmxrender      # the level-1 renderer, from lib/bmx.bx
+    burxt build render.bx -o bmxrender      # the level-1 renderer, from burxt/bmx.bx
     python3 page.py ex2                     # source + rendered, side by side
     python3 errpage.py err1                 # source + the refusal
     node shot.mjs ex1 ex2 ex3 err1 skins    # -> PNG, 2x, cropped to the panels

@@ -1,0 +1,38 @@
+// burxt/examples/parse.bx — the BMX conformance harness's other half.
+//
+//     burxt run burxt/examples/parse.bx -- document.bmx
+//
+// Prints the AST as JSON on success, or the error's code and message on stderr with a non-zero
+// exit. That is the whole interface the format's conformance suite needs from an
+// implementation, and it is deliberately this small: the suite is DATA, so a harness in any
+// language is a few lines around a program like this one.
+use "../bmx.bx";
+use "std/os.bx";
+use "std/files.bx";
+
+let mutable path: String = "";
+if os_arg_count() > 1 {
+    path = os_arg(1);
+}
+if len(path) == 0 {
+    print_error("usage: parse.bx <document.bmx>");
+    exit(2);
+}
+
+match file_read_maybe(path) {
+    None => {
+        print_error("cannot read " + path);
+        exit(2);
+    }
+    Some(source) => {
+        match bmx_parse(source) {
+            Error(message) => {
+                print_error(message);
+                exit(1);
+            }
+            Ok(blocks) => {
+                print(json_render(bmx_json(blocks)));
+            }
+        }
+    }
+}

@@ -77,7 +77,7 @@ say so.**
 ## The Burxt surface
 
 If you are building on Burxt specifically, this is what exists today. Signatures are exact;
-`lib/bmx.bx` and `lib/html.bx` are ordinary Burxt you can read.
+`burxt/bmx.bx` here, and Burxt's `lib/html.bx`, are ordinary Burxt you can read.
 
 ### Parsing
 

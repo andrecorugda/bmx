@@ -75,8 +75,13 @@ BMX ships a **reference parser** — [`reference/bmx.js`](reference/bmx.js), zer
 written to be read — alongside the spec, not instead of one. CommonMark shipped `cmark` the same
 way, and the three-dialect mess this format exists to fix came from a spec that had no reference.
 
-The second implementation is [Burxt](https://burxt-lang.org)'s `lib/bmx.bx`. **They must agree**,
-and that is a test:
+The second implementation is [`burxt/bmx.bx`](burxt/bmx.bx), for
+[Burxt](https://burxt-lang.org). It lived in Burxt's standard library until it had a version worth
+pinning; it lives here now, for the same reason `bmx.js` does. The two directory names mean
+different things and that is deliberate: **`reference/` is a role and `burxt/` is an audience.**
+`bmx.js` exists to define what the format does, `bmx.bx` exists to be used by Burxt programs.
+
+**They must agree**, and that is a test:
 
 ```sh
 python3 tests/agree.py 'node reference/bmx.js' '<the other one>'
@@ -113,7 +118,7 @@ inconvenient for your language, throw it away and write your own.
 
 ## Status
 
-**0.1. Two implementations, one author — so this is not yet a standard**, and the difference is
+**0.2. Two implementations, one author — so this is not yet a standard**, and the difference is
 worth being blunt about. [`VERSIONING.md`](VERSIONING.md) says what 1.0 requires: an
 implementation written by someone who did **not** write this spec, and a real document set that
 has tested the absences in `SPEC.md` §7 against something other than imagination.
@@ -121,7 +126,7 @@ has tested the absences in `SPEC.md` §7 against something other than imaginatio
 | Implementation | Level | Where |
 |---|---|---|
 | `reference/bmx.js` | 1 — renders | here, zero dependencies |
-| `lib/bmx.bx` | 1 today; level 2 is its road | [Burxt](https://burxt-lang.org) |
+| `burxt/bmx.bx` | 1 today; level 2 is its road | [Burxt](https://burxt-lang.org) |
 
 Level 2 in Burxt is a generator that turns a document into a `pure function … -> Html` whose
 slots are ordinary typed expressions — so the compiler checks them, and a rounding contract

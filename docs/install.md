@@ -10,37 +10,55 @@ description: BMX ships with Burxt. In any other language it is one file, or a sp
 BMX is a **format**, so what you install depends on what you want to do with it. Three answers,
 shortest first.
 
-## In Burxt — it is already there
+## In Burxt — a package you pin
 
-`lib/bmx.bx` ships inside the language, so **installing Burxt installs BMX**. Nothing else to
-fetch, no manifest, no version to keep in step.
+BMX used to ship inside the language, as `lib/bmx.bx`. **It does not any more**, and the change is
+worth understanding rather than working around: a module in somebody else's standard library has
+that language's version and no say in its own. BMX is 0.2 and Burxt is 1.1; one number could not
+honestly carry both.
+
+So it is a dependency, named in your `burxt.package`:
+
+```
+name        my-app
+version     0.1.0
+dependency  bmx  https://github.com/andrecorugda/bmx  <tag>
+```
 
 ```sh
-V=1.1.0
-sh scripts/install.sh \
-  https://github.com/andrecorugda/burxt/releases/download/v$V/burxt-$V-$(uname -s | tr 'A-Z' 'a-z')-$(uname -m).tar.gz
+burxt fetch
 ```
 
 Then in a program:
 
 ```burxt
-use "lib/bmx.bx";
+use "bmx/burxt/bmx.bx";
 ```
 
 That gets you the parser, the level-1 renderer, and the generator. See
 [Turning it into a page](rendering.html) for which you want.
 
-**This is the vertical-integration argument in one line, and it is why BMX is not on a package
-registry for Burxt users**: the format and its only level-2 host ship together and cannot drift
-apart. There is no version of Burxt that has a different BMX.
+**Why the path has `burxt` in it**: this repository holds more than one implementation, and
+`reference/bmx.js` sits beside it. The first segment is your dependency's name, the rest is where
+the file lives — so `bmx/burxt/bmx.bx` reads as *the Burxt implementation, from the bmx package*.
+
+**And what the split buys, since it costs a manifest line**: `burxt.lock` pins a commit, so the BMX
+your build used is a fact somebody can check, and it stops moving when Burxt releases. The old
+arrangement had a real virtue — the format and its host could not drift apart — but it bought that
+by making drift *unrepresentable* rather than *visible*, which is only the same thing while nobody
+needs to upgrade one without the other.
+
+> **Today this needs a Burxt built from source.** `use "std/…"` — how a package reaches the standard
+> library — is not in a release yet, so no published Burxt can compile this file. That is temporary
+> and it is why no tag is minted above.
 
 ### The two command-line tools
 
-Both are ordinary Burxt programs in the Burxt repository, so you build them once:
+Both are ordinary Burxt programs, in this repository beside the implementation:
 
 ```sh
-burxt build examples/bmx/parse.bx    -o bmx-parse      # a document -> its AST, as JSON
-burxt build examples/bmx/generate.bx -o bmx-generate   # a document -> a typed Burxt view
+burxt build burxt/examples/parse.bx    -o bmx-parse      # a document -> its AST, as JSON
+burxt build burxt/examples/generate.bx -o bmx-generate   # a document -> a typed Burxt view
 ```
 
 `bmx-generate` is the interesting one — it is [level 2](guide/04-views-that-check-themselves.html),

@@ -27,7 +27,7 @@ level 2 exists because a template is the last place in most programs where nothi
 The document is data. You bind values by name and get HTML back.
 
 ```burxt
-use "lib/bmx.bx";
+use "bmx/burxt/bmx.bx";
 use "lib/files.bx";
 
 function page(path: String) -> String touches files {
@@ -61,7 +61,7 @@ gives you `[Block]` and `bmx_json` gives you the AST the conformance suite compa
 The document becomes a **function**, and the compiler checks it.
 
 ```sh
-burxt build examples/bmx/generate.bx -o bmx-generate
+burxt build burxt/examples/generate.bx -o bmx-generate
 ./bmx-generate receipt.bmx receipt_view "order: Order" "len(order.reference) > 0" > receipt_view.bx
 ```
 

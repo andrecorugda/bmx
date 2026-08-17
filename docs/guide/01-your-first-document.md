@@ -32,7 +32,7 @@ Render it and you get HTML:
 ```
 <figure class="shot">
   <img src="/assets/examples/first-document.png" alt="The document on the left, the page it renders to on the right">
-  <figcaption>The document and the page, side by side. The right-hand panel is real output from the renderer in <code>lib/bmx.bx</code> — not a mock-up.</figcaption>
+  <figcaption>The document and the page, side by side. The right-hand panel is real output from the renderer in <code>burxt/bmx.bx</code> — not a mock-up.</figcaption>
 </figure>
 
 

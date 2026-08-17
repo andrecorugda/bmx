@@ -1,6 +1,6 @@
-use "/home/andre/burxt/lib/bmx.bx";
-use "/home/andre/burxt/lib/files.bx";
-use "/home/andre/burxt/lib/os.bx";
+use "../burxt/bmx.bx";
+use "std/files.bx";
+use "std/os.bx";
 function go(path: String, b: [Binding]) -> Int touches files {
     match bmx_to_html(file_read(path), b) { Error(e) => { print(e); } Ok(p) => { print(p); } }
     return 0;

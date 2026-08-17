@@ -66,3 +66,71 @@ jobs:
           else
             echo "no existing case modified; additions only"
           fi
+
+  # **A SEPARATE JOB, and that is what keeps the sentence at the top of this file true.**
+  #
+  # `conformance` above needs Node and nothing else. That is the standalone property, and it is
+  # unchanged: the format is still testable without its first host installed, and this job could be
+  # deleted tomorrow without weakening a single claim BMX makes about itself.
+  #
+  # What this job tests is one HOST'S implementation, which now lives here because a format repo is
+  # where implementations belong — `reference/bmx.js` has been here since the first commit for the
+  # same reason. The difference is that `reference/` is a role and `burxt/` is an audience:
+  # `bmx.js` exists to define what the format does, `bmx.bx` exists to be used by Burxt programs.
+  #
+  # **It builds Burxt from source rather than installing a release, and that is temporary but not
+  # optional.** `use "std/…"` — how a package reaches the standard library — is unreleased. So no
+  # published Burxt can compile this file, and pinning one would be pinning a compiler that cannot
+  # build the thing it is pinned for. When Burxt ships `std/`, this becomes an install step and the
+  # build disappears.
+  burxt-implementation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the compiler that can read `std/`
+        run: |
+          set -eux
+          git clone --depth 1 --branch develop https://github.com/andrecorugda/burxt.git /tmp/burxt
+          sudo apt-get update -qq && sudo apt-get install -y llvm-18-dev libpolly-18-dev
+          cd /tmp/burxt && LLVM_SYS_181_PREFIX=/usr/lib/llvm-18 cargo build --release
+          sudo install -d /usr/local/bin /usr/local/lib/burxt
+          sudo install -m 755 target/release/burxt /usr/local/bin/burxt
+          sudo install -m 644 lib/*.bx /usr/local/lib/burxt/
+
+      - name: The Burxt implementation passes the format's own suite
+        run: |
+          set -eux
+          burxt build burxt/examples/parse.bx -o /tmp/bmx-parse
+          python3 tests/harness.py /tmp/bmx-parse
+
+      # The question the suite cannot ask: do two implementations reach the same answer where
+      # nothing was written down? That is where a specification's ambiguities live, and it is how
+      # the one in SPEC.md §4a.2 was found.
+      - name: The two implementations agree with each other
+        run: python3 tests/agree.py 'node reference/bmx.js' /tmp/bmx-parse
+
+      # A package is not usable because its own tests pass — star-burxt's suite was green through a
+      # gap that made every symbol unreachable, because its only consumer lived inside the package.
+      # So: a program OUTSIDE this repository, reaching BMX the way anyone else would.
+      - name: Somebody else's program can reach `bmx_parse`
+        run: |
+          set -eux
+          mkdir -p /tmp/consumer && cd /tmp/consumer
+          printf 'name        consumer\nversion     0.1.0\ndependency  bmx  %s\n' "$GITHUB_WORKSPACE" > burxt.package
+          printf '# Hi\n\nTotal: {{ order.total }}\n' > doc.bmx
+          cat > main.bx <<'BX'
+          use "bmx/burxt/bmx.bx";
+          use "std/files.bx";
+
+          match file_read_maybe("doc.bmx") {
+              None => { print("no document"); }
+              Some(source) => {
+                  match bmx_parse(source) {
+                      Error(message) => { print("refused: " + message); }
+                      Ok(blocks) => { print("parsed " + to_string(len(blocks)) + " blocks"); }
+                  }
+              }
+          }
+          BX
+          test "$(burxt run main.bx)" = "parsed 2 blocks"

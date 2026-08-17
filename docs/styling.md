@@ -155,7 +155,7 @@ them is ordinary code rather than a templating feature.
 ## What the host owns
 
 A block emits nothing by itself, so what `::: card .featured` becomes is entirely the host's
-decision — including whether those classes reach the output at all. `lib/bmx.bx`'s level-1 renderer
+decision — including whether those classes reach the output at all. `burxt/bmx.bx`'s level-1 renderer
 declares no blocks and refuses them; a framework like star-burxt declares them and decides their
 markup.
 

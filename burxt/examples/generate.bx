@@ -1,0 +1,63 @@
+// burxt/examples/generate.bx — BMX level 2: a document becomes a typed Burxt function.
+//
+//     burxt build burxt/examples/generate.bx -o bmx-generate
+//     ./bmx-generate receipt.bmx receipt_view "order: Order" "len(order.lines) > 0" > receipt.bx
+//
+// Arguments: the document, the function name, the parameter list verbatim, then zero or more
+// `requires` clauses. The signature comes from HERE and not from the document, because the
+// format has no front matter and a generator inventing one would be adding to the format from
+// the host side — the leak `BOUNDARY.md` exists to prevent.
+//
+// **What this buys, and it is the whole reason BMX was worth defining:** the output is ordinary
+// Burxt, so `burxt check` then judges every slot. A slot naming a field that does not exist is
+// a type error at the expression. A slot holding a `Decimal` rather than a `String` is a type
+// error too — `html_text` takes a `String` — so the conversion is written in the document where
+// a reviewer sees it. Money keeps its scale and its rounding contract all the way to the tag.
+// And `burxt review` will diff the generated signature between versions.
+//
+// None of that is implemented here. It is what the language already does to any function.
+use "../bmx.bx";
+use "std/os.bx";
+use "std/files.bx";
+
+if os_arg_count() < 4 {
+    print_error("usage: generate <document.bmx> <function-name> <parameters> [requires...]");
+    exit(2);
+}
+
+let path: String = os_arg(1);
+let name: String = os_arg(2);
+let parameters: String = os_arg(3);
+
+let mutable clauses: [String] = [];
+let mutable i: Int = 4;
+while i < os_arg_count() {
+    let added: Int = push(clauses, os_arg(i));
+    i += 1;
+}
+
+match file_read_maybe(path) {
+    None => {
+        print_error("cannot read " + path);
+        exit(2);
+    }
+    Some(source) => {
+        match bmx_parse(source) {
+            Error(message) => {
+                print_error(message);
+                exit(1);
+            }
+            Ok(blocks) => {
+                match bmx_emit_burxt(blocks, path, name, parameters, clauses) {
+                    Error(message) => {
+                        print_error(message);
+                        exit(1);
+                    }
+                    Ok(code) => {
+                        print(code);
+                    }
+                }
+            }
+        }
+    }
+}
