@@ -58,6 +58,33 @@ subset of node kinds, keeps this problem away from its consumers entirely. Expor
 worth doing — it is what makes a host able to reach level 2 — but it should be a decision, not a
 side effect of making the tests compile.
 
+## What a git tag in this repository means
+
+The rule above says the package's number is not the format's. That leaves a practical question the
+first consumer asks: **what do I pin?**
+
+Tags here name **an implementation release**, not a format version, and they say which
+implementation:
+
+    burxt-0.1.0        the Burxt implementation, `burxt/bmx.bx`, first release
+
+So a Burxt consumer writes:
+
+    dependency  bmx  https://github.com/andrecorugda/bmx  burxt-0.1.0
+
+**A bare `v0.2.0` would have been the obvious name and it is the wrong one.** This repository holds a
+format at 0.2 and an implementation of it, and a tag reading `v0.2.0` invites both to be read off
+one number — which is the exact conflation the section above exists to prevent. A reader browsing
+tags should not have to know which of the two they are looking at.
+
+It also leaves room without renaming anything: if `reference/bmx.js` is ever published as a package,
+it takes `js-…` and nothing has to move.
+
+**What the implementation's own number tracks** is its API: the functions and types it exports, and
+the AST a consumer can `match` on. It moves when that surface moves, which — per the section above —
+can happen on a format change that was only a minor, and can fail to happen across a format change
+that touched nothing it exports.
+
 ## Error codes
 
 A code, once assigned, means that thing forever. Codes are never reused and never renumbered.
