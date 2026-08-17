@@ -93,8 +93,14 @@ here declares one — and it is the same rule seen from the other side. Whether 
 Burxt's to decide; until it does, one extra line is the whole workaround, and the versions have to
 be kept in step by hand.
 
-> **Needs Burxt 1.2.0 or later.** That is the first release that knows `use "std/…"`, which is how
-> a package reaches the standard library — so it is the first Burxt that can compile BMX at all.
+> **Needs Burxt 1.3.0 or later.** 1.2.0 was the first release that knew `use "std/…"`, which is how a
+> package reaches the standard library at all — but 1.3.0 is the floor now, because parts of the
+> implementation are declared `pure` and that rests on a `pure string_to_int`, which 1.3.0 is the first
+> to mark. On 1.2.0 the compiler says so rather than guessing:
+>
+> ```
+> error: `pure function bmx_parse_error` may not call `string_to_int`, which is not declared `pure`
+> ```
 
 ### The two command-line tools
 

@@ -157,7 +157,7 @@ jobs:
 
       - name: Install the Burxt this release of BMX supports
         env:
-          BURXT: 1.2.0
+          BURXT: 1.3.0
         run: |
           set -eux
           curl -fsSL -o /tmp/burxt.tar.gz \

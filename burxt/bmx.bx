@@ -196,11 +196,16 @@ public function bmx_check(source: String) -> Option<BmxDiagnostic> {
 // touches every error site and would be a major for anyone matching on `Result<[Block], String>`.
 // This recovers the three fields from a shape this file produces in exactly one place —
 // `bmx_error` — so the two cannot drift without a test noticing.
-// NOT `pure`, and not by choice: `string_to_int` is not declared `pure` in the standard library
-// though its body plainly is. Reported to Burxt as part of a batch — `json.bx` has zero pure
-// functions out of eighteen, including its one-line constructors. When those gain the marker this
-// becomes `pure function` and `bmx_check` can be called from a `pure` view.
-function bmx_parse_error(source: String, said: String) -> BmxDiagnostic {
+// `pure` since Burxt 1.3.0, which marked `string_to_int` — the batch this file reported, when
+// `json.bx` had zero pure functions out of eighteen, is in.
+//
+// **`bmx_check` above is still NOT pure, and the reason is not the one this comment predicted.**
+// The prediction was that the standard library was the only obstacle. It was not: `bmx_parse_blocks`
+// takes `mutable out: [Block]`, and `pure` with a `mutable` parameter is a contradiction the
+// compiler is right to refuse — a contract clause may call a `pure` function, so allowing it would
+// let a precondition rewrite the data it checks. So `bmx_parse` and everything through it stays
+// impure until that accumulator becomes a return value, which is MY design to change, not Burxt's.
+pure function bmx_parse_error(source: String, said: String) -> BmxDiagnostic {
     let at: Int = string_find(said, " at ");
     let colon: Int = string_find(said, ": ");
     if at < 0 || colon < at {
@@ -275,7 +280,7 @@ pure function bmx_fence(text: String) -> Int {
 
 // `base` is where `text` starts in the whole document, so a slot's offset is a real position in
 // the file the author opened rather than an index into a fragment.
-function bmx_parse_inline(text: String, base: Int) -> Result<[Bmx], String> {
+pure function bmx_parse_inline(text: String, base: Int) -> Result<[Bmx], String> {
     let mutable out: [Bmx] = [];
     let mutable buffer: String = "";
     let mutable i: Int = 0;
@@ -456,7 +461,7 @@ function bmx_parse_inline(text: String, base: Int) -> Result<[Bmx], String> {
 // line, measured at 11 where the byte was at 14. It is also what the spec already implied —
 // every inline construct must close on its own line, so there was never a reason to parse
 // across one.
-function bmx_merge_text(nodes: [Bmx]) -> [Bmx] {
+pure function bmx_merge_text(nodes: [Bmx]) -> [Bmx] {
     let mutable out: [Bmx] = [];
     let mutable pending: String = "";
     let mutable have: Bool = false;
@@ -505,7 +510,7 @@ class BmxLine { text: String, offset: Int }
 // Split into lines, keeping each line's byte offset. `\r\n` ends a line and a lone `\r` does
 // not — a stray carriage return in the middle of a line is far more likely to be data than
 // intent, and the format says so rather than leaving it to each parser.
-function bmx_lines(source: String) -> [BmxLine] {
+pure function bmx_lines(source: String) -> [BmxLine] {
     let mutable out: [BmxLine] = [];
     let n: Int = len(source);
     let mutable start: Int = 0;
