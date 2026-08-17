@@ -1,3 +1,12 @@
 # Staged by pack.py from reference/bmx.js so the preview ships with a renderer. Generated, not source
 # — two copies of a parser in version control is how they drift.
 editors/vscode/reference/
+
+# Built by `burxt build render.bx -o bmxrender`, per tools/README.md. A 232K compiled binary that
+# rebuilds in seconds does not belong in version control — and a binary is not evidence of the
+# source it came from, which this project has written down elsewhere.
+tools/bmxrender
+
+# The PNGs live in docs/assets/examples/, which is where the site serves them from. A second copy
+# beside the generator is the drift hazard, one directory over.
+tools/*.png
