@@ -459,10 +459,20 @@ function parseBlocks(rows, from, depth) {
 
 // **Names for which an empty body is correct rather than an oversight.**
 //
-// BMX does not know what a block means — that is BOUNDARY.md — so it cannot know that `br` is void.
-// A host does. But BMX is not vocabulary-neutral either: its renderer emits HTML tags and
-// ESCAPING.md is an HTML rule, so **HTML is the one vocabulary this format may assume by default**,
-// and saying so is better than pretending neutrality and then warning on every `<br>`.
+// **`br` being void is not a claim about what a block MEANS.** It is a claim about what HTML permits
+// inside a tag of that name, and the thirteen names are a list rather than a type system — which is
+// the test `BOUNDARY.md` sets: *could a language with no types implement this?* Yes.
+//
+// star-burxt put it better than my first attempt, which reached for "the renderer emits HTML tags so
+// neutrality is already gone". True but vague. The precise form: **Burxt's HTML renderer already
+// depends on exactly this knowledge** — `lib/html.bx:182` returns early for a void tag so it writes
+// `<br>` with no closing tag, and `html_element` refuses children on one at all. So exempting the
+// thirteen adds no knowledge to the format; it makes explicit something a renderer already needs.
+//
+// One qualification, because their version was slightly too broad and that is the shape of half the
+// corrections made today: it is the BURXT renderer that relies on it. The JavaScript one below never
+// emits a void element, because it refuses blocks outright (BMX-R003) — so the dependency is real on
+// one path and absent on the other. The BOUNDARY test above is what settles it either way.
 //
 // star-burxt reported this: `html_element` carries
 // `requires !html_is_void(tag) || len(children) == 0`, so a void element MUST have an empty body and

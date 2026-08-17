@@ -75,13 +75,6 @@ async function main() {
     JSON.stringify(ready.result.capabilities))
   check('it names itself', ready.result.serverInfo?.name === 'bmx-lsp')
 
-  // ---- a clean document: an EMPTY list, not silence ----
-  openDoc('file:///clean.bmx', '# Title\n\nA paragraph.\n')
-  const clean = await diagnosticsFor('file:///clean.bmx')
-  check('a clean document publishes an empty list rather than nothing',
-    Array.isArray(clean.params.diagnostics) && clean.params.diagnostics.length === 0,
-    JSON.stringify(clean.params.diagnostics))
-
   // ---- a refusal ----
   openDoc('file:///broken.bmx', 'Your balance is **£240.00\n')
   const broken = (await diagnosticsFor('file:///broken.bmx')).params.diagnostics
@@ -146,6 +139,18 @@ async function main() {
   send({ id: 99, method: 'textDocument/formatting', params: {} })
   const refused = await until((f) => f.id === 99, 'the reply to an unsupported request')
   check('an unsupported request is answered rather than ignored', !!refused.error, JSON.stringify(refused))
+
+  // ---- LAST, and the ordering is the point ----
+  //
+  // **A server that answers nothing to everything passes this assertion on its own.** So it comes
+  // after every case that proves this one can speak — the refusal, the warnings, the positions. Taken
+  // from star-burxt's driver, which had it last while mine had it second: the vacuity problem in a
+  // place I had not thought to look.
+  openDoc('file:///clean.bmx', '# Title\n\nA paragraph.\n')
+  const clean = await diagnosticsFor('file:///clean.bmx')
+  check('a clean document publishes an empty list rather than nothing',
+    Array.isArray(clean.params.diagnostics) && clean.params.diagnostics.length === 0,
+    JSON.stringify(clean.params.diagnostics))
 
   send({ id: 100, method: 'shutdown', params: {} })
   await until((f) => f.id === 100, 'the shutdown reply')
