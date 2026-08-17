@@ -47,6 +47,9 @@
     <a href="{{ site.baseurl }}/syntax.html"      class="{% if page.title == 'Writing a document' %}here{% endif %}">Syntax</a>
     <a href="{{ site.baseurl }}/rendering.html"   class="{% if page.title == 'Turning it into a page' %}here{% endif %}">Rendering</a>
     <a href="{{ site.baseurl }}/building-on.html" class="{% if page.title == 'Building on BMX' %}here{% endif %}">Building on</a>
+    <!-- Install sits immediately before GitHub, the position it holds on burxt-lang.org. It was
+         only in the sidebar, so someone who reads the topbar concluded the page did not exist. -->
+    <a href="{{ site.baseurl }}/install.html"     class="{% if page.title == 'Getting BMX' %}here{% endif %}">Install</a>
     <a href="https://github.com/andrecorugda/bmx">GitHub</a>
     <a class="burxt" href="https://burxt-lang.org">Burxt</a>
   </span>
@@ -63,7 +66,7 @@
       <h2>BMX</h2>
       <ul>
         <li class="topic"><a href="{{ site.baseurl }}/"{% if page.title == "BMX" %} class="here" aria-current="page"{% endif %}><span>Overview</span></a></li>
-        <li class="topic"><a href="{{ site.baseurl }}/install.html"{% if page.title == "Getting BMX" %} class="here" aria-current="page"{% endif %}><span>Getting BMX</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/install.html"{% if page.title == "Getting BMX" %} class="here" aria-current="page"{% endif %}><span>Install</span></a></li>
       </ul>
     </div>
 

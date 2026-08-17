@@ -13,6 +13,23 @@
   line-height: 1;
 }
 
+/* The topbar mark, sized for THIS lockup rather than Burxt's.
+ *
+ * site.css sets `height: 22px`, and a height is only a size when the aspect ratio is fixed. It is
+ * not: Burxt's lockup is 1311x360 and renders 80x22, BMX's is 560x260 and renders 47x22 — the same
+ * height and 41% less mark. Copying the stylesheet byte-for-byte is right, and it carried a
+ * constant that was measured against a different image.
+ *
+ * 30px puts BMX at 65x30 in a 52px bar, which reads at the weight Burxt's does. Sizing the two
+ * marks to match means giving them different heights, which is the opposite of what the shared
+ * rule assumes. */
+.bar .mark img { height: 30px; }
+
+@media (max-width: 768px) {
+  /* site.css drops to 20px here; the same ratio applied to this lockup. */
+  .bar .mark img { height: 27px; }
+}
+
 /* The link back to the host language, in the Burxt ember red-orange (#E8502A — the wordmark's
  * own colour). Last in the topbar and last in the sidebar: BMX is the thing you came for, Burxt
  * is where you go next. Colour rather than position alone, because a link that leaves the site
