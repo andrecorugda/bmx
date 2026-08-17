@@ -22,11 +22,15 @@ interpolation. It found one message containing the new fence where three do, whi
 anchors on the CALL and reads forward until the parentheses close, which cannot be wrong about a message
 form it was never taught.
 
-Two assertions, and the second exists because the first can pass by finding nothing:
+Three assertions, and the third is star-burxt's correction to my second:
 
 - no message mentions a superseded fence
-- **at least 30 message sites were found**, per implementation. A guard whose extractor silently stops
-  matching reports success over an empty set, which reads exactly like coverage.
+- **two independent extractions agree on the count.** My first version asserted a FLOOR — at least 30
+  sites — against real numbers of 35 and 32. Loose enough that a scan silently capturing 30 of 35 would
+  pass, which is the same defect as the regex it replaced, one level up: **a floor is a boolean control
+  with extra steps.** Two methods required to agree cannot both be wrong in the same direction without
+  saying so.
+- the count is non-zero, because two extractions that both find nothing agree perfectly.
 """
 
 import pathlib
@@ -35,10 +39,10 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-# (path, what a message site starts with, how many sites are expected at minimum)
+# (path, what a message site starts with)
 SOURCES = [
-    ("reference/bmx.js", re.compile(r"new BmxError\(|\bwarn\("), 30),
-    ("burxt/bmx.bx", re.compile(r"bmx_error\("), 30),
+    ("reference/bmx.js", re.compile(r"new BmxError\(|\bwarn\(")),
+    ("burxt/bmx.bx", re.compile(r"bmx_error\(")),
 ]
 
 # A superseded spelling, and the pattern that matches the fence by SHAPE. The second is here because
@@ -47,7 +51,7 @@ SUPERSEDED = (":::", ":{3", ":{2,", ":{1,")
 
 
 def sites(path, opener):
-    """Every message site, read from the call to the closing parenthesis."""
+    """Every message site, read from the call to its balanced close."""
     lines = pathlib.Path(ROOT / path).read_text().split("\n")
     out = []
     for i, line in enumerate(lines):
@@ -63,17 +67,36 @@ def sites(path, opener):
     return out
 
 
+def count_by_hand(path, opener):
+    """A second, dumber count: how many LINES open a message. Deliberately a different method.
+
+    It exists to disagree. If the reader above starts skipping a message form — the way the regex it
+    replaced skipped template literals — these two numbers separate, and the check says so instead of
+    reporting a confident zero over two thirds of the messages.
+    """
+    return sum(1 for line in pathlib.Path(ROOT / path).read_text().split("\n") if opener.search(line))
+
+
 def main():
     prove = "--prove-it" in sys.argv
     failures, total = [], 0
 
-    for path, opener, floor in SOURCES:
+    for path, opener in SOURCES:
         found = sites(path, opener)
+        expected = count_by_hand(path, opener)
         total += len(found)
 
         if prove:
-            # The control: a message that instructs the old syntax, in the shape star-burxt shipped.
-            found.append((0, """error("BMX-E999", 0, "add `::: props name: Type` at the top")"""))
+            # **The control exercises BOTH assertions, one per source**, because a control that only
+            # reaches one leaves the other unproven — and the unproven one here is the newer of the two.
+            # star-burxt watched theirs fail in both ways it claims to detect; a check whose second
+            # assertion has never fired is a claim, not a check.
+            if path.endswith(".js"):
+                # a message instructing the old syntax, in the shape star actually shipped
+                found.append((0, """error("BMX-E999", 0, "add `::: props name: Type` at the top")"""))
+            else:
+                # a reader that has quietly stopped seeing two thirds of the messages
+                found = found[: len(found) // 3]
 
         for line, text in found:
             for old in SUPERSEDED:
@@ -81,20 +104,30 @@ def main():
                     failures.append(f"{path}:{line} instructs a superseded fence: {text[:88]}")
                     break
 
-        if len(found) < floor:
+        # The two extractions must agree, and there must be some. Either alone can pass over a set
+        # that has quietly shrunk; together they cannot without disagreeing.
+        counted = expected + (1 if prove and path.endswith(".js") else 0)
+        if len(found) != counted:
             failures.append(
-                f"{path}: only {len(found)} message sites found, expected at least {floor} — "
-                "the extractor has stopped matching, so a pass here means nothing")
+                f"{path}: the reader found {len(found)} messages and there are {counted} sites — "
+                "one method has stopped seeing a form the other can, so nothing here can be believed")
+        elif not found:
+            failures.append(f"{path}: no message sites at all, which two methods will agree about")
         else:
-            print(f"  {len(found):3} message sites read from {path}")
+            print(f"  {len(found):3} message sites read from {path}, and {counted} counted independently")
 
     for f in failures:
         print(f"  FAIL  {f}")
 
     if prove:
-        if failures:
-            print("\nthe control failed as it must — a message instructing the old fence is caught")
+        # Both kinds, not just one: a bad message caught, AND a shrunken extraction caught.
+        instructed = any("instructs a superseded fence" in f for f in failures)
+        shrunken = any("one method has stopped seeing" in f for f in failures)
+        if instructed and shrunken:
+            print("\nthe control failed both ways it must — a bad message, and an extraction gone quiet")
             return 0
+        print(f"\nTHE CONTROL IS INCOMPLETE: bad message caught={instructed}, shrunken scan caught={shrunken}")
+        return 1
         print("\nTHE CONTROL DID NOT FAIL, so this check cannot see a bad message")
         return 1
 
