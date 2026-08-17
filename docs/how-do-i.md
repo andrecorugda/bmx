@@ -101,6 +101,30 @@ address, and two of them means the page cannot answer *where is it*.
 That is all Tailwind, Bootstrap or your own stylesheet needs. See
 [Styling the output](styling.html) for the full list of tags you get.
 
+## …make a navigation bar
+
+A bar is a brand and a row of links, and both are ordinary markdown — so you write it in the document,
+not in a template around it:
+
+```bmx
+# Roast&Co
+
+[Coffee](/coffee) [Kit](/kit) [Search](/search) [Sign in](/signin) [Basket · 2](/basket)
+```
+
+```html
+<h1>Roast&amp;Co</h1>
+<p><a href="/coffee">Coffee</a> <a href="/kit">Kit</a> … <a href="/basket">Basket · 2</a></p>
+```
+
+The stylesheet does the rest: `.bmx > h1` is the brand and the first `p` is the links. The
+[front page](/) is exactly this — one document, no HTML, and the buttons and search box are links with
+a border-radius.
+
+**It works with no framework, and it is positional, so it moves if you add a paragraph above it.** When
+that matters, name the region with a block — `::: nav .bar` — and your host decides what it renders as.
+[Styling the output](styling.html#a-whole-page-bar-included) has both versions side by side.
+
 ## …react to a click
 
 ```bmx

@@ -152,6 +152,45 @@ paragraph is a decoration the document is now responsible for forever.
 So: if a block genuinely needs different treatment, it is a **component** — and composing two of
 them is ordinary code rather than a templating feature.
 
+## A whole page, bar included
+
+**You do not need a host template to get a navigation bar.** The [front page](/) is one `.bmx` file and
+a stylesheet — brand, links, search box, Sign in, Basket, product cards, call to action — and no HTML
+anywhere. The first two lines are the bar:
+
+```bmx
+# Roast&Co
+
+[Coffee](/coffee) [Kit](/kit) [Brewing](/brewing) [Search](/search) [Sign in](/signin) [Basket · 2](/basket)
+```
+
+A bar is a brand and a row of links, and both of those are ordinary markdown. Because there is no
+attribute syntax, the stylesheet reaches them **by position**:
+
+```css
+.bmx > h1               { float: left }        /* the brand */
+.bmx > p:first-of-type  { overflow: hidden }   /* the links beside it */
+.bmx > p:first-of-type a:last-child { background: #E8502A; color: #fff }   /* the basket button */
+```
+
+Counting from the *end* for the buttons (`:last-child`, `:nth-last-child(2)`) means adding a navigation
+link does not move them.
+
+**The honest caveat: a positional selector is brittle.** Insert a paragraph above the bar and the whole
+thing restyles, because `:first-of-type` now points at prose. That is exactly what a **block** fixes —
+`::: nav` names the region, and the selector stops depending on where the region happens to sit:
+
+```bmx
+::: nav .bar
+- [Coffee](/coffee)
+- [Kit](/kit)
+:::
+```
+
+A block emits nothing on its own, so this needs a host that declares `nav` — the level-1 renderer
+refuses it with `BMX-R003` rather than guessing. Positional CSS is the version that works with no
+framework at all; a named block is the version that survives editing.
+
 ## What the host owns
 
 A block emits nothing by itself, so what `::: card .featured` becomes is entirely the host's
