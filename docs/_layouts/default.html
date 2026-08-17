@@ -66,7 +66,13 @@
          group here holding five links into the source repository. It is gone: a link out of the
          documentation and into a source file loses the reader, and the handful of people who want
          the grammar will find the repository from the topbar. -->
-    <div class="group site">
+    <!-- NOT `class="group site"`. Upstream `site.css:261` is `.side .site { display: none }` with a
+         `block` only inside the mobile media query — on burxt-lang.org that group duplicates the
+         topbar, so it belongs in the drawer and nowhere else. This group is the first thing a
+         reader should see, and while it carried that class it was invisible on every desktop.
+         That was half of "there is no install page": missing from the topbar AND display:none in
+         the sidebar. -->
+    <div class="group">
       <h2>Start here</h2>
       <ul>
         <li class="topic"><a href="{{ site.baseurl }}/"{% if page.title == "BMX" %} class="here" aria-current="page"{% endif %}><span>What BMX is</span></a></li>
