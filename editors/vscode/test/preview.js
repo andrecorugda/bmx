@@ -140,7 +140,7 @@ async function main() {
   config = {};
 
   // ---- a block: refused by name, because a preview is not a host ----
-  activeEditor = { document: doc('::: card title="x"\nhi\n:::\n') };
+  activeEditor = { document: doc(':card: title="x"\nhi\n:!card:\n') };
   await commands.get('bmx.preview')();
   check('a block is refused by name, per SPEC 4a.5',
     created.webview.html.includes('BMX-R003') && created.webview.html.includes('card'),

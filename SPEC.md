@@ -410,6 +410,14 @@ into a boolean attribute and dropping the text, producing `<span class="text" he
 refusal. **BMX cannot fix that, because head meaning is the host's; it can stop withholding the one
 fact the host needs to fix it.**
 
+**The host that asked for it then withdrew the request, and the field stays.** star-burxt's answer became
+a named `child=` attribute in the head, which is better — the author says which part is the body instead
+of a parser inferring it — so it no longer needs the flag. But `one_line` is the only thing in the AST
+that records a choice the author made and the tree would otherwise lose, which means it is what a
+formatter needs to print a document back the way it was written. **A tree that cannot reproduce its
+source is a tree that a formatter has to guess from**, and there is no cheaper time to add a field than a
+release that is already editing every block expectation.
+
 A slot keeps the one real exception, and it is stated rather than implied: **a slot's `offset` is the
 first byte of the *trimmed expression***, per §4, not of the `{{`. That is deliberate — the host is
 handed the expression and must be able to point inside it.

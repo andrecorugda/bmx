@@ -74,6 +74,46 @@ with no binding is an error, never an empty string, because the empty string is 
 with a missing total nobody sees. **A framework that renders blank here has chosen to, and should
 say so.**
 
+## Naming a body in the head, and the trap in it
+
+A head is opaque bytes, so the format cannot tell you where attributes stop and content begins. That
+means a host with attribute syntax has a hazard the format cannot close for it:
+
+```bmx
+:span: class=text hello
+:!span:
+```
+
+If your head parser reads a bare word as a boolean attribute — the HTML convention, and a reasonable
+choice — then `hello` becomes an attribute and **the text silently disappears**. star-burxt measured
+exactly that, `<span class="text" hello></span>`, with no refusal: it had been happening since its
+attributes landed.
+
+**The fix is a named attribute for the body**, so the author says which part is content rather than a
+parser inferring it:
+
+```bmx
+:span: class=text child=hello :!span:
+:button: class=primary child={{ task.label }} on:click=Msg.Save
+:!button:
+```
+
+Every token stays `name=value`, the head stays opaque to BMX, and there is nothing to guess. It also
+composes with a one-line block, which is why the format did not need a delimiter for that case.
+
+**Do not call it `value=`.** That is a real HTML attribute and hosts already emit it — `:input:
+value={{ model.draft }}` is how a field is driven — so making `value=` mean *body* would change the
+meaning of every form in your documentation, silently. `child=` is free. star-burxt nearly took the
+name from a suggestion and caught it by checking what it already emitted.
+
+Two more host-side rules worth copying, both measured rather than reasoned:
+
+- **Refuse a named body AND a block body together** rather than merging them. Two sources for one
+  thing means a reader cannot tell which won.
+- **A handler expression runs to the end of the head**, because an expression has no end marker — so
+  `:button: on:click=n + 1 class=danger` folds `class=danger` into the expression and the class
+  vanishes. Say *attributes first* in an error rather than letting it compile into something strange.
+
 ## The Burxt surface
 
 If you are building on Burxt specifically, this is what exists today. Signatures are exact;
