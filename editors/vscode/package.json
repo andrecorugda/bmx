@@ -1,21 +1,42 @@
 {
   "name": "bmx",
   "displayName": "BMX",
-  "description": "BMX — markdown with one unambiguous reading and a typed hole in it. Highlighting for .bmx documents, with injection points a host builds on.",
+  "description": "BMX \u2014 markdown with one unambiguous reading and a typed hole in it. Highlighting for .bmx documents, with injection points a host builds on.",
   "version": "0.1.0",
   "publisher": "andrecorugda",
   "license": "MIT OR Apache-2.0",
-  "engines": { "vscode": "^1.75.0" },
-  "categories": ["Programming Languages"],
-  "keywords": ["bmx", "markdown", "markup", "burxt", "template"],
-  "repository": { "type": "git", "url": "https://github.com/andrecorugda/bmx" },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "bmx",
+    "markdown",
+    "markup",
+    "burxt",
+    "template"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andrecorugda/bmx"
+  },
   "contributes": {
     "languages": [
       {
         "id": "bmx",
-        "aliases": ["BMX"],
-        "extensions": [".bmx"],
-        "configuration": "./language-configuration.json"
+        "aliases": [
+          "BMX"
+        ],
+        "extensions": [
+          ".bmx"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./file-icon.png",
+          "dark": "./file-icon.png"
+        }
       }
     ],
     "grammars": [
@@ -25,5 +46,10 @@
         "path": "./syntaxes/bmx.tmLanguage.json"
       }
     ]
-  }
+  },
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "icon": "icon.png"
 }

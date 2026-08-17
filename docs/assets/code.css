@@ -1,0 +1,69 @@
+/* Token colours for `burxt` and `bmx` code blocks — the partner of `code.js`.
+ *
+ * **This pair is portable on purpose.** burxt-lang.org and star.burxt-lang.org have the same gap
+ * (Rouge knows neither language, so both ship their own language as grey text next to somebody
+ * else's in colour) and the same fix. Copying two files is the whole adoption cost, and the three
+ * sites then agree on what a keyword looks like — which matters more than it sounds, because a
+ * reader moving between them should not have to re-learn the colours.
+ *
+ * **The hues follow VS Code's Light+**, not because it is the best theme but because it is the one
+ * most readers will have seen, so a snippet on the site looks like the same snippet in their editor.
+ * That is the point Andre asked for: the documentation follows the code colouring rather than
+ * inventing its own.
+ *
+ * Contrast is against `--wash` (#f5f5f7), the surface a `pre` actually sits on, not against white —
+ * measuring against white would flatter every one of these by about 4%.
+ */
+
+.t-comment  { color: #227a22; font-style: italic; }   /* 4.9:1 — a comment may be quiet, not unreadable */
+.t-keyword  { color: #a318b0; }                        /* 5.1:1 */
+.t-string   { color: #a31515; }                        /* 6.3:1 */
+.t-number   { color: #0a6b4a; }                        /* 5.4:1 */
+.t-type     { color: #1f6f88; }                        /* 5.2:1 */
+.t-builtin  { color: #7a5c12; }                        /* 5.0:1 */
+.t-call     { color: #7a5c12; }
+.t-punct    { color: var(--ink-2); }
+
+/* **Money gets its own colour, and that is not decoration.** An exact scaled decimal is the
+ * language's whole argument, and `$19.99` being visibly not-a-float in every snippet is the cheapest
+ * teaching this site does. 5.4:1, and heavier than a plain number on purpose. */
+.t-money    { color: #0a6b4a; font-weight: 600; }
+
+/* A spelling that does not compile — `fn`, `mut`, `struct`, `record`. The site already has a colour
+ * for the idea of a refusal, so this uses it rather than inventing a second one. */
+.t-invalid  { color: var(--refuse); text-decoration: underline wavy var(--refuse); text-underline-offset: 3px; }
+
+/* ---- BMX ------------------------------------------------------------------------------------- */
+
+/* The block construct. One colour for the fence and its name, because they are one thing. */
+.t-fence    { color: #a318b0; font-weight: 600; }
+.t-name     { color: #1f6f88; font-weight: 600; }
+
+/* **A head is the host's, and it is styled as unclaimed rather than as nothing.** The grammar leaves
+ * `meta.block.head.bmx` uncoloured so a host can inject; here there is no host, so it takes the
+ * ordinary ink — which is honest: on this site nobody has claimed it. */
+.t-head     { color: var(--ink); }
+.t-class    { color: #7a5c12; }                        /* `.featured` — BMX's business, per §4a */
+.t-id       { color: #7a5c12; font-weight: 600; }      /* `#plans` — at most one, so it reads heavier */
+
+/* The slot: the typed hole, and the reason the format exists. The braces are BMX's and the
+ * expression is the host's, so they are coloured differently — the same split the grammar makes. */
+.t-slot-mark { color: #a318b0; font-weight: 600; }
+.t-slot      { color: #1f6f88; }
+
+.t-heading  { color: var(--ink); font-weight: 700; }
+.t-strong   { color: var(--ink); font-weight: 700; }
+.t-em       { color: var(--ink); font-style: italic; }
+.t-quote    { color: var(--ink-2); font-style: italic; }
+.t-raw      { color: var(--ink-2); }                   /* a fenced block's content is never parsed */
+.t-info     { color: #1f6f88; }                        /* its info string, per markdown's convention */
+.t-escape   { color: #a31515; font-weight: 600; }
+.t-link      { color: var(--accent); text-decoration: underline; }
+.t-link-text { color: var(--ink); }
+
+/* Print: colour on paper is unreliable and expensive, and code has to stay legible without it. */
+@media print {
+  [class^="t-"], [class*=" t-"] { color: #000 !important; text-decoration: none !important; }
+  .t-comment { font-style: italic; }
+  .t-keyword, .t-fence, .t-slot-mark, .t-heading, .t-strong { font-weight: 700; }
+}

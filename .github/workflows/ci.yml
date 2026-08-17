@@ -47,6 +47,23 @@ jobs:
           npm install --silent vscode-textmate vscode-oniguruma
           node editors/vscode/test/scopes.mjs
 
+      # **The site and the editor must colour a character the same way.** `docs/assets/code.js`
+      # paints code blocks on the site and the grammar paints them in an editor — two programs, and
+      # nothing but this stops them drifting, at which point a reader learns one set of colours from
+      # the documentation and meets another the moment they open a file.
+      #
+      # It runs over the documentation's OWN snippets, because the divergence that matters is one a
+      # reader can see. It found five real bugs on its first run.
+      - name: The site's colours and the editor's agree
+        run: node editors/vscode/test/agrees.mjs
+
+      # A .vsix nobody built is a .vsix that does not package — and the file list in pack.py is
+      # written out rather than globbed, so a missing entry is only found by packaging.
+      - name: The extension packages
+        run: |
+          python3 editors/vscode/pack.py
+          python3 -c "import zipfile,sys; z=zipfile.ZipFile('editors/vscode/bmx-0.1.0.vsix'); need=['[Content_Types].xml','extension.vsixmanifest','extension/package.json','extension/syntaxes/bmx.tmLanguage.json','extension/icon.png']; miss=[n for n in need if n not in z.namelist()]; sys.exit(f'missing {miss}') if miss else None; sys.exit('corrupt') if z.testzip() else print('vsix ok')"
+
       # A page that documents `{{` is a page Jekyll reads as Liquid, so every doc wraps its body
       # in {% raw %}. An UNCLOSED one is worse than a missing one: the missing case fails on the
       # brace it could not parse, the unclosed case fails on the tag and takes the whole site with

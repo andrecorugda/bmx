@@ -109,6 +109,34 @@ prints. **The LSP protocol is zero-based**, so subtract one when you build a `Po
 no error recovery, so there is no second structural error to report. A host that wants a list wants
 recovery, and §7 names the trigger for adding it.
 
+## Colouring code blocks on a website
+
+The same decisions, for a documentation site: **`docs/assets/code.js` and `docs/assets/code.css`
+colour `burxt` and `bmx` code blocks**, and they are a portable pair — two files, no build step, no
+dependencies.
+
+They exist because Jekyll's highlighter is Rouge and Rouge knows neither language, so a ```burxt
+block ships as plain grey text next to a ```js block in full colour. Every page teaching either
+language was showing its own language as the unhighlighted one.
+
+To adopt them on another site, copy both files and add two lines to your layout:
+
+```html
+<link rel="stylesheet" href="/assets/code.css">
+<script src="/assets/code.js" defer></script>
+```
+
+**And the claim that the site matches the editor is checked, not asserted.**
+`editors/vscode/test/agrees.mjs` tokenises every ```bmx snippet in the documentation with the real
+TextMate grammar *and* with the site highlighter, and compares them character by character. It found
+five real bugs on its first run — slots invisible inside a heading, a quote and a strong run; a head
+swallowing the space before it; and emphasis markers coloured as emphasis instead of punctuation.
+
+Two things it deliberately does not compare, each for a stated reason: **whitespace**, because a
+colour on a space cannot be seen, and **documents that do not parse**, because BMX refuses those and
+neither tool defines a colour for text with no valid reading — the guide contains broken documents on
+purpose.
+
 ## Running the tests
 
 ```sh
@@ -125,11 +153,21 @@ Both of those assertions were checked by deliberately breaking the grammar and c
 
 ## Installing
 
-VS Code, from a checkout:
+VS Code:
 
 ```sh
-ln -s "$PWD/editors/vscode" ~/.vscode/extensions/bmx
+code --install-extension editors/vscode/bmx-0.1.0.vsix
 ```
+
+Build it yourself from a checkout — no npm, no `vsce`, no toolchain:
+
+```sh
+python3 editors/vscode/pack.py
+```
+
+A symlink works too (`ln -s "$PWD/editors/vscode" ~/.vscode/extensions/bmx`) and is fine while you
+are editing the grammar, but an installed extension is registered, versioned and uninstallable
+through the normal UI.
 
 Helix and Neovim configurations are in their directories, each a few lines.
 

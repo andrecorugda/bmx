@@ -12,6 +12,10 @@
      keep the diff against upstream readable when it is updated. -->
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/site.css">
 <link rel="stylesheet" href="{{ site.baseurl }}/assets/bmx.css">
+<!-- Token colours for `burxt` and `bmx` blocks. Rouge knows neither language, so without this
+     pair every snippet of the language this site teaches is grey next to somebody else's in
+     colour. `code.css` + `code.js` are portable to the other two sites as a unit. -->
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/code.css">
 {%- if site.has_branding %}
 <link rel="icon" href="{{ site.baseurl }}/assets/favicon.ico">
 <link rel="apple-touch-icon" href="{{ site.baseurl }}/assets/bmx-favicon-180.png">
@@ -146,5 +150,6 @@
 <div class="scrim" data-close hidden></div>
 
 <script src="{{ site.baseurl }}/assets/site.js" defer></script>
+<script src="{{ site.baseurl }}/assets/code.js" defer></script>
 </body>
 </html>
