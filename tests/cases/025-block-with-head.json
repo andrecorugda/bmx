@@ -1,1 +1,1 @@
-{"type":"document","children":[{"type":"block","name":"for","head":"line in order.lines","offset":8,"children":[{"type":"list","ordered":false,"items":[{"type":"item","children":[{"type":"slot","expression":"line.sku","offset":33}],"offset":28}],"offset":28}]}]}
+{"type":"document","children":[{"type":"block","name":"for","head":"line in order.lines","offset":0,"head_offset":8,"children":[{"type":"list","ordered":false,"items":[{"type":"item","children":[{"type":"slot","expression":"line.sku","offset":33}],"offset":28}],"offset":28}]}]}

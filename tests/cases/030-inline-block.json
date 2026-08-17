@@ -1,1 +1,1 @@
-{"type":"document","children":[{"type":"paragraph","children":[{"type":"text","value":"Press "},{"type":"inline_block","name":"key","head":"Ctrl+S","offset":12},{"type":"text","value":" to save."}],"offset":0}]}
+{"type":"document","children":[{"type":"paragraph","children":[{"type":"text","value":"Press "},{"type":"inline_block","name":"key","head":"Ctrl+S","offset":6,"head_offset":12},{"type":"text","value":" to save."}],"offset":0}]}

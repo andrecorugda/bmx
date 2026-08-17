@@ -101,7 +101,7 @@ way to the tag, so a template cannot quietly round `£4.947525` to two places on
 promised — around sixty documents paired with exactly what each should produce, plus two independent
 implementations run against each other.
 
-BMX is **0.3**, and honest about what that means: both implementations have one author, so they
+BMX is **0.4**, and honest about what that means: both implementations have one author, so they
 catch mistakes and not ambiguity. [Why documents agree](promise.html) is the short version, and it
 says plainly what would have to happen for this to be 1.0.
 

@@ -177,7 +177,8 @@ function parseInline(text, base) {
         type: 'inline_block',
         name,
         head: text.slice(open + 1, shut),
-        offset: base + open + 1,
+        offset: base + i,
+        head_offset: base + open + 1,
       })
       i = shut + 3
       continue
@@ -325,7 +326,8 @@ function parseBlocks(rows, from, depth) {
         type: 'block',
         name,
         head,
-        offset: headOffset,
+        offset: row.offset,
+        head_offset: headOffset,
         children: body,
       })
       i = end + 1

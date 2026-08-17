@@ -48,6 +48,26 @@ fifty-six matched. So thirty-one files changed and **zero documents changed mean
 fact rather than an intention. The first version of that check stripped `offset` unconditionally and
 reported fourteen false alarms on the slot and block cases, which already had one.
 
+## 0.4 is the worked example of a major that FIXES a major
+
+0.3 gave eight node types an `offset` and described it as *"the first byte the author wrote for that
+construct"*. That sentence was false for `block` and `inline_block`, whose `offset` was their head's
+— so one field name meant two things, in the release that introduced the description.
+
+0.4 makes it true: a block's `offset` is its fence, and its head keeps a position under
+`head_offset`. Ten expectations edited, so a major by the rule, and **it is a major to undo a
+mistake in the previous major** — which is the honest version rather than documenting the
+inconsistency as a quirk and leaving the next consumer to find it.
+
+**How it was checked**, since the previous release's lesson was that regenerating hides things: every
+expectation was compared field by field against 0.3's, requiring `head_offset` to equal the old
+`offset` on exactly those two types and *nothing else to differ*. Ten files changed and nothing moved
+that was not meant to.
+
+Worth naming because it is the general shape: **a field that means one thing on most nodes and
+another on two is worse than a field that is absent**, because the consumer who reads the description
+is the one who gets it wrong.
+
 ## An implementation's version is not this version
 
 The rule above versions **the format**. A library that parses BMX has a second surface the format

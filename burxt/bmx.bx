@@ -87,7 +87,7 @@ public class BmxLink { target: String, children: [Bmx], offset: Int }
 // Inline content.
 // An inline block — `::key[Ctrl+S]::`. NOT a slot: a slot's value is escaped and this is a call
 // to something the host declared, so the two look different because they ARE different.
-public class BmxInline { name: String, head: String, offset: Int }
+public class BmxInline { name: String, head: String, offset: Int, head_offset: Int }
 
 public enum Bmx {
     Text(String),
@@ -111,7 +111,7 @@ public class BmxWords { children: [Bmx], offset: Int }
 // somewhere a `match` cannot see it.
 // A block — the format's one extension point for structure. `head` is captured and NEVER parsed,
 // exactly like a slot's expression: what `for line in order.lines` means is the host's business.
-public class BmxBlock { name: String, head: String, offset: Int, children: [Block] }
+public class BmxBlock { name: String, head: String, offset: Int, head_offset: Int, children: [Block] }
 
 public enum Block {
     Heading(BmxHeading),
@@ -401,7 +401,8 @@ function bmx_parse_inline(text: String, base: Int) -> Result<[Bmx], String> {
                             let added: Int = push(out, Bmx.InlineBlock(BmxInline {
                                 name: name,
                                 head: substring(text, open + 1, shut - open - 1),
-                                offset: base + open + 1,
+                                offset: base + i,
+                                head_offset: base + open + 1,
                             }));
                             i = shut + 3;
                         } else {
@@ -619,7 +620,8 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
                         let added: Int = push(out, Block.Fenced(BmxBlock {
                             name: name,
                             head: head,
-                            offset: line.offset + fence + stop + pad,
+                            offset: line.offset,
+                            head_offset: line.offset + fence + stop + pad,
                             children: kids,
                         }));
                         i = end + 1;
@@ -826,6 +828,7 @@ function bmx_inline_json(nodes: [Bmx]) -> Json {
                     json_field("name", json_text(call.name)),
                     json_field("head", json_text(call.head)),
                     json_field("offset", json_int(call.offset)),
+                    json_field("head_offset", json_int(call.head_offset)),
                 ]));
             }
         }
@@ -894,6 +897,7 @@ function bmx_json_children(blocks: [Block]) -> Json {
                     json_field("name", json_text(fenced.name)),
                     json_field("head", json_text(fenced.head)),
                     json_field("offset", json_int(fenced.offset)),
+                    json_field("head_offset", json_int(fenced.head_offset)),
                     json_field("children", bmx_json_children(fenced.children)),
                 ]));
             }

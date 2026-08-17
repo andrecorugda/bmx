@@ -6,7 +6,7 @@ title: Writing a document
 {% raw %}
 # Writing a document
 
-Every construct BMX 0.3 has, what it renders to, and the rule that decides it. **Every HTML
+Every construct BMX 0.4 has, what it renders to, and the rule that decides it. **Every HTML
 sample on this page was produced by running a real renderer, not typed by hand.**
 
 If you know markdown you already know most of this. The differences are deliberate and there are
@@ -58,7 +58,7 @@ that changes the output cannot be reviewed.
 - **Numbers are content, not instructions.** A list written `1. 1. 1.` renders as `1. 1. 1.` —
   nothing renumbers, because a format whose output does not match its source is a format you
   cannot review.
-- **List nesting is not in 0.3.** An indented line is an error rather than a guess. (Blocks
+- **List nesting is not in 0.4.** An indented line is an error rather than a guess. (Blocks
   nest — see below — lists do not.)
 
 ### Quotes
@@ -70,7 +70,7 @@ that changes the output cannot be reviewed.
 
 → `<blockquote>A quotation\nover two lines</blockquote>`
 
-No nested quotes in 0.3.
+No nested quotes in 0.4.
 
 ### Code blocks
 

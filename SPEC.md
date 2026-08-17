@@ -1,4 +1,4 @@
-# BMX 0.3 — the grammar
+# BMX 0.4 — the grammar
 
 **BMX is markdown with one unambiguous reading and a typed hole in it.**
 
@@ -85,7 +85,7 @@ exactly one space after the marker. Consecutive item lines form one list. A blan
 - An ordered list's numbers are **content, not instructions**: a renderer emits them as written.
   A list numbered `1. 1. 1.` renders as `1. 1. 1.`, because a format that silently renumbers is
   a format whose output does not match its source.
-- A list item's content is inline content. **List nesting is not in 0.3** — a line beginning with
+- A list item's content is inline content. **List nesting is not in 0.4** — a line beginning with
   spaces then `- ` is `BMX-E012`, refused rather than guessed at, and the trigger for adding it
   is a real document that needs it.
 
@@ -116,7 +116,7 @@ lines of content, then exactly three backticks at the start of a line.
 ```
 
 `> ` at the start of a line. Consecutive lines form one quote; the content of each is inline
-content. **No nested quotes in 0.3** — `> > ` is `BMX-E012`.
+content. **No nested quotes in 0.4** — `> > ` is `BMX-E012`.
 
 ## 3. Inline content
 
@@ -306,13 +306,27 @@ implementation may build whatever it likes in memory.
 | `emphasis` \| `strong` \| `link` | `children`, `offset`; `link` also `target` |
 | `code_span` | `value` |
 | `slot` | `expression`, `offset` |
-| `block` | `name`, `head`, `offset` (of the head), `children` |
-| `inline_block` | `name`, `head`, `offset` |
+| `block` | `name`, `head`, `offset`, `head_offset`, `children` |
+| `inline_block` | `name`, `head`, `offset`, `head_offset` |
 
 **Every node except `text` and `code_span` carries an `offset`, and it is the byte index of the
 first byte the author wrote for that construct** — the `#` of a heading, the `-` of a list item, the
-first `*` of a strong run, the `[` of a link. A slot's is the exception it always was: the first byte
-of the *trimmed expression*, per §4.
+first `*` of a strong run, the `[` of a link, the first `:` of a block's fence.
+
+**One field name means one thing, and 0.3 shipped with it meaning two.** In 0.3 a `block`'s and an
+`inline_block`'s `offset` was the position of the *head*, while the eight types 0.3 added used the
+start of the construct — so the sentence above was false for exactly those two, and it was written in
+0.3 by the person who moved them. It cost a consumer a measurement: a refusal about a block reported
+a column pointing past the end of what was wrong, and worst on a block with no head at all, where
+"the start of the head" is the newline after it.
+
+So a block's `offset` is its fence and its `head_offset` is its head — both, because a host
+highlighting or reporting on a head genuinely needs that position and it is not recoverable from the
+fence.
+
+A slot keeps the one real exception, and it is stated rather than implied: **a slot's `offset` is the
+first byte of the *trimmed expression***, per §4, not of the `{{`. That is deliberate — the host is
+handed the expression and must be able to point inside it.
 
 Two nodes have none on purpose. `text` and `code_span` are the leaves a host never reports against:
 a diagnostic points at the construct that is wrong, and "your text is wrong" is not a diagnostic.
@@ -339,7 +353,7 @@ others.
 | `BMX-E004` | unterminated link |
 | `BMX-E010` | tab in significant whitespace |
 | `BMX-E011` | malformed heading |
-| `BMX-E012` | list or quote nesting, which 0.3 does not have (blocks nest — see §4a.2) |
+| `BMX-E012` | list or quote nesting, which 0.4 does not have (blocks nest — see §4a.2) |
 | `BMX-E020` | unterminated code span |
 | `BMX-E021` | invalid escape |
 | `BMX-E022` | empty slot expression |
@@ -353,7 +367,7 @@ A conforming parser **stops at the first error**. Recovery is a later question a
 one — an editor wants every error at once — but recovery that differs between implementations is
 worse than no recovery.
 
-## 7. What 0.3 deliberately does not have
+## 7. What 0.4 deliberately does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons is a list somebody will "fix" at random.
