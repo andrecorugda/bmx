@@ -203,4 +203,61 @@ That is so a host can underline the text it is complaining about. It is the only
 exists, and getting it wrong is caught by the conformance suite: `023-slot-offset-survives-a-stripped-line`
 exists because an early implementation reported an offset three bytes early inside a multi-line
 paragraph, off by the trailing spaces stripped from an earlier line.
+## Warnings — it renders, and it is probably still wrong
+
+An error means BMX **refuses** the document. A warning means it rendered fine and a reader would
+still call it a mistake. Warnings never fail a build, because a linter that does is a linter people
+switch off.
+
+**All four are about structure**, which is the only kind of opinion BMX may hold: what is inside a
+head or a slot belongs to whatever renders the document, so there is no rule here about naming, about
+attributes, or about how a component ought to be written.
+
+### `BMX-W001` — a heading skips a level
+
+```bmx
+# One
+
+### Three
+```
+
+The outline a reader navigates by now has a gap in it, and a page looks identical either way — which
+is why this is worth a warning rather than a glance. Use `##`, or make the parent shallower.
+
+### `BMX-W002` — a block with no head and no body
+
+```bmx
+::: bare
+:::
+```
+
+It renders as nothing. Almost always an unfinished edit; the deliberate case — a self-contained block
+like `props` — has a head.
+
+### `BMX-W003` — a link with an empty target
+
+```bmx
+A [dead]() link.
+```
+
+An empty target points at the current page, which nobody means. Give it a target, or write the text
+without brackets.
+
+### `BMX-W004` — a fence longer than its nesting needs
+
+```bmx
+:::: card
+no nested block in here
+::::
+```
+
+A longer fence only means something when it **contains** a shorter one. Written without a reason it
+reads as significant and is not — and that is the kind of noise a reviewer stops seeing.
+
+## Where you see these
+
+Install the [editor extension](install.html) and they appear as you type. Under the hood it is
+`bmx-lsp`, which reports the refusal and these warnings and deliberately nothing else — completion
+and hover need to know what a block *means*, and that belongs to whatever is rendering your document.
+
 {% endraw %}

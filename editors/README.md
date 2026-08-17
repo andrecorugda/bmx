@@ -96,10 +96,25 @@ framework that wants its own panel, with its own blocks, calls it and adds what 
 
 ## Extending the diagnostics
 
-**The reusable half is in the library, not in a server**, and that is deliberate. Most editors let
-one language server own a file, so if BMX shipped a server and star shipped a server they would
-fight over `.bmx`. Instead BMX gives you the structural half as ordinary functions and **you ship one
-server that reports both.**
+**BMX ships a server AND the library half, and an earlier version of this page argued against the
+server on a fact that is wrong.** It said "most editors let one language server own a file", and
+concluded two servers would fight over `.bmx`.
+
+**Diagnostics are additive.** In VS Code each extension owns a *named* `DiagnosticCollection` and they
+merge in the Problems panel; helix and nvim both run several servers for one language. What genuinely
+conflicts is **formatting**, which neither this server nor a framework's needs to provide. So the
+conclusion never followed — and it left the common case, somebody writing `.bmx` with no framework at
+all, with no diagnostics in their editor.
+
+    editors/lsp/bmx-lsp.mjs     diagnostics over stdio. node, no dependencies.
+
+It reports a refusal and the lint warnings, and **nothing else on purpose**: no completion, because
+BMX does not know which blocks exist; no hover, because there is nothing it knows to say about
+`card`; no formatting, because reflowing a head means deciding what it means. Those are a host's, and
+a host's server publishes them alongside rather than instead.
+
+**The library half is still there and is still what you build on.** If you would rather ship one
+server that reports both halves, call these:
 
 ```burxt
 use "bmx/burxt/bmx.bx";

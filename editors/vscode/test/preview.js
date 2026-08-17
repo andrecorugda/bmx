@@ -15,11 +15,21 @@
 
 const Module = require('module');
 const path = require('path');
-const assert = require('assert');
+const fs = require('fs');
+
+// **Stage the renderer before loading the extension, every run.** `pack.py` copies
+// `reference/bmx.js` to `reference/bmx.mjs` here at package time, and that copy is gitignored — so a
+// checkout has none and a previous run leaves a STALE one. This test failed against exactly that: a
+// copy from before `lint` existed, reporting `module.lint is not a function`. Two copies of a parser
+// is how they drift, and re-staging is the cheap half of the fix.
+const staged = path.join(__dirname, '..', 'reference');
+fs.mkdirSync(staged, { recursive: true });
+fs.copyFileSync(path.join(__dirname, '..', '..', '..', 'reference', 'bmx.js'),
+                path.join(staged, 'bmx.mjs'));
 
 // ---- the smallest `vscode` extension.js actually uses ----
 const commands = new Map();
-const listeners = { change: [], switch: [] };
+const listeners = { change: [], switch: [], open: [], close: [] };
 let created = null;
 let messaged = null;
 let activeEditor = null;
@@ -33,8 +43,28 @@ const panelStub = () => ({
   dispose: null,
 });
 
+// A named collection is what lets this coexist with a framework's server, so the stub records the
+// name it was created with and every set/delete — the behaviour, not just the calls.
+const published = new Map();
+let collectionName = null;
+
 const vscode = {
   ViewColumn: { Beside: 2 },
+  Range: class { constructor(start, end) { this.start = start; this.end = end } },
+  Position: class { constructor(line, character) { this.line = line; this.character = character } },
+  Diagnostic: class { constructor(range, message, severity) {
+    this.range = range; this.message = message; this.severity = severity } },
+  DiagnosticSeverity: { Error: 0, Warning: 1 },
+  languages: {
+    createDiagnosticCollection: (name) => {
+      collectionName = name;
+      return {
+        set: (uri, list) => published.set(uri.toString(), list),
+        delete: (uri) => published.delete(uri.toString()),
+        dispose() {},
+      };
+    },
+  },
   commands: { registerCommand: (id, fn) => { commands.set(id, fn); return { dispose() {} }; } },
   window: {
     get activeTextEditor() { return activeEditor; },
@@ -43,8 +73,11 @@ const vscode = {
     onDidChangeActiveTextEditor: (cb) => { listeners.switch.push(cb); return { dispose() {} }; },
   },
   workspace: {
+    textDocuments: [],
     getConfiguration: () => ({ get: (key) => config[key] }),
     onDidChangeTextDocument: (cb) => { listeners.change.push(cb); return { dispose() {} }; },
+    onDidOpenTextDocument: (cb) => { listeners.open.push(cb); return { dispose() {} }; },
+    onDidCloseTextDocument: (cb) => { listeners.close.push(cb); return { dispose() {} }; },
   },
 };
 
@@ -126,6 +159,34 @@ async function main() {
   const before = created;
   await commands.get('bmx.preview')();
   check('a second invocation reveals the same panel', created === before && before.revealed >= 1);
+
+  // ---- diagnostics, which is the half a framework must be able to coexist with ----
+  check('the diagnostic collection is NAMED, so a host\'s server can publish too',
+    collectionName === 'bmx', String(collectionName));
+
+  const broken = doc('Your balance is **£240.00\n', 'broken.bmx');
+  await listeners.open[0](broken);
+  const one = published.get(broken.uri.toString()) || [];
+  check('a broken document gets one error', one.length === 1 && one[0].severity === 0,
+    JSON.stringify(one.map((d) => [d.code, d.severity])));
+  check('the squiggle covers the rest of the line, not one character',
+    one[0] && one[0].range.end.character > one[0].range.start.character + 1,
+    JSON.stringify(one[0]?.range));
+
+  const linty = doc('# One\n\n### Three\n', 'lint.bmx');
+  await listeners.open[0](linty);
+  const warns = published.get(linty.uri.toString()) || [];
+  check('a document that parses gets warnings at Warning severity',
+    warns.length === 1 && warns[0].code === 'BMX-W001' && warns[0].severity === 1,
+    JSON.stringify(warns.map((d) => [d.code, d.severity])));
+
+  listeners.close[0](linty);
+  check('closing clears them, so a problem cannot outlive its file',
+    !published.has(linty.uri.toString()));
+
+  const fine = doc('# Fine\n', 'fine.bmx');
+  await listeners.open[0](fine);
+  check('a clean document publishes an empty list', (published.get(fine.uri.toString()) || []).length === 0);
 
   console.log();
   if (failures) { console.log(`${failures} failed`); process.exit(1); }

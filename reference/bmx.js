@@ -443,6 +443,138 @@ function parseBlocks(rows, from, depth) {
   return [children, i]
 }
 
+// ---- lint: what parses and is still probably wrong ---------------------------
+//
+// **A linter for a format has one hard boundary and it is the same one as everything else.** BMX
+// owns structure; a head's contents and a slot's expression are the host's. So there is no rule here
+// about naming, about whether `on:click` should be there, or about how a component ought to be
+// written — those are opinions only a host can hold, and a linter that held them would be the format
+// acquiring a runtime by the back door.
+//
+// What is left is small, and that is the honest size rather than a first instalment. Each rule below
+// is about the DOCUMENT: something the parser accepts and a reader would still call a mistake.
+//
+// Warnings, never errors. An error means BMX refuses the document; these all render fine. A linter
+// that fails a build is a linter people turn off.
+
+const LINTS = [
+  {
+    code: 'BMX-W001',
+    // A heading level skip breaks the document outline, which is what a screen reader navigates by
+    // and what a table of contents is built from. Structural, and invisible when you look at a page.
+    check(blocks, source, warn) {
+      let previous = 0
+      for (const block of blocks) {
+        if (block.type !== 'heading') continue
+        if (previous && block.level > previous + 1) {
+          warn(block.offset,
+            `a heading jumps from level ${previous} to ${block.level}. The outline a reader ` +
+            `navigates by has a gap in it — use h${previous + 1}, or make the parent shallower.`)
+        }
+        previous = block.level
+      }
+    },
+  },
+  {
+    code: 'BMX-W002',
+    // A block with no body renders as an empty element. It is almost always an unfinished edit, and
+    // the one case where it is deliberate — a self-contained component like `props` — has a head.
+    check(blocks, source, warn) {
+      const walk = (list) => {
+        for (const block of list) {
+          if (block.type === 'block') {
+            if (block.children.length === 0 && block.head.trim() === '') {
+              warn(block.offset,
+                `\`${block.name}\` has no head and no body, so it renders as nothing. ` +
+                `Give it content, give it a head, or delete it.`)
+            }
+            walk(block.children)
+          }
+        }
+      }
+      walk(blocks)
+    },
+  },
+  {
+    code: 'BMX-W003',
+    // An empty link target is a link to the current page, which is never what anybody meant.
+    check(blocks, source, warn) {
+      const inline = (nodes) => {
+        for (const node of nodes) {
+          if (node.type === 'link' && node.target.trim() === '') {
+            warn(node.offset, 'a link with an empty target points at the current page. ' +
+              'Give it a target, or write the text without brackets.')
+          }
+          if (node.children) inline(node.children)
+        }
+      }
+      const walk = (list) => {
+        for (const block of list) {
+          if (block.children) block.type === 'block' ? walk(block.children) : inline(block.children)
+          if (block.items) for (const item of block.items) inline(item.children)
+        }
+      }
+      walk(blocks)
+    },
+  },
+  {
+    code: 'BMX-W004',
+    // A fence longer than three only means something when it CONTAINS a shorter one. Written without
+    // a reason it reads as significant and is not, which is the kind of noise a reviewer stops seeing.
+    check(blocks, source, warn) {
+      const walk = (list) => {
+        for (const block of list) {
+          if (block.type !== 'block') continue
+          const line = source.slice(block.offset)
+          const fence = /^:+/.exec(line)
+          const nested = block.children.some((child) => child.type === 'block')
+          if (fence && fence[0].length > 3 && !nested) {
+            warn(block.offset,
+              `a ${fence[0].length}-colon fence contains no block, so it means the same as three. ` +
+              'A longer fence is how nesting is expressed — using one without nesting hides that.')
+          }
+          walk(block.children)
+        }
+      }
+      walk(blocks)
+    },
+  },
+]
+
+/**
+ * Everything a linter can say about a document that PARSES.
+ *
+ * Returns `{ code, message, offset, line, column }` objects, in document order. A document that does
+ * not parse has one error and no warnings — there is nothing to lint in a tree that does not exist,
+ * and reporting style notes about a broken document buries the reason it is broken.
+ */
+export function lint(source) {
+  let blocks
+  try {
+    blocks = parse(source).children
+  } catch (e) {
+    if (e instanceof BmxError) return []
+    throw e
+  }
+  const found = []
+  for (const rule of LINTS) {
+    rule.check(blocks, source, (offset, message) => {
+      found.push({ code: rule.code, message, offset, ...at(source, offset) })
+    })
+  }
+  return found.sort((a, b) => a.offset - b.offset)
+}
+
+/** A byte offset as a line and a CHARACTER column, both one-based. */
+export function at(source, offset) {
+  const upto = source.slice(0, Math.max(0, Math.min(offset, source.length)))
+  const line = upto.split('\n').length
+  const lastBreak = upto.lastIndexOf('\n') + 1
+  // Characters, not bytes — a byte column is right on every ASCII line and wrong on the first line
+  // with an accent in it. The same decision `bmx_where` makes on the Burxt side.
+  return { line, column: [...upto.slice(lastBreak)].length + 1 }
+}
+
 // ---- level 1: rendering ------------------------------------------------------
 //
 // **This existed as a claim before it existed as code.** `README.md` listed this file as "1 —

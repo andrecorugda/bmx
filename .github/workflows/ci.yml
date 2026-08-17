@@ -57,6 +57,16 @@ jobs:
       - name: The site's colours and the editor's agree
         run: node editors/vscode/test/agrees.mjs
 
+      # **Every failure mode of a language server is a silence.** A wrong Content-Length, a frame
+      # split across two chunks, a request answered with nothing — the editor does not error, it just
+      # stops showing diagnostics, and the author concludes the extension is broken. So the framing is
+      # exercised deliberately, including the split-frame case that only appears under load.
+      #
+      # Two assertions in there are the ones everybody gets wrong: LSP positions are ZERO-based, and
+      # the column counts characters. Both were confirmed by breaking them and watching the test fail.
+      - name: The language server says what it should, in the right coordinates
+        run: node editors/lsp/test/protocol.mjs
+
       # **The failure modes of a preview all look fine in a diff**: a command under the wrong id, a
       # panel that renders once and never again, an error path that shows a blank page instead of the
       # reason. VS Code cannot be scripted here; extension.js can, against a stub `vscode`.

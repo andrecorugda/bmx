@@ -17,6 +17,9 @@
 const vscode = require('vscode');
 const path = require('path');
 
+/** Problems for `.bmx` files. A NAMED collection, which is why this cannot conflict with a host's. */
+let problems = null;
+
 /** The panel, if one is open. One preview, retargeted — not one per document. */
 let panel = null;
 let showing = null; // the uri the panel is currently rendering
@@ -63,13 +66,69 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/** The reference implementation, imported once and cached by the loader. */
+async function bmx() {
+  return import(require('url').pathToFileURL(path.join(__dirname, 'reference', 'bmx.mjs')).href);
+}
+
+// ---- diagnostics ------------------------------------------------------------------------------
+//
+// **Computed here rather than through a language server, and that is not a shortcut.** The server in
+// `editors/lsp/` exists for editors that need one — helix, nvim — and speaking LSP to ourselves
+// inside VS Code would mean a second process, a client dependency, and framing to get wrong, for
+// diagnostics we can publish directly. Both paths call the same `parse` and `lint`, so they cannot
+// disagree about a document.
+//
+// A NAMED `DiagnosticCollection` is what makes this safe beside a framework's own server: VS Code
+// merges collections rather than letting one own a file. That fact is why this extension has
+// diagnostics at all — an earlier version of `editors/README.md` argued the opposite and was wrong.
+
+async function check(document) {
+  if (!problems || !document || document.languageId !== 'bmx') return;
+  const module = await bmx();
+  const text = document.getText();
+  const found = [];
+
+  const range = (line, column, length) => new vscode.Range(
+    // `at` answers one-based, because that is what a human reads. VS Code is zero-based.
+    new vscode.Position(line - 1, column - 1),
+    new vscode.Position(line - 1, column - 1 + length),
+  );
+
+  try {
+    module.parse(text);
+  } catch (e) {
+    if (!(e instanceof module.BmxError)) throw e;
+    const { line, column } = module.at(text, e.offset);
+    const lines = text.split('\n');
+    // The rest of the line, not one character: an unterminated `**` is reported where it opened and
+    // the problem is everything after it, so a one-byte squiggle points at the wrong thing.
+    const length = Math.max(1, (lines[line - 1] || '').length - (column - 1));
+    const d = new vscode.Diagnostic(range(line, column, length),
+      e.message.replace(/^\S+ at \d+: /, ''), vscode.DiagnosticSeverity.Error);
+    d.code = e.code;
+    d.source = 'bmx';
+    found.push(d);
+    // A document with no tree has nothing to lint, and style notes beside a refusal bury it.
+    problems.set(document.uri, found);
+    return;
+  }
+
+  for (const w of module.lint(text)) {
+    const d = new vscode.Diagnostic(range(w.line, w.column, 1), w.message,
+      vscode.DiagnosticSeverity.Warning);
+    d.code = w.code;
+    d.source = 'bmx';
+    found.push(d);
+  }
+  problems.set(document.uri, found);
+}
+
 async function render(document) {
   // The reference implementation is an ES module; `require` cannot load one, so it is imported.
   // Cached by the loader after the first call, so this is not a per-keystroke cost. `.mjs` because
   // this extension is CommonJS, and a `.js` ES module inside it makes Node reparse and warn.
-  const module = await import(
-    require('url').pathToFileURL(path.join(__dirname, 'reference', 'bmx.mjs')).href
-  );
+  const module = await bmx();
   const title = path.basename(document.uri.fsPath);
   try {
     return page(module.render(document.getText(), bindings()), title, null);
@@ -88,6 +147,15 @@ async function paint(document) {
 }
 
 function activate(context) {
+  problems = vscode.languages.createDiagnosticCollection('bmx');
+  context.subscriptions.push(problems);
+
+  // Everything already open, then everything opened later.
+  vscode.workspace.textDocuments.forEach(check);
+  const onOpen = vscode.workspace.onDidOpenTextDocument(check);
+  // Cleared on close, or a problem outlives the file and cannot be found or dismissed.
+  const onClose = vscode.workspace.onDidCloseTextDocument((d) => problems.delete(d.uri));
+
   const open = vscode.commands.registerCommand('bmx.preview', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.languageId !== 'bmx') {
@@ -108,7 +176,8 @@ function activate(context) {
 
   // Live, because a preview you have to refresh is a build step with a nicer name.
   const onChange = vscode.workspace.onDidChangeTextDocument((e) => {
-    if (panel && e.document.uri.toString() === showing) return paint(e.document);
+    const painted = panel && e.document.uri.toString() === showing ? paint(e.document) : null;
+    return Promise.all([painted, check(e.document)]);
   });
 
   // Follow the active editor, so opening a second document does not leave the panel lying.
@@ -116,7 +185,7 @@ function activate(context) {
     if (panel && editor && editor.document.languageId === 'bmx') return paint(editor.document);
   });
 
-  context.subscriptions.push(open, onChange, onSwitch);
+  context.subscriptions.push(open, onOpen, onClose, onChange, onSwitch);
 }
 
 function deactivate() {}

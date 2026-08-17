@@ -1,13 +1,16 @@
 # Helix: append to ~/.config/helix/languages.toml
 #
-# No language server: see editors/README.md — BMX gives a host the structural
-# diagnostics as library functions rather than shipping a server that would
-# compete with the host's own for the same file.
+# Diagnostics come from `bmx-lsp`, which needs node and nothing else.
+
+[language-server.bmx-lsp]
+command = "node"
+args = ["/path/to/bmx/editors/lsp/bmx-lsp.mjs"]
 
 [[language]]
 name = "bmx"
 scope = "text.bmx"
 file-types = ["bmx"]
 comment-token = "<!--"
+language-servers = ["bmx-lsp"]
 indent = { tab-width = 2, unit = "  " }
 soft-wrap = { enable = true }
