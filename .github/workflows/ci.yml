@@ -81,6 +81,13 @@ jobs:
       #
       # Two assertions in there are the ones everybody gets wrong: LSP positions are ZERO-based, and
       # the column counts characters. Both were confirmed by breaking them and watching the test fail.
+      # `language-configuration.json` had nothing testing it for four releases, and its folding markers
+      # and onEnter rule were keyed on 0.6's `:{3,}` — so folding a block silently stopped working when
+      # the fence was respelled. The grammar, the server and the preview all had tests; the file that
+      # decides how the editor BEHAVES did not.
+      - name: The editor behaves the way the format reads
+        run: node editors/vscode/test/config.mjs
+
       - name: The language server says what it should, in the right coordinates
         run: node editors/lsp/test/protocol.mjs
 

@@ -1,42 +1,90 @@
 {
   "comments": {
-    "blockComment": ["<!--", "-->"]
+    "blockComment": [
+      "<!--",
+      "-->"
+    ]
   },
   "brackets": [
-    ["{{", "}}"],
-    ["[", "]"],
-    ["(", ")"]
+    [
+      "{{",
+      "}}"
+    ],
+    [
+      "[",
+      "]"
+    ],
+    [
+      "(",
+      ")"
+    ]
   ],
   "autoClosingPairs": [
-    { "open": "{{", "close": " }}" },
-    { "open": "[", "close": "]" },
-    { "open": "(", "close": ")" },
-    { "open": "`", "close": "`" },
-    { "open": "**", "close": "**" }
+    {
+      "open": "{{",
+      "close": " }}"
+    },
+    {
+      "open": "[",
+      "close": "]"
+    },
+    {
+      "open": "(",
+      "close": ")"
+    },
+    {
+      "open": "`",
+      "close": "`"
+    },
+    {
+      "open": "**",
+      "close": "**"
+    }
   ],
   "surroundingPairs": [
-    ["{{", "}}"],
-    ["[", "]"],
-    ["(", ")"],
-    ["`", "`"],
-    ["*", "*"]
+    [
+      "{{",
+      "}}"
+    ],
+    [
+      "[",
+      "]"
+    ],
+    [
+      "(",
+      ")"
+    ],
+    [
+      "`",
+      "`"
+    ],
+    [
+      "*",
+      "*"
+    ]
   ],
   "folding": {
     "markers": {
-      "start": "^\\s*:{3,}\\s*\\S",
-      "end": "^\\s*:{3,}\\s*$"
+      "start": "^\\s*:[A-Za-z][A-Za-z0-9_-]*:(?!.*:![A-Za-z][A-Za-z0-9_-]*:\\s*$)",
+      "end": "^\\s*:![A-Za-z][A-Za-z0-9_-]*:\\s*$",
+      "//": "Keyed on the NAMED fence. Until 0.8 these were `:{3,}`, so after the respelling folding a block silently stopped working \u2014 and nothing tested this file, which is why it took reading it to find. The lookahead excludes a one-liner: `:span: x :!span:` opens and closes on its line, so a fold starting there would never end."
     }
   },
   "onEnterRules": [
     {
-      "//": "Inside a block, stay inside it. The closing fence is already below, so a new line should not run out of the construct the author is working in.",
-      "beforeText": "^\\s*:{3,}[ \\t]*[A-Za-z]",
-      "action": { "indent": "none" }
+      "//": "Inside a block, stay inside it: the closer is already below, so a new line should not run out of the construct the author is working in. Also keyed on `:{3,}` until 0.8, and also silently dead after the respelling.",
+      "beforeText": "^\\s*:[A-Za-z][A-Za-z0-9_-]*:",
+      "action": {
+        "indent": "none"
+      }
     },
     {
       "//": "Continue a list, the way every markdown editor does.",
       "beforeText": "^\\s*([-*+])[ \\t]+\\S",
-      "action": { "indent": "none", "appendText": "- " }
+      "action": {
+        "indent": "none",
+        "appendText": "- "
+      }
     }
   ],
   "wordPattern": "[A-Za-z0-9_][A-Za-z0-9_.-]*"

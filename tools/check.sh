@@ -47,6 +47,7 @@ if [ -d editors/vscode/node_modules/vscode-textmate ]; then
 else
   printf '  \033[33mskip\033[0m  the grammar tests need `cd editors/vscode && npm install vscode-textmate vscode-oniguruma`\n'
 fi
+run "the editor behaves the way the format reads" node editors/vscode/test/config.mjs
 run "the language server says what it should, in the right coordinates" node editors/lsp/test/protocol.mjs
 run "the preview does what the button promises" bash -c '
   mkdir -p editors/vscode/reference &&

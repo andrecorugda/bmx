@@ -150,8 +150,7 @@ component you wrote are not three features. They are one feature used three time
 
 ### Nesting
 
-**A longer fence contains a shorter one** — the rule code fences already use, so there is nothing
-to count:
+**Blocks nest by name, so there is nothing to count** — each closer says what it closes:
 
 ```bmx
 :for: section in page.sections

@@ -478,7 +478,7 @@ others.
 | `BMX-E022` | empty slot expression |
 | `BMX-E030` | a block name that is not a name |
 | `BMX-E031` | unterminated block |
-| `BMX-E032` | a closing fence with no open block |
+| `BMX-E032` | a closer with no open block |
 | `BMX-E035` | a closer names a different block than the one open here. The message carries both positions |
 | `BMX-E036` | 0.6's `:::` fence, recognised only in order to refuse it by name and say what to run |
 | `BMX-E033` | a second `#id` on one block |

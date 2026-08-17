@@ -143,9 +143,9 @@ check(
   ["meta.slot.expression.bmx"],
 );
 
-// ---- nesting by fence length ----
+// ---- nesting by name ----
 check(
-  "a longer fence contains a shorter one",
+  "a block inside a block",
   ":for: s in page.sections\n:card: t\n:!card:\n:!for:\n",
   1,
   "card",

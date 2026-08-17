@@ -49,8 +49,7 @@ expect('another void element', ':hr:\n:!hr:\n', [])
 // Already exempt before the report, because a head carries the block's meaning.
 expect('an empty block WITH a head', ':input: on:input=Msg.Typed(value)\n:!input:\n', [])
 expect('props, which is a head and no body', ':props: order: Order\n:!props:\n', [])
-// A longer fence that is doing its job.
-expect('a longer fence that DOES contain a block',
+expect('a block that contains a block',
   ':outer:\n:inner:\nbody\n:!inner:\n:!outer:\n', [])
 expect('a real link', 'A [live](/page) link.\n', [])
 
