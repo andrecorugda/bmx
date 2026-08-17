@@ -33,6 +33,8 @@ run() {
 
 echo "the format, and both implementations of it"
 run "the reference implementation passes the suite" python3 tests/harness.py "node reference/bmx.js"
+run "no refusal tells an author to write what the format refuses" bash -c '
+  python3 tests/messages.py && python3 tests/messages.py --prove-it'
 run "indenting a document does not change it" bash -c '
   python3 tests/roundtrip.py "node reference/bmx.js" &&
   python3 tests/roundtrip.py "node reference/bmx.js" --prove-it'

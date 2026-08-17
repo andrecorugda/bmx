@@ -33,6 +33,16 @@ jobs:
       # conformance suite cannot, because every case in it was written by someone who believed the
       # rules. `--prove-it` is its negative control and runs in the same step: a check nobody has
       # watched fail is a check nobody has tested.
+      # **A message is the compiler talking, so one instructing something illegal is worse than one
+      # that says nothing** — you do as told, get a second refusal, and the two tools contradict each
+      # other. star-burxt shipped four of exactly that today. This reads every message site out of BOTH
+      # implementations rather than triggering the refusals, because a check that fires only the ones
+      # somebody remembered is the shape that let theirs through.
+      - name: No refusal tells an author to write what the format refuses
+        run: |
+          python3 tests/messages.py
+          python3 tests/messages.py --prove-it
+
       - name: Indenting a document does not change it
         run: |
           python3 tests/roundtrip.py "node reference/bmx.js"
