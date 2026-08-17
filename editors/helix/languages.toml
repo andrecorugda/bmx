@@ -1,0 +1,13 @@
+# Helix: append to ~/.config/helix/languages.toml
+#
+# No language server: see editors/README.md — BMX gives a host the structural
+# diagnostics as library functions rather than shipping a server that would
+# compete with the host's own for the same file.
+
+[[language]]
+name = "bmx"
+scope = "text.bmx"
+file-types = ["bmx"]
+comment-token = "<!--"
+indent = { tab-width = 2, unit = "  " }
+soft-wrap = { enable = true }

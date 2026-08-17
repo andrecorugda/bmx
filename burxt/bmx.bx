@@ -71,6 +71,7 @@ use "std/result.bx";
 use "std/string.bx";
 use "std/html.bx";
 use "std/json.bx";
+use "std/math.bx";
 
 // ---- the tree ------------------------------------------------------------------
 
@@ -127,6 +128,95 @@ public enum Block {
 // prefix without parsing our prose, which is the half of an error the format owns.
 pure function bmx_error(code: String, offset: Int, message: String) -> String {
     return code + " at " + to_string(offset) + ": " + message;
+}
+
+// ---- diagnostics, for editors and for hosts building on this ---------------------
+//
+// **`bmx_parse` answers a flat string, and that was enough for a command-line tool and is not
+// enough for anything else.** `"BMX-E002 at 16: unterminated strong"` forces every consumer — a
+// language server, a framework layering its own checks, a test harness — to re-parse BMX's own
+// error text to find out where the problem is. A format that hands out prose and asks for it back
+// parsed has moved work onto every host and kept none of it.
+//
+// So the same failure is available structured. The string form stays exactly as it was, because the
+// conformance suite compares on the `BMX-Ennn` prefix and hosts already print it.
+//
+// **Line and column are here rather than in each host for one reason: getting them wrong is
+// invisible.** A byte column looks right on every ASCII line and puts the caret in the wrong place
+// on the first line with an accent in it — and the host that writes it will test with ASCII. So the
+// column below counts CHARACTERS, and it is the same decision `char_at` and `substring` already
+// make in this language.
+//
+// One-based, both, because that is what an editor shows and what `burxt` itself prints —
+// `receipt.bmx:12:1`. **The LSP protocol wants zero-based**, so a server subtracts one; that is a
+// deliberate choice to match what a human reads rather than what one protocol encodes.
+
+public class BmxWhere { line: Int, column: Int }
+
+public class BmxDiagnostic { code: String, message: String, offset: Int, line: Int, column: Int }
+
+// Where a byte offset falls, in lines and CHARACTERS. Clamped rather than refusing: a diagnostic
+// about a broken document is the last place to fail on its own arithmetic.
+public pure function bmx_where(source: String, offset: Int) -> BmxWhere {
+    let mutable line: Int = 1;
+    let mutable last_break: Int = 0;
+    let mutable i: Int = 0;
+    let stop: Int = math_min(offset, len(source));
+    while i < stop {
+        if byte_at(source, i) == 10 {
+            line = line + 1;
+            last_break = i + 1;
+        }
+        i = i + 1;
+    }
+    // Characters, not bytes: `substring` takes byte offsets and `char_count` answers characters,
+    // which is exactly the pairing this needs.
+    // `substring` takes a start and a LENGTH, not two offsets — the refusal says so if you
+    // get it wrong, which is how this line was written the second time.
+    let before: String = substring(source, last_break, stop - last_break);
+    return BmxWhere { line: line, column: char_count(before) + 1 };
+}
+
+// The document's first structural problem, structured — or `None` if it parses.
+//
+// One rather than many, and that is §6 rather than laziness: BMX has no error recovery, so there
+// IS no second error to report. A host that wants a list is a host that wants recovery, and
+// `SPEC.md` §7 names the trigger for that.
+public function bmx_check(source: String) -> Option<BmxDiagnostic> {
+    match bmx_parse(source) {
+        Ok(blocks) => { return Option.None; }
+        Error(said) => { return Option.Some(bmx_parse_error(source, said)); }
+    }
+}
+
+// Split `BMX-Ennn at N: message` back into its parts and place it.
+//
+// **This exists because `bmx_parse` throws the structure away, and it is the honest fix rather than
+// the tidy one.** The tidy fix is to thread a diagnostic through every refusal in the parser, which
+// touches every error site and would be a major for anyone matching on `Result<[Block], String>`.
+// This recovers the three fields from a shape this file produces in exactly one place —
+// `bmx_error` — so the two cannot drift without a test noticing.
+// NOT `pure`, and not by choice: `string_to_int` is not declared `pure` in the standard library
+// though its body plainly is. Reported to Burxt as part of a batch — `json.bx` has zero pure
+// functions out of eighteen, including its one-line constructors. When those gain the marker this
+// becomes `pure function` and `bmx_check` can be called from a `pure` view.
+function bmx_parse_error(source: String, said: String) -> BmxDiagnostic {
+    let at: Int = string_find(said, " at ");
+    let colon: Int = string_find(said, ": ");
+    if at < 0 || colon < at {
+        return BmxDiagnostic { code: "BMX-E000", message: said, offset: 0, line: 1, column: 1 };
+    }
+    let code: String = substring(said, 0, at);
+    let offset: Int = string_to_int(substring(said, at + 4, colon - (at + 4)), 0);
+    let message: String = substring(said, colon + 2, len(said) - (colon + 2));
+    let where: BmxWhere = bmx_where(source, offset);
+    return BmxDiagnostic {
+        code: code,
+        message: message,
+        offset: offset,
+        line: where.line,
+        column: where.column,
+    };
 }
 
 // ---- scanning helpers ----------------------------------------------------------

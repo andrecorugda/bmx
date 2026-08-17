@@ -1,0 +1,43 @@
+{
+  "comments": {
+    "blockComment": ["<!--", "-->"]
+  },
+  "brackets": [
+    ["{{", "}}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  "autoClosingPairs": [
+    { "open": "{{", "close": " }}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "`", "close": "`" },
+    { "open": "**", "close": "**" }
+  ],
+  "surroundingPairs": [
+    ["{{", "}}"],
+    ["[", "]"],
+    ["(", ")"],
+    ["`", "`"],
+    ["*", "*"]
+  ],
+  "folding": {
+    "markers": {
+      "start": "^\\s*:{3,}\\s*\\S",
+      "end": "^\\s*:{3,}\\s*$"
+    }
+  },
+  "onEnterRules": [
+    {
+      "//": "Inside a block, stay inside it. The closing fence is already below, so a new line should not run out of the construct the author is working in.",
+      "beforeText": "^\\s*:{3,}[ \\t]*[A-Za-z]",
+      "action": { "indent": "none" }
+    },
+    {
+      "//": "Continue a list, the way every markdown editor does.",
+      "beforeText": "^\\s*([-*+])[ \\t]+\\S",
+      "action": { "indent": "none", "appendText": "- " }
+    }
+  ],
+  "wordPattern": "[A-Za-z0-9_][A-Za-z0-9_.-]*"
+}
