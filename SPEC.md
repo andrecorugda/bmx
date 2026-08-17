@@ -34,9 +34,15 @@ intent.
 classified, so these two documents have the same AST:
 
 ```
-:card: ::: card
-# Today                    # Today
-:::                      :::
+:card:
+# Today
+:!card:
+```
+
+```
+:card:
+  # Today
+:!card:
 ```
 
 A block already nests by **containment** — its opening and closing fences say where it ends. Letting
@@ -413,8 +419,12 @@ fence.
 because a host measured what its absence costs. These two:
 
 ```
-:span: class=text hello :!span:      :span: class=text hello
-                                     :!span:
+:span: class=text hello :!span:
+```
+
+```
+:span: class=text hello
+:!span:
 ```
 
 both carry `head: "class=text hello"` and no children. But they do not mean the same thing to a host:
