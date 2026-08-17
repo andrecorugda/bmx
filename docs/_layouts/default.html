@@ -44,9 +44,8 @@
 
   <span class="links">
     <a href="{{ site.baseurl }}/guide/01-your-first-document.html" class="{% if page.section == 'guide' %}here{% endif %}">Guide</a>
+    <a href="{{ site.baseurl }}/how-do-i.html"    class="{% if page.title == 'How do I…?' %}here{% endif %}">How do I…?</a>
     <a href="{{ site.baseurl }}/syntax.html"      class="{% if page.title == 'Writing a document' %}here{% endif %}">Syntax</a>
-    <a href="{{ site.baseurl }}/rendering.html"   class="{% if page.title == 'Turning it into a page' %}here{% endif %}">Rendering</a>
-    <a href="{{ site.baseurl }}/building-on.html" class="{% if page.title == 'Building on BMX' %}here{% endif %}">Building on</a>
     <!-- Install sits immediately before GitHub, the position it holds on burxt-lang.org. It was
          only in the sidebar, so someone who reads the topbar concluded the page did not exist. -->
     <a href="{{ site.baseurl }}/install.html"     class="{% if page.title == 'Getting BMX' %}here{% endif %}">Install</a>
@@ -62,10 +61,15 @@
        each page via scripts/site-nav.py; here the client-side "On this page" does that job, so a
        renamed heading cannot leave a dead anchor behind in a hand-written list. -->
   <nav class="side" aria-label="Documentation contents">
+    <!-- **The sidebar is for somebody who wants to put text on a screen**, and it is ordered by what
+         they will want next rather than by how the project is organised. There was a "Normative"
+         group here holding five links into the source repository. It is gone: a link out of the
+         documentation and into a source file loses the reader, and the handful of people who want
+         the grammar will find the repository from the topbar. -->
     <div class="group site">
-      <h2>BMX</h2>
+      <h2>Start here</h2>
       <ul>
-        <li class="topic"><a href="{{ site.baseurl }}/"{% if page.title == "BMX" %} class="here" aria-current="page"{% endif %}><span>Overview</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/"{% if page.title == "BMX" %} class="here" aria-current="page"{% endif %}><span>What BMX is</span></a></li>
         <li class="topic"><a href="{{ site.baseurl }}/install.html"{% if page.title == "Getting BMX" %} class="here" aria-current="page"{% endif %}><span>Install</span></a></li>
       </ul>
     </div>
@@ -81,30 +85,27 @@
     </div>
 
     <div class="group">
+      <h2>How do I…?</h2>
+      <ul>
+        <li class="topic"><a href="{{ site.baseurl }}/how-do-i.html"{% if page.title == "How do I…?" %} class="here" aria-current="page"{% endif %}><span>Short answers</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/styling.html"{% if page.title == "Styling the output" %} class="here" aria-current="page"{% endif %}><span>Style it with CSS</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/rendering.html"{% if page.title == "Turning it into a page" %} class="here" aria-current="page"{% endif %}><span>Turn it into a page</span></a></li>
+      </ul>
+    </div>
+
+    <div class="group">
       <h2>Reference</h2>
       <ul>
-        <li class="topic"><a href="{{ site.baseurl }}/syntax.html"{% if page.title == "Writing a document" %} class="here" aria-current="page"{% endif %}><span>Writing a document</span></a></li>
-        <li class="topic"><a href="{{ site.baseurl }}/styling.html"{% if page.title == "Styling the output" %} class="here" aria-current="page"{% endif %}><span>Styling the output</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/syntax.html"{% if page.title == "Writing a document" %} class="here" aria-current="page"{% endif %}><span>Every construct</span></a></li>
         <li class="topic"><a href="{{ site.baseurl }}/errors.html"{% if page.title == "When it refuses" %} class="here" aria-current="page"{% endif %}><span>When it refuses</span></a></li>
+        <li class="topic"><a href="{{ site.baseurl }}/promise.html"{% if page.title == "The promise" %} class="here" aria-current="page"{% endif %}><span>Why documents agree</span></a></li>
       </ul>
     </div>
 
     <div class="group">
-      <h2>Implementing</h2>
+      <h2>Extending BMX</h2>
       <ul>
-        <li class="topic"><a href="{{ site.baseurl }}/rendering.html"{% if page.title == "Turning it into a page" %} class="here" aria-current="page"{% endif %}><span>Turning it into a page</span></a></li>
         <li class="topic"><a href="{{ site.baseurl }}/building-on.html"{% if page.title == "Building on BMX" %} class="here" aria-current="page"{% endif %}><span>Building on BMX</span></a></li>
-      </ul>
-    </div>
-
-    <div class="group">
-      <h2>Normative</h2>
-      <ul>
-        <li class="topic"><a href="https://github.com/andrecorugda/bmx/blob/main/SPEC.md"><span>SPEC.md — the grammar</span></a></li>
-        <li class="topic"><a href="https://github.com/andrecorugda/bmx/blob/main/BOUNDARY.md"><span>BOUNDARY.md — the line</span></a></li>
-        <li class="topic"><a href="https://github.com/andrecorugda/bmx/blob/main/ESCAPING.md"><span>ESCAPING.md — escaping</span></a></li>
-        <li class="topic"><a href="https://github.com/andrecorugda/bmx/blob/main/VERSIONING.md"><span>VERSIONING.md — semver</span></a></li>
-        <li class="topic"><a href="https://github.com/andrecorugda/bmx/tree/main/tests"><span>tests/ — the suite</span></a></li>
       </ul>
     </div>
 
@@ -113,7 +114,6 @@
       <ul>
         <li class="topic"><a class="burxt" href="https://burxt-lang.org"><span>Burxt — the language</span></a></li>
         <li class="topic"><a class="burxt" href="https://burxt-lang.org/guide/"><span>Burxt guide</span></a></li>
-        <li class="topic"><a class="burxt" href="https://burxt-lang.org/reference/bmx.html"><span>lib/bmx.bx reference</span></a></li>
       </ul>
     </div>
   </nav>
@@ -132,7 +132,7 @@
 
 <footer>
   <p>
-    BMX 0.1 — a format of the <a href="https://burxt-lang.org">Burxt</a> project.
+    BMX 0.2 — a format of the <a href="https://burxt-lang.org">Burxt</a> project.
     <a href="https://github.com/andrecorugda/bmx">Open source</a>, MIT or Apache-2.0.
   </p>
 </footer>

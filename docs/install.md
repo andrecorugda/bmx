@@ -165,55 +165,24 @@ Or run it directly over a file:
 node bmx.js document.bmx     # prints the AST as JSON, or an error and exit 1
 ```
 
-**It is a level-1 implementation**: it parses. It does not check what is inside `{{ … }}`, because
-JavaScript has nothing to check it with — which is the whole of
-[`BOUNDARY.md`](https://github.com/andrecorugda/bmx/blob/main/BOUNDARY.md) in one sentence.
+**It reads documents; it does not check what is inside `{{ … }}`.** Nothing is missing — BMX leaves
+the contents of a slot to whatever language is rendering, and JavaScript has nothing to check them
+against. In [Burxt](https://burxt-lang.org) it does get checked, which is
+[chapter 4](guide/04-views-that-check-themselves.html).
 
-## In any other language — the spec and the suite
+## In any other language
 
-There is nothing to install. Implement
-[`SPEC.md`](https://github.com/andrecorugda/bmx/blob/main/SPEC.md) and check yourself against the
-conformance suite, which is **data rather than code** so it needs no runtime of ours:
+Nothing to install, and nothing stopping you — BMX is a format, so a reader for it is a few hundred
+lines in any language. [Building on BMX](building-on.html) has what you need and what to check
+yourself against.
 
-```sh
-git clone https://github.com/andrecorugda/bmx
-cd bmx
-python3 tests/harness.py '<your parser command>'
-```
+## Which version am I getting?
 
-Your command is run once per document with the path appended, and must print the AST as JSON and
-exit 0, or print an error beginning with its `BMX-Ennn` code and exit non-zero. That is the entire
-interface.
+BMX has its own version, separate from whatever language you are using it from. Yours can be at 3.0
+and target BMX 0.2 quite happily.
 
-```
-56 cases, 56 passed, 0 failed
-```
+Upgrading between small versions never changes what your existing documents mean — that is what the
+numbering is for, and [Why documents agree](promise.html) explains how it is kept true rather than
+merely intended.
 
-**Read [Building on BMX](building-on.html) first** if you are implementing rather than using — it
-says what a host must do that the format cannot check for you, and refusing a dangerous link
-scheme is on that list.
-
-### Checking against the other implementation
-
-The suite asks whether you match what was written down. This asks the harder question — whether
-two implementations reach the same answer where nothing was:
-
-```sh
-python3 tests/agree.py 'node reference/bmx.js' '<your parser command>'
-```
-
-That is where a specification's ambiguities live, and it is how the one in §4a.2 was found.
-
-## Versions
-
-BMX carries [its own version](https://github.com/andrecorugda/bmx/blob/main/VERSIONING.md),
-independent of any host's. A host may be at 3.0 and target BMX 0.2.
-
-**The conformance suite is the semver.** A change that had to *edit* an existing case is a major; a
-change that only *added* cases is a minor. `git diff --diff-filter=M tests/` decides it
-mechanically rather than by anyone's judgement.
-
-Currently **0.2**. It is not a standard yet, and
-[`VERSIONING.md`](https://github.com/andrecorugda/bmx/blob/main/VERSIONING.md) says what 1.0
-requires: an implementation written by somebody who did not write the spec.
 {% endraw %}

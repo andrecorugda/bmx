@@ -47,15 +47,14 @@ Then:
 - **[4. Views that check themselves](guide/04-views-that-check-themselves.html)** — the recipe
   card and the order ticket
 
-## Then look things up
+## Or just look up what you need
 
 | | |
 |---|---|
+| [How do I…?](how-do-i.html) | short answers — a list, a component, a class for CSS, a click |
 | [Writing a document](syntax.html) | every construct, with the HTML it produces |
 | [Styling the output](styling.html) | the tags you get, and how CSS, Tailwind and SCSS attach |
-| [When it refuses](errors.html) | every error code, with the input that causes it |
-| [Turning it into a page](rendering.html) | the two rendering paths, in detail |
-| [Building on BMX](building-on.html) | for anyone writing a framework on top |
+| [When it refuses](errors.html) | every message, with the input that causes it and the fix |
 
 ## Why it exists
 
@@ -96,13 +95,15 @@ handed. That is the gap BMX closes.
 In [Burxt](https://burxt-lang.org) it goes further: a money value keeps its rounding rule all the
 way to the tag, so a template cannot quietly round `£4.947525` to two places on your behalf.
 
-## Status
+## Can you rely on it?
 
-**0.2**, and honest about it: two implementations, both written by one author, so this is a format
-rather than a standard yet. [`VERSIONING.md`](https://github.com/andrecorugda/bmx/blob/main/VERSIONING.md)
-says what 1.0 requires — an implementation by somebody who did not write the spec.
+**Your document means the same thing in every tool that reads BMX**, and that is checked rather than
+promised — around sixty documents paired with exactly what each should produce, plus two independent
+implementations run against each other.
 
-The grammar is [`SPEC.md`](https://github.com/andrecorugda/bmx/blob/main/SPEC.md), the
-conformance suite is [`tests/`](https://github.com/andrecorugda/bmx/tree/main/tests), and where
-they disagree the tests win. MIT OR Apache-2.0.
+BMX is **0.2**, and honest about what that means: both implementations have one author, so they
+catch mistakes and not ambiguity. [Why documents agree](promise.html) is the short version, and it
+says plainly what would have to happen for this to be 1.0.
+
+Free to use, MIT or Apache-2.0.
 {% endraw %}
