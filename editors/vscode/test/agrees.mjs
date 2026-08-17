@@ -164,6 +164,28 @@ for (const path of docs(join(root, "docs"))) {
   }
 }
 
+// **The landing page's panel is not a fence, and it was invisible to this check.**
+//
+// `tools/showcase.py` generates `docs/_includes/showcase.html` with a `<pre><code class="language-bmx">`
+// in it, and `code.js` paints that on the live site exactly as it paints a fence. Collecting only `.md`
+// files meant the one snippet on the FRONT PAGE was the one snippet nobody compared — a check that
+// cannot see the newest thing it is meant to cover. Handled separately rather than by teaching `docs()`
+// about `.html`, because a fence's body is literal and this one is escaped, and hiding that difference
+// inside one collector is how the unescaping would eventually be applied to the wrong half.
+const unescape = (s) => s
+  .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+  .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  .replace(/&amp;/g, "&");                        // last, or `&amp;lt;` decodes twice
+
+const includes = join(root, "docs", "_includes");
+for (const name of statSync(includes).isDirectory() ? readdirSync(includes) : []) {
+  if (!name.endsWith(".html")) continue;
+  const text = readFileSync(join(includes, name), "utf8");
+  for (const m of text.matchAll(/<code class="language-bmx">([\s\S]*?)<\/code>/g)) {
+    snippets.push({ path: `docs/_includes/${name}`, body: unescape(m[1]) });
+  }
+}
+
 // **Only documents that PARSE are compared, and skipping the rest is not a dodge.** BMX refuses an
 // invalid document, so highlighting one is undefined for both tools — the grammar cannot report an
 // error and colours `*important` as emphasis to end of line, while the site colours it as nothing.

@@ -7,8 +7,12 @@ description: "Burxt Markup Language, Extensible — you write markdown, you get 
 {% raw %}
 # BMX
 
-**Burxt Markup Language, Extensible.** You write markdown. You get a page. The difference is that
-BMX tells you when the document is wrong, instead of printing something that looks nearly right.
+**Burxt Markup Language, Extensible.** You write markdown. You get a page.
+
+{% endraw %}{% include showcase.html %}{% raw %}
+
+The difference from markdown is that **BMX tells you when the document is wrong**, instead of
+printing something that looks nearly right.
 
 ```bmx
 # Receipt {{ order.reference }}

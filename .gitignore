@@ -10,3 +10,8 @@ tools/bmxrender
 # The PNGs live in docs/assets/examples/, which is where the site serves them from. A second copy
 # beside the generator is the drift hazard, one directory over.
 tools/*.png
+
+# `npm install vscode-textmate vscode-oniguruma` — what the grammar tests need, installed the same way
+# CI installs it. Untracked and unignored, it turned up in every `git status` after the first local run
+# of `scopes.mjs`.
+editors/vscode/node_modules/

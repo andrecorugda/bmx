@@ -52,3 +52,204 @@
 .doc-body figure.shot figcaption {
   margin-top: .7rem; font-size: .875rem; line-height: 1.5; color: #5b6270;
 }
+
+/* ---- the landing hero -------------------------------------------------------------------------
+ *
+ * Wider than a body figure and without its border, because it is the first thing on the page and it
+ * carries its own frame: the browser window in the picture is the frame. A second one around it
+ * reads as a screenshot of a screenshot.
+ *
+ * It only adds what DIFFERS from `.shot` fifteen lines above — which already sets the margin, the
+ * width and the caption, so repeating them here would be two places to change one thing. My first
+ * version of this block restated all three and claimed they came from `site.css`; they are in this
+ * file, directly above. */
+.doc-body figure.shot.hero { max-width: none; }
+.doc-body figure.shot.hero img { border-radius: 0; }
+
+
+/* ---- the landing showcase ----------------------------------------------------------------------
+ *
+ * A browser window with a slider over the two halves of ONE document, and the half you are not looking
+ * at goes soft. Andre's idea, and better than the caption it replaced: a static picture with a
+ * navigation bar in it invites a reader to decide for themselves which parts BMX produced, and no
+ * amount of explanation underneath undoes the first impression. Blur answers it visually.
+ *
+ * **Every selector below styles renderer output, not markup written by hand.** `bmxrender` emits
+ * `<article class="bmx">` and nothing else — no classes, no wrappers, because BMX has no attribute
+ * syntax. So the bar is reached by POSITION: the `h1` is the brand and the first `p` is the row of
+ * links. That is the honest boundary and the page says so; `::: nav` is the mechanism that replaces it,
+ * and it belongs to whatever host declares the block.
+ *
+ * **CSS only — radio inputs and sibling selectors, no JavaScript.** The `.picker` buttons in site.css
+ * are styled but their behaviour lived in a page-local script on another site; a showcase that needs a
+ * script is a showcase that is blank when the script does not load. */
+
+.showcase { margin: 1.8rem 0 2.2rem; position: relative; }
+
+/* Clipped rather than hidden: `display: none` or `visibility: hidden` would take the radios out of the
+ * tab order, and the tab order is the whole keyboard story here — arrow keys move between slides for
+ * free because these are native radios. `position: relative` on the parent keeps a focused one from
+ * being positioned against the viewport and scrolling the page to reach it. */
+.showcase > input {
+  position: absolute; width: 1px; height: 1px; margin: 0; padding: 0;
+  clip-path: inset(50%); overflow: hidden; border: 0;
+}
+
+/* A fieldset rather than `role="tablist"`, which the first version claimed while containing labels
+ * instead of tabs. The native radios already announce as one group of three. */
+.showcase .picker { border: 0; margin: 0; padding: 0; display: flex; gap: .5rem; flex-wrap: wrap; }
+.showcase .picker legend {
+  position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden;
+}
+.showcase .picker label {
+  font: 600 .82rem/1 var(--sans); padding: .55rem .85rem; border-radius: 8px;
+  border: 1px solid var(--hair-2); background: var(--paper); color: var(--ink-2); cursor: pointer;
+}
+.showcase .picker label:hover { background: var(--wash); }
+#sc-bar:checked  ~ .picker label[for="sc-bar"],
+#sc-body:checked ~ .picker label[for="sc-body"],
+#sc-all:checked  ~ .picker label[for="sc-all"] {
+  background: var(--ink); border-color: var(--ink); color: #fff;
+}
+#sc-bar:focus-visible  ~ .picker label[for="sc-bar"],
+#sc-body:focus-visible ~ .picker label[for="sc-body"],
+#sc-all:focus-visible  ~ .picker label[for="sc-all"] {
+  outline: 2px solid #E8502A; outline-offset: 2px;
+}
+
+/* ---- the window: macOS chrome, drawn rather than screenshotted ---- */
+.showcase .win {
+  margin-top: .9rem; border-radius: 12px; overflow: hidden; background: #fff;
+  box-shadow: 0 2px 6px rgba(16,24,40,.10), 0 20px 48px rgba(16,24,40,.14);
+}
+.showcase .chrome {
+  display: flex; align-items: center; gap: .45rem; padding: .7rem .85rem;
+  background: #e8eaed; border-bottom: 1px solid #d6d9dd;
+}
+.showcase .dot { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; }
+.showcase .dot.r { background: #ff5f57; } .showcase .dot.y { background: #febc2e; }
+.showcase .dot.g { background: #28c840; }
+.showcase .url {
+  flex: 1; margin-left: .35rem; background: #fff; border: 1px solid #dcdfe3; border-radius: 6px;
+  padding: .3rem .75rem; font: .75rem/1.4 var(--sans); color: #5b6270; text-align: center;
+}
+
+/* ---- THE BAR, out of the document's first two lines ----
+ *
+ * `float` on the heading and `overflow: hidden` on the paragraph beside it: the two are siblings the
+ * renderer emitted in order, and a float is how you get a sibling onto the same line without a wrapper
+ * to make a flex row out of. There is no wrapper because there is no attribute syntax to ask for one. */
+.showcase .bmx { color: #101828; }
+.showcase .bmx > h1 {
+  float: left; margin: 0; padding: .85rem 0 .85rem 1.15rem;
+  font-size: .95rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.5;
+}
+.showcase .bmx > h1::before {
+  content: ""; display: inline-block; vertical-align: -4px; width: 19px; height: 19px;
+  border-radius: 5px; margin-right: .45rem; background: linear-gradient(135deg, #E8502A, #f6883f);
+}
+.showcase .bmx > p:first-of-type {
+  margin: 0; overflow: hidden; padding: .85rem 1.15rem .85rem 0; text-align: right;
+  border-bottom: 1px solid #eceff3; line-height: 1.5;
+}
+.showcase .bmx > p:first-of-type a {
+  font-size: .82rem; color: #667085; text-decoration: none; margin-left: .8rem; white-space: nowrap;
+}
+/* The last three links are the search pill and the two buttons. Counted from the END so adding a
+ * navigation link does not move them. */
+.showcase .bmx > p:first-of-type a:nth-last-child(3) {
+  position: relative; background: #f4f5f7; border: 1px solid #e4e7ec; border-radius: 7px;
+  padding: .3rem .6rem .3rem 1.5rem; color: #98a2b3;
+}
+.showcase .bmx > p:first-of-type a:nth-last-child(3)::before {
+  content: ""; position: absolute; left: .55rem; top: .5rem; width: 9px; height: 9px;
+  border: 1.6px solid #98a2b3; border-radius: 50%;
+}
+.showcase .bmx > p:first-of-type a:nth-last-child(2) {
+  border: 1px solid #d0d5dd; border-radius: 7px; padding: .35rem .7rem;
+  color: #344054; font-weight: 600;
+}
+.showcase .bmx > p:first-of-type a:last-child {
+  background: #E8502A; color: #fff; border-radius: 7px; padding: .35rem .7rem; font-weight: 600;
+}
+
+/* ---- THE CONTENT, out of everything after them ---- */
+.showcase .bmx > h2 {
+  clear: both; margin: 1.35rem 1.35rem .3em; font-size: 1.45rem; font-weight: 680;
+  letter-spacing: -.025em; border: 0; padding: 0;
+}
+.showcase .bmx > p { margin: .4em 1.35rem 1em; color: #475467; font-size: .88rem; }
+.showcase .bmx > p strong { color: #101828; }
+.showcase .bmx > ul {
+  list-style: none; padding: 0; margin: 0 1.35rem 1em; display: grid; gap: .55rem;
+}
+.showcase .bmx > ul li {
+  display: flex; align-items: center; gap: .7rem; background: #fff; border: 1px solid #eaecf0;
+  border-radius: 9px; padding: .65rem .75rem; font-size: .84rem; color: #667085;
+  box-shadow: 0 1px 2px rgba(16,24,40,.04);
+}
+/* A CSS gradient, because BMX has no image syntax — SPEC 7. */
+.showcase .bmx > ul li::before {
+  content: ""; flex: 0 0 auto; width: 36px; height: 36px; border-radius: 7px;
+  background: linear-gradient(135deg, #fde3d7, #f8c4ac);
+}
+.showcase .bmx > ul li strong { color: #101828; font-weight: 650; font-size: .87rem; }
+.showcase .bmx > blockquote {
+  margin: 0 1.35rem 1em; padding: .55em .85em; background: #f9fafb; border-left: 3px solid #E8502A;
+  border-radius: 0 6px 6px 0; color: #475467; font-style: italic; font-size: .82rem;
+}
+.showcase .bmx > p:last-child { margin-bottom: 1.5rem; }
+.showcase .bmx > p:last-child a {
+  display: inline-block; background: #E8502A; color: #fff; text-decoration: none;
+  padding: .55em 1.15em; border-radius: 8px; font-weight: 600; font-size: .84rem;
+}
+
+/* ---- the source, below the window ----
+ *
+ * It is here because Andre asked where the source was. A reader looking at a navigation bar wants to see
+ * the code for the navigation bar, and no caption substitutes for it. `language-bmx` earns `code.js`'s
+ * colouring rather than this file shipping a second colouriser. */
+.showcase .src {
+  margin: .9rem 0 0; background: var(--paper); border: 1px solid var(--hair-2); border-radius: 9px;
+  overflow: hidden;
+}
+/* `text-align` explicitly: a figure's caption is centred on this site, and this one is a label on a
+ * panel rather than a caption under a picture. */
+.showcase .src figcaption {
+  font: 600 .68rem/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; text-align: left;
+  color: var(--ink-2); padding: .6rem .8rem; border-bottom: 1px solid var(--hair);
+  background: var(--wash);
+}
+.showcase .src figcaption span { font-weight: 500; letter-spacing: .04em; opacity: .62; }
+/* Overriding `.doc-body pre`, which gives code blocks their own frame — this panel is the frame.
+ * Wrapped rather than scrolled: `overflow-x` left every long line visibly cut at the same column, and a
+ * reader sees a truncated example with no reason to guess that dragging it finishes the sentence. */
+.showcase .src pre {
+  margin: 0; border: 0; border-radius: 0; background: transparent;
+  padding: .75rem .8rem; font-size: .72rem; line-height: 1.65;
+  white-space: pre-wrap; overflow-wrap: break-word;
+}
+
+/* ---- THE POINT: soften the half you are not looking at ----
+ *
+ * Selector lists rather than two wrappers, for the same reason the bar is positional: the renderer emits
+ * one flat `<article>` and there is nothing to wrap a half in. `h1` and the first `p` are the bar;
+ * everything else is the content. */
+.showcase .bmx > * { transition: filter .25s ease, opacity .25s ease; }
+
+#sc-bar:checked ~ .win .bmx > h2,
+#sc-bar:checked ~ .win .bmx > p:not(:first-of-type),
+#sc-bar:checked ~ .win .bmx > ul,
+#sc-bar:checked ~ .win .bmx > blockquote,
+#sc-body:checked ~ .win .bmx > h1,
+#sc-body:checked ~ .win .bmx > p:first-of-type { filter: blur(3px); opacity: .4; }
+
+/* and the note that matches the slide */
+.showcase-note {
+  display: none; margin: .85rem 0 0; font-size: .875rem; line-height: 1.55; color: #5b6270;
+}
+#sc-bar:checked  ~ .bar-note,
+#sc-body:checked ~ .body-note,
+#sc-all:checked  ~ .all-note { display: block; }
+
+@media (prefers-reduced-motion: reduce) { .showcase .bmx > * { transition: none; } }
