@@ -135,12 +135,12 @@ A slot is always **a value**. There is no `{{#if}}` and no `{{#each}}`, and that
 BMX cannot repeat — it is because anything that opens and closes is a different shape:
 
 ```bmx
-::: for line in order.lines
+:for: line in order.lines
 - {{ line.sku }}
-:::
+:!for:
 ```
 
-That is a **block**, and it is one construct that also gives you `::: if`, and components you
+That is a **block**, and it is one construct that also gives you `:if:`, and components you
 declare yourself. [Writing a document](../syntax.html#blocks) has the whole of it, and
 [page 4](04-views-that-check-themselves.html) is where it gets interesting — inside that loop,
 `line` is a real value with a real type, and `{{ line.sk }}` is a build error naming the field.

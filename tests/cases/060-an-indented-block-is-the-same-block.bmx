@@ -1,3 +1,3 @@
-  ::: card
+  :card:
     # Today
-  :::
+  :!card:

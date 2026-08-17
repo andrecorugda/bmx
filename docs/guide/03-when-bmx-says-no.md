@@ -85,8 +85,8 @@ Here are the ones you will actually meet:
 | `see [docs](x` | `BMX-E004` — unterminated link target |
 | an indented `- item` | `BMX-E012` — 0.2 has no list nesting |
 | `a \q b` | `BMX-E021` — only `` ` `` `*` `[` `{` `\` may be escaped |
-| `:::card` never closed | `BMX-E031` — unterminated block |
-| `:::9lives` | `BMX-E030` — a block name is a letter, then letters, digits, `-` and `_` |
+| `:card:` never closed | `BMX-E031` — unterminated block, and it names the closer it wanted |
+| `:9lives:` | `BMX-E030` — a block name is a letter, then letters, digits, `-` and `_` |
 
 The [full list](../errors.html) has one entry for each, with the input that produces it.
 

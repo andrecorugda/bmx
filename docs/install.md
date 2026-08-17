@@ -28,7 +28,7 @@ Everything below is for *rendering* documents from a program, which is a differe
 
 BMX used to ship inside the language, as `lib/bmx.bx`. **It does not any more**, and the change is
 worth understanding rather than working around: a module in somebody else's standard library has
-that language's version and no say in its own. BMX is 0.6 and Burxt is 1.3; one number could not
+that language's version and no say in its own. BMX is 0.7 and Burxt is 1.3; one number could not
 honestly carry both.
 
 So it is a dependency, named in your `burxt.package`:
@@ -36,7 +36,7 @@ So it is a dependency, named in your `burxt.package`:
 ```
 name        my-app
 version     0.1.0
-dependency  bmx  https://github.com/andrecorugda/bmx  burxt-0.6.0
+dependency  bmx  https://github.com/andrecorugda/bmx  burxt-0.7.0
 ```
 
 ```sh
@@ -70,7 +70,7 @@ must declare BMX yourself, under the same name that package uses**:
 
 ```
 dependency  star  https://github.com/andrecorugda/star-burxt  v0.1.0
-dependency  bmx   https://github.com/andrecorugda/bmx         burxt-0.6.0  # star needs this
+dependency  bmx   https://github.com/andrecorugda/bmx         burxt-0.7.0  # star needs this
 ```
 
 Leave the second line out and you get:
@@ -150,8 +150,8 @@ where a document becomes a function the compiler checks:
 If the document declares its own props, the signature argument can be empty:
 
 ```bmx
-::: props order: Order
-:::
+:props: order: Order
+:!props:
 ```
 
 ```sh
@@ -161,7 +161,7 @@ If the document declares its own props, the signature argument can be empty:
 ## In JavaScript — one file, no dependencies
 
 There is **no npm package**, deliberately for now: publishing a package is a promise to maintain a
-release channel, and BMX is 0.6 with two implementations by one author. Copy the file instead —
+release channel, and BMX is 0.7 with two implementations by one author. Copy the file instead —
 it has zero dependencies and is written to be read.
 
 ```sh
@@ -198,7 +198,7 @@ yourself against.
 ## Which version am I getting?
 
 BMX has its own version, separate from whatever language you are using it from. Yours can be at 3.0
-and target BMX 0.6 quite happily.
+and target BMX 0.7 quite happily.
 
 Upgrading between small versions never changes what your existing documents mean — that is what the
 numbering is for, and [Why documents agree](promise.html) explains how it is kept true rather than

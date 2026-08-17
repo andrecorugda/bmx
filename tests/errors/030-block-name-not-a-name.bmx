@@ -1,2 +1,2 @@
-:::9lives
-:::
+:9lives:
+:!9lives:

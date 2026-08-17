@@ -109,18 +109,18 @@ print(html_render(receipt_view(order)));
 A block becomes real Burxt, which is why the compiler can see inside it:
 
 ```bmx
-::: props order: Order
-:::
+:props: order: Order
+:!props:
 
 # Receipt {{ order.reference }}
 
-::: for line in order.lines
+:for: line in order.lines
 - {{ line.sku }} × {{ to_string(line.qty) }}
-:::
+:!for:
 
-::: if order.paid
+:if: order.paid
 Paid in full.
-:::
+:!if:
 ```
 
 ```sh
@@ -142,7 +142,7 @@ pure function receipt_view(order: Order) -> Html
 }
 ```
 
-**`::: for` is a real Burxt `for`.** Which means `line` inside it is a real `Line` with a real
+**`:for:` is a real Burxt `for`.** Which means `line` inside it is a real `Line` with a real
 type — so a typo in the loop body is a compile error naming the field, and money that would round
 without a contract is refused *in there*. No other template language checks the body of a loop,
 because no other one hands that body to a compiler that already knows the types.

@@ -1,2 +1,2 @@
-:::card
+:card:
 Body.

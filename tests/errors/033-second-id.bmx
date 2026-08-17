@@ -1,2 +1,2 @@
-:::card #one #two
-:::
+:card: #one #two
+:!card:

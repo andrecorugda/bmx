@@ -1,5 +1,5 @@
-::: div
+:div:
   ```js
     deep
   ```
-:::
+:!div:

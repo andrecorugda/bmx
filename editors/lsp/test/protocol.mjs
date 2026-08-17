@@ -97,7 +97,7 @@ async function main() {
     accent[0]?.range.start.character === 16, JSON.stringify(accent[0]?.range))
 
   // ---- lints, on a document that parses ----
-  openDoc('file:///lint.bmx', '# One\n\n### Three\n\n::: bare\n:::\n')
+  openDoc('file:///lint.bmx', '# One\n\n### Three\n\n:bare:\n:!bare:\n')
   const lints = (await diagnosticsFor('file:///lint.bmx')).params.diagnostics
   check('a document that parses gets warnings', lints.length === 2, JSON.stringify(lints.map(d => d.code)))
   check('at severity Warning', lints.every((d) => d.severity === 2))

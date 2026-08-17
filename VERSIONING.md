@@ -189,3 +189,34 @@ And the thing that made it findable: the format's tooling had already assumed in
 `bmx.tmLanguage.json` and `docs/assets/code.js` both match `^\s*` and always did — so the editor
 coloured a document the parser would refuse, and nothing compared the two. **A highlighter is a second
 opinion about the grammar, and it disagreed with the parser for two releases in silence.**
+
+## 0.7 is the worked example of a major done deliberately
+
+0.7 respelled the fence: `::: name head` / `:::` became `:name: head` / `:!name:`, Andre's spelling.
+`git diff --stat tests/` shows **13 expectations edited**, one case deleted and four added, so the rule
+convicts it as a major without anyone having to judge — and this time the mechanical answer and the real
+answer agree, because a 0.6 document genuinely is refused by 0.7.
+
+**Refused rather than misread, and that distinction is the release.** `BMX-E036` recognises the old
+fence for the sole purpose of saying so and naming the migration tool. A respelling that let old
+documents render their fences as paragraph text would have broken the format's one promise while
+technically changing nothing.
+
+Three things rode along, and each was only cheap *because* a major was already happening:
+
+- **`one_line` on a block node.** A new AST field edits every block expectation, which is a major on its
+  own; adding it in 0.6 would have cost a second one. star-burxt asked for it during this release, having
+  measured that without it a host cannot tell `:span: x hello :!span:` from its two-line form and
+  silently drops the text.
+- **The fence-length rule deleted**, with `BMX-W004` and `034-longer-fence-closes-shorter` — a lint and a
+  case for a rule the grammar no longer has cannot fire, and documenting a warning nobody can trigger is
+  worse than documenting none.
+- **`BMX-E030` kept alive.** In 0.6 `:::9lives` was an opener with a bad name; in 0.7 `:9lives:` simply
+  fails to be an opener, so it would have become a paragraph starting with a colon. A typo'd block
+  rendering as text is the exact silence this format exists to remove, and only the fixture caught it:
+  `030-block-name-not-a-name` could not be migrated without the rule.
+
+**A migration is a tool, not a note.** `tools/migrate-0.7.py` rewrites documents and the `bmx` fences
+inside markdown, tracking a stack — because a bare `:::` carries no name, so what it becomes depends on
+what is open, so a `sed` cannot do it. Handing a consumer a regex would have handed them a silent
+mis-migration on their first nested component.

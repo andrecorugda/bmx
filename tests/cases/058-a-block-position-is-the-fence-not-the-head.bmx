@@ -1,7 +1,7 @@
-::: card title="Pricing"
+:card: title="Pricing"
 inside
-:::
+:!card:
 
-::: bare
+:bare:
 also
-:::
+:!bare:

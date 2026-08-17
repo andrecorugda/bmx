@@ -52,7 +52,7 @@ Two things the preview will refuse, and both are the point rather than a limitat
 missing total nobody notices, so the preview says which slot and where instead of quietly leaving a
 gap.
 
-**A `:::` block is refused by name.** A block is a component, and what `card` looks like is decided
+**A `:name:` block is refused by name.** A block is a component, and what `card` looks like is decided
 by whatever renders your page — the preview is not that, so it says so rather than guessing. To see
 a page with components in it, render it with your framework.
 

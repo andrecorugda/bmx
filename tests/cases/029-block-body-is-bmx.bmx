@@ -1,5 +1,5 @@
-:::card
+:card:
 # A heading
 
 > quoted
-:::
+:!card:

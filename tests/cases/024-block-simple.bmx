@@ -1,3 +1,3 @@
-:::card
+:card:
 Body text.
-:::
+:!card:

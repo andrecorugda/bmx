@@ -1,3 +1,3 @@
-:::card    title="x"   
+:card: title="x"
 Body.
-:::
+:!card:

@@ -186,18 +186,25 @@
         continue;
       }
 
-      // a block fence: ::: name head
-      // The whitespace after the NAME belongs to neither the name nor the head — the grammar's
+      // a closer: :!name:
+      m = /^(\s*)(:!)([A-Za-z][A-Za-z0-9_-]*)(:)([ \t]*)$/.exec(line);
+      if (m) {
+        out.push(m[1] + span('fence', m[2]) + span('name', m[3]) + span('fence', m[4]) + m[5]);
+        continue;
+      }
+
+      // an opener: :name: head
+      // The whitespace after the marker belongs to neither the name nor the head — the grammar's
       // `[ \t]*` eats it between captures, so a head starting one character early is a real
       // divergence and `agrees.mjs` caught it.
-      m = /^(\s*)(:{3,})([ \t]*)([A-Za-z][A-Za-z0-9_-]*)?([ \t]*)(.*)$/.exec(line);
+      m = /^(\s*)(:)([A-Za-z][A-Za-z0-9_-]*)(:)([ \t]*)(.*)$/.exec(line);
       if (m) {
         let head = m[6];
         // `.class` and `#id` are the only parts of a head BMX has an opinion about
         head = escapeHtml(head)
           .replace(/(\.)([A-Za-z][A-Za-z0-9_-]*)/g, '<span class="t-class">$1$2</span>')
           .replace(/(#)([A-Za-z][A-Za-z0-9_-]*)/g, '<span class="t-id">$1$2</span>');
-        out.push(m[1] + span('fence', m[2]) + m[3] + (m[4] ? span('name', m[4]) : '')
+        out.push(m[1] + span('fence', m[2]) + span('name', m[3]) + span('fence', m[4])
                  + m[5]
                  + (m[6] ? '<span class="t-head">' + head + '</span>' : ''));
         continue;

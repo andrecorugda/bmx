@@ -32,9 +32,9 @@ Most template languages print nothing there and ship the page.
 ## …show a list of things
 
 ```bmx
-::: for line in order.lines
+:for: line in order.lines
 - {{ line.sku }} × {{ to_string(line.qty) }}
-:::
+:!for:
 ```
 
 ```html
@@ -44,15 +44,15 @@ Most template languages print nothing there and ship the page.
 </ul>
 ```
 
-Everything between the `:::` lines repeats once per item, and `line` is the name you chose for
+Everything between `:for:` and `:!for:` repeats once per item, and `line` is the name you chose for
 each one.
 
 ## …show something only sometimes
 
 ```bmx
-::: if order.has_discount
+:if: order.has_discount
 You saved {{ to_string(order.saved) }}.
-:::
+:!if:
 ```
 
 Nothing appears when there is nothing to say. Same shape as the list — that is on purpose, and it
@@ -63,8 +63,8 @@ is the only shape you need to learn.
 Write the piece once, in its own file, and say what it needs at the top:
 
 ```bmx
-::: props title: String, body: String
-:::
+:props: title: String, body: String
+:!props:
 
 ## {{ title }}
 
@@ -74,8 +74,8 @@ Write the piece once, in its own file, and say what it needs at the top:
 Then use it by name from anywhere:
 
 ```bmx
-::: card title="Pricing" body="From £9 a month."
-:::
+:card: title="Pricing" body="From £9 a month."
+:!card:
 ```
 
 **A `.bmx` file is a component.** There is no separate idea to learn — the same document you were
@@ -84,9 +84,9 @@ already writing becomes reusable the moment it says what it needs.
 ## …put a class or an id on something, for CSS
 
 ```bmx
-::: card title="Pricing" .featured .wide #plans
+:card: title="Pricing" .featured .wide #plans
 Any **markdown** in here.
-:::
+:!card:
 ```
 
 ```html
@@ -122,15 +122,15 @@ The stylesheet does the rest: `.bmx > h1` is the brand and the first `p` is the 
 a border-radius.
 
 **It works with no framework, and it is positional, so it moves if you add a paragraph above it.** When
-that matters, name the region with a block — `::: nav .bar` — and your host decides what it renders as.
+that matters, name the region with a block — `:nav: .bar` — and your host decides what it renders as.
 [Styling the output](styling.html#a-whole-page-bar-included) has both versions side by side.
 
 ## …react to a click
 
 ```bmx
-::: button on:click=save(line.id)
+:button: on:click=save(line.id)
 Save
-:::
+:!button:
 ```
 
 The `on:click=…` part is handed to whatever is rendering your page, untouched. BMX does not know

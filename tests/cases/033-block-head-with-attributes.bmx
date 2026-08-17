@@ -1,3 +1,3 @@
-:::card title="Pricing" .featured #plans
+:card: title="Pricing" .featured #plans
 Body.
-:::
+:!card:

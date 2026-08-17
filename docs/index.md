@@ -30,12 +30,12 @@ And when a page needs to repeat, branch, or be built from reusable pieces, there
 more thing to learn:
 
 ```bmx
-::: for line in order.lines
+:for: line in order.lines
 - {{ line.sku }} × {{ to_string(line.qty) }}
-:::
+:!for:
 ```
 
-One construct — a **block** — which also gives you `::: if` and components you declare yourself.
+One construct — a **block** — which also gives you `:if:` and components you declare yourself.
 BMX does not know what `for` means; the host does.
 
 ## Start here

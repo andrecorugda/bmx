@@ -6,7 +6,7 @@ title: Writing a document
 {% raw %}
 # Writing a document
 
-Every construct BMX 0.6 has, what it renders to, and the rule that decides it. **Every HTML
+Every construct BMX 0.7 has, what it renders to, and the rule that decides it. **Every HTML
 sample on this page was produced by running a real renderer, not typed by hand.**
 
 If you know markdown you already know most of this. The differences are deliberate and there are
@@ -126,12 +126,12 @@ Everything above is markdown. **This is the one construct that is not**, and it 
 stops being a page and starts being a component.
 
 ```bmx
-::: for line in order.lines
+:for: line in order.lines
 - {{ line.sku }} × {{ to_string(line.qty) }}
-:::
+:!for:
 ```
 
-A block is `:::`, a **name**, an optional **head**, a body, and a closing `:::`. And the important
+A block is `:name:`, an optional **head**, a body, and `:!name:`. And the important
 part is what BMX does with the head: **nothing**. It captures the text and hands it to whatever is
 rendering the document, exactly like a slot.
 
@@ -139,13 +139,13 @@ rendering the document, exactly like a slot.
 component you wrote are not three features. They are one feature used three times:
 
 ```bmx
-::: if order.has_discount
+:if: order.has_discount
 You saved {{ to_string(order.saved) }}.
-:::
+:!if:
 
-::: card title="Pricing" .featured #plans
+:card: title="Pricing" .featured #plans
 Any **markdown** in here, and slots too.
-:::
+:!card:
 ```
 
 ### Nesting
@@ -154,13 +154,13 @@ Any **markdown** in here, and slots too.
 to count:
 
 ```bmx
-:::: for section in page.sections
+:for: section in page.sections
 ## {{ section.title }}
 
-::: card title="Detail"
+:card: title="Detail"
 {{ section.body }}
-:::
-::::
+:!card:
+:!for:
 ```
 
 ### Indentation
@@ -169,18 +169,18 @@ to count:
 read, so these two documents are the same document:
 
 ```bmx
-::: section class=card
+:section: class=card
   # Today
-  ::: for task in model.tasks key to_string(task.id)
-    ::: button on:click=Msg.Toggle(string_to_int(key, 0))
+  :for: task in model.tasks key to_string(task.id)
+    :button: on:click=Msg.Toggle(string_to_int(key, 0))
       {{ task.label }}
-    :::
-  :::
-:::
+    :!button:
+  :!for:
+:!section:
 ```
 
 Without it, four closers stack at the bottom and nothing says what any of them closes — a reader has
-to count openers upward to find out whether the third `:::` ends the button or the loop. Indented, each
+to count openers upward to find out whether the third closer ends the button or the loop. Indented, each
 closer sits at the column of the thing it closes and **nothing has to be counted**.
 
 Two things this deliberately is not:
@@ -189,12 +189,13 @@ Two things this deliberately is not:
 and indentation says nothing at all. Two rules that can disagree is markdown's indented-list problem,
 and one document cannot have two answers about its own shape.
 
-**It is not a named closer.** `::: /for` was proposed and rejected: a named closer can be *wrong*,
-which is a new refusal to write and a new way for a document to lie about its structure. Indentation
-cannot be wrong, because it means nothing.
+**It is not what makes nesting checkable.** That is the closer's job: `:!button:` names what it closes
+and a mismatch is [`BMX-E035`](errors.html). Indentation is for the eye and cannot be wrong, because it
+means nothing — which is also why it cannot catch anything. The two do different work, and you want
+both.
 
 The exceptions are the two constructs that have no nesting at all — an indented `- ` or `> ` is
-[`BMX-E012`](errors.html#bmx-e012--list-or-quote-nesting-which-06-does-not-have), and a tab in leading
+[`BMX-E012`](errors.html#bmx-e012--list-or-quote-nesting-which-07-does-not-have), and a tab in leading
 whitespace is [`BMX-E010`](errors.html) whatever it is doing there, because its width is a matter of
 opinion in every dialect. A code fence may be indented too, and its content keeps everything past the
 fence's own indentation.
@@ -204,7 +205,7 @@ fence's own indentation.
 A head may carry them, and this is the one part of a head BMX has an opinion about:
 
 ```bmx
-::: card title="Pricing" .featured .wide #plans
+:card: title="Pricing" .featured .wide #plans
 ```
 
 - `.name` is a class, `#name` is an id, both using the name rule above.
@@ -221,8 +222,8 @@ becomes anything at all — which is what keeps a format with no runtime from ac
 A `props` block gives a document its own signature, so another document can call it:
 
 ```bmx
-::: props title: String, featured: Bool
-:::
+:props: title: String, featured: Bool
+:!props:
 
 # {{ title }}
 ```
@@ -292,7 +293,7 @@ and a slot: Ada.</p><ul><li>first item</li><li>second item</li></ul>
 
 (Line breaks added here for reading; the renderer emits one line.)
 
-## What 0.6 does not have
+## What 0.7 does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons invites someone to fix them at random.

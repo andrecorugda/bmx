@@ -111,7 +111,7 @@ public class BmxWords { children: [Bmx], offset: Int }
 // somewhere a `match` cannot see it.
 // A block — the format's one extension point for structure. `head` is captured and NEVER parsed,
 // exactly like a slot's expression: what `for line in order.lines` means is the host's business.
-public class BmxBlock { name: String, head: String, offset: Int, head_offset: Int, children: [Block] }
+public class BmxBlock { name: String, head: String, one_line: Bool, offset: Int, head_offset: Int, children: [Block] }
 
 public enum Block {
     Heading(BmxHeading),
@@ -278,12 +278,41 @@ pure function bmx_ordered_marker(text: String) -> Int {
 }
 
 // How many colons a line opens or closes with.
-pure function bmx_fence(text: String) -> Int {
-    let mutable n: Int = 0;
-    while n < len(text) && byte_at(text, n) == 58 {
-        n += 1;
+// **A block opens with `:name:` and closes with `:!name:`, and nesting is by NAME.** 0.6 nested by
+// fence length — a longer `::::` contained a shorter `:::` — and that rule is gone along with the
+// counting it asked of a reader. Andre's spelling; the argument for it is one line of a real
+// component, where `:!button:` says what it closes and `:::` said only *something ends here*.
+
+// The index of the colon that ends a `:xxx:` marker, or -1 when the line is not reaching for one.
+// Used for the opener AND for the refusal when what is between the colons is not a name.
+pure function bmx_marker_end(text: String) -> Int {
+    if len(text) < 3 { return 0 - 1; }
+    if byte_at(text, 0) != 58 { return 0 - 1; }
+    // `::` is an inline block or 0.6's fence, `:!` is a closer: neither is an opener.
+    if byte_at(text, 1) == 58 || byte_at(text, 1) == 33 { return 0 - 1; }
+    let mutable i: Int = 1;
+    while i < len(text) && byte_at(text, i) != 58 {
+        i += 1;
     }
-    return n;
+    if i >= len(text) { return 0 - 1; }
+    return i;
+}
+
+// The name in `:!name:`, or "" when the line is not a closer. A closer stands alone on its line.
+pure function bmx_closer_name(text: String) -> String {
+    let trimmed: String = bmx_strip_end(text);
+    if len(trimmed) < 4 { return ""; }
+    if byte_at(trimmed, 0) != 58 || byte_at(trimmed, 1) != 33 { return ""; }
+    if byte_at(trimmed, len(trimmed) - 1) != 58 { return ""; }
+    let name: String = substring(trimmed, 2, len(trimmed) - 3);
+    if !html_is_name(name) { return ""; }
+    return name;
+}
+
+// 0.6's fence, recognised ONLY so it can be refused by name. A 0.6 document fed to 0.7 would
+// otherwise render its fences as paragraph text, and not doing that is the format's whole claim.
+pure function bmx_is_old_fence(text: String) -> Bool {
+    return len(text) >= 3 && byte_at(text, 0) == 58 && byte_at(text, 1) == 58 && byte_at(text, 2) == 58;
 }
 
 // ---- inline parsing ------------------------------------------------------------
@@ -581,23 +610,22 @@ pure function bmx_no_nesting(offset: Int, what: String, fix: String) -> String {
 public function bmx_parse(source: String) -> Result<[Block], String> {
     let lines: [BmxLine] = bmx_lines(source);
     let mutable out: [Block] = [];
-    match bmx_parse_blocks(lines, 0, 0, out) {
+    match bmx_parse_blocks(lines, 0, "", 0 - 1, out) {
         Error(e) => { return Result.Error(e); }
         Ok(stop) => {
-            // The reader only stops early on a closing fence, and at depth 0 nothing is open.
+            // The reader only stops early on a closer, and at the top level nothing is open.
             if stop < len(lines) {
                 return Result.Error(bmx_error("BMX-E032", lines[stop].offset,
-                    "a closing fence with no open block"));
+                    "a closer with no open block"));
             }
             return Result.Ok(out);
         }
     }
 }
 
-// Blocks nest by fence LENGTH — a longer fence contains a shorter one, the rule code fences
-// already use, so there is nothing new to learn and nothing to count. `depth` is the enclosing
-// block's fence length, or 0 at the top. Answers the index it stopped at.
-function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: [Block]) -> Result<Int, String> {
+// `open` is the enclosing block's NAME, or "" at the top level — a name rather than 0.6's fence
+// length, because that is what a closer now carries. Answers the index it stopped at.
+function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: Int, mutable out: [Block]) -> Result<Int, String> {
     let mutable i: Int = from;
     while i < len(lines) {
         let line: BmxLine = lines[i];
@@ -633,28 +661,54 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
                 }
             }
 
-            let fence: Int = bmx_fence(text);
-            if fence >= 3 {
-                let rest: String = substring(text, fence, len(text) - fence);
-                // A line of ONLY colons closes the nearest open block whose fence is no longer.
-                if bmx_is_blank(rest) {
-                    if depth > 0 && fence >= depth {
-                        return Result.Ok(i);
-                    }
-                    return Result.Error(bmx_error("BMX-E032", line.offset, "a closing fence with no open block"));
+            // ---- a 0.6 document, refused by name so nobody meets it as paragraph text --------
+            if bmx_is_old_fence(text) {
+                return Result.Error(bmx_error("BMX-E036", line.offset,
+                    "this is the 0.6 fence: 0.7 opens with `:name:` and closes with `:!name:`. Run `python3 tools/migrate-0.7.py` over the file"));
+            }
+            let closer: String = bmx_closer_name(text);
+            if len(closer) > 0 {
+                if len(open) == 0 {
+                    return Result.Error(bmx_error("BMX-E032", line.offset, "a closer with no open block"));
                 }
-                // `:::card` and `::: card` are the same block.
-                let mutable at: Int = 0;
-                while at < len(rest) && bmx_is_space(byte_at(rest, at)) { at += 1; }
-                let mutable stop: Int = at;
-                while stop < len(rest) && !bmx_is_space(byte_at(rest, stop)) { stop += 1; }
-                let name: String = substring(rest, at, stop - at);
+                if closer != open {
+                    // **The check that makes a named closer worth writing.** Without it `:!for:`
+                    // against an open `button` would close the button anyway and the document would
+                    // read as something it is not. A closer that can be wrong AND is believed is
+                    // worse than the bare `:::` it replaced; refused, it can only be wrong.
+                    // **Both positions, opened-at and closed-at.** A message with one position sends
+                    // the reader back to counting, which is the work a named closer exists to delete.
+                    return Result.Error(bmx_error("BMX-E035", line.offset,
+                        "`:!" + closer + ":` closes nothing here — the open block is `" + open
+                        + "`, opened at " + to_string(open_row + 1) + ":"
+                        + to_string(lines[open_row].indent + 1)
+                        + ", so its closer is `:!" + open + ":`"));
+                }
+                return Result.Ok(i);
+            }
+            let marker: Int = bmx_marker_end(text);
+            if marker > 0 {
+                let name: String = substring(text, 1, marker - 1);
                 if !html_is_name(name) {
+                    // Without this a `:9lives:` is a paragraph beginning with a colon rather than a
+                    // refusal — silence in the one place the format promises noise. The fixture
+                    // `030-block-name-not-a-name` could not be migrated without it, which is how the
+                    // hole was found.
                     return Result.Error(bmx_error("BMX-E030", line.offset,
                         "a block name is a letter, then letters, digits, - and _"));
                 }
-                let raw_head: String = substring(rest, stop, len(rest) - stop);
-                let head: String = string_trim(raw_head);
+                let mutable rest: String = substring(text, marker + 1, len(text) - (marker + 1));
+                // A one-liner closes on its own line: `:span: class=box :!span:`. Taken only at END
+                // of line and only when it names THIS block, so a `:!x:` inside a head is left alone.
+                let target: String = ":!" + name + ":";
+                let trimmed: String = bmx_strip_end(rest);
+                let mutable one_liner: Bool = false;
+                if len(trimmed) >= len(target)
+                   && substring(trimmed, len(trimmed) - len(target), len(target)) == target {
+                    rest = substring(trimmed, 0, len(trimmed) - len(target));
+                    one_liner = true;
+                }
+                let head: String = string_trim(rest);
                 // At most one `#id`. Everything else in the head belongs to the host — but an id
                 // is an ADDRESS, and a block with two of them has no answer to "where is it".
                 let mutable ids: Int = 0;
@@ -670,23 +724,43 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
                     return Result.Error(bmx_error("BMX-E033", line.offset, "a block may carry at most one #id"));
                 }
                 let mutable pad: Int = 0;
-                while pad < len(raw_head) && bmx_is_space(byte_at(raw_head, pad)) { pad += 1; }
+                while pad < len(rest) && bmx_is_space(byte_at(rest, pad)) { pad += 1; }
+                let head_at: Int = line.offset + marker + 1 + pad;
                 let mutable kids: [Block] = [];
-                match bmx_parse_blocks(lines, i + 1, fence, kids) {
-                    Error(e) => { return Result.Error(e); }
-                    Ok(end) => {
-                        if end >= len(lines) {
-                            return Result.Error(bmx_error("BMX-E031", line.offset,
-                                "unterminated block: no closing fence"));
+                if one_liner {
+                    // **A one-liner's body is EMPTY, and that is a decision rather than an omission.**
+                    // A head is opaque to BMX — the bytes after the name, unparsed, because heads
+                    // belong to the host — so in `:span: class=text {{ label }} :!span:` the format
+                    // cannot tell where `class=text` ended and the label began. There is no
+                    // delimiter, and inventing one is a rule added. A block that needs a BODY takes
+                    // three lines, where the newline is the delimiter.
+                    let added: Int = push(out, Block.Fenced(BmxBlock {
+                        name: name,
+                        head: head,
+                        one_line: true,
+                        offset: line.offset,
+                        head_offset: head_at,
+                        children: kids,
+                    }));
+                    i += 1;
+                } else {
+                    match bmx_parse_blocks(lines, i + 1, name, i, kids) {
+                        Error(e) => { return Result.Error(e); }
+                        Ok(end) => {
+                            if end >= len(lines) {
+                                return Result.Error(bmx_error("BMX-E031", line.offset,
+                                    "unterminated block: no `:!" + name + ":`"));
+                            }
+                            let added: Int = push(out, Block.Fenced(BmxBlock {
+                                name: name,
+                                head: head,
+                                one_line: false,
+                                offset: line.offset,
+                                head_offset: head_at,
+                                children: kids,
+                            }));
+                            i = end + 1;
                         }
-                        let added: Int = push(out, Block.Fenced(BmxBlock {
-                            name: name,
-                            head: head,
-                            offset: line.offset,
-                            head_offset: line.offset + fence + stop + pad,
-                            children: kids,
-                        }));
-                        i = end + 1;
                     }
                 }
             } else {
@@ -812,7 +886,8 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, depth: Int, mutable out: 
                             while j < len(lines) && going {
                                 let inner: String = bmx_strip_end(lines[j].text);
                                 let starts_block: Bool = bmx_is_blank(inner)
-                                    || bmx_fence(inner) >= 3
+                                    || bmx_marker_end(inner) > 0 || len(bmx_closer_name(inner)) > 0
+                                    || bmx_is_old_fence(inner)
                                     || bmx_starts_with(inner, "# ") || bmx_starts_with(inner, "#")
                                     || bmx_starts_with(inner, "```") || bmx_starts_with(inner, "> ")
                                     || bmx_starts_with(inner, "- ") || bmx_ordered_marker(inner) > 0;
@@ -973,6 +1048,7 @@ function bmx_json_children(blocks: [Block]) -> Json {
                     json_field("type", json_text("block")),
                     json_field("name", json_text(fenced.name)),
                     json_field("head", json_text(fenced.head)),
+                    json_field("one_line", json_truth(fenced.one_line)),
                     json_field("offset", json_int(fenced.offset)),
                     json_field("head_offset", json_int(fenced.head_offset)),
                     json_field("children", bmx_json_children(fenced.children)),

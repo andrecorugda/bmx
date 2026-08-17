@@ -28,9 +28,8 @@ function expect(what, source, codes, options) {
 
 console.log('what each rule catches');
 expect('a heading skip within the document', '# One\n\n### Three\n', ['BMX-W001'])
-expect('an empty block with no head', '::: card\n:::\n', ['BMX-W002'])
+expect('an empty block with no head', ':card:\n:!card:\n', ['BMX-W002'])
 expect('a link with an empty target', 'A [dead]() link.\n', ['BMX-W003'])
-expect('a fence longer than its nesting needs', ':::: card\nbody\n::::\n', ['BMX-W004'])
 
 console.log('\nwhat it must NOT catch — correct code a warning would drive people to disable it over');
 // A component's headings are relative to the page embedding it, so opening at `##` is correct. The
@@ -39,23 +38,23 @@ expect('a component opening at h2', '## Card\n\nBody.\n', [])
 expect('h2 then h3, no jump', '## Two\n\n### Three\n', [])
 // `html_element` carries `requires !html_is_void(tag) || len(children) == 0`, so a void element MUST
 // have an empty body. Warning on it would flag every `<br>` and every form input.
-expect('a void element with no head', '::: br\n:::\n', [])
-expect('another void element', '::: hr\n:::\n', [])
+expect('a void element with no head', ':br:\n:!br:\n', [])
+expect('another void element', ':hr:\n:!hr:\n', [])
 // Already exempt before the report, because a head carries the block's meaning.
-expect('an empty block WITH a head', '::: input on:input=Msg.Typed(value)\n:::\n', [])
-expect('props, which is a head and no body', '::: props order: Order\n:::\n', [])
+expect('an empty block WITH a head', ':input: on:input=Msg.Typed(value)\n:!input:\n', [])
+expect('props, which is a head and no body', ':props: order: Order\n:!props:\n', [])
 // A longer fence that is doing its job.
 expect('a longer fence that DOES contain a block',
-  ':::: outer\n::: inner\nbody\n:::\n::::\n', [])
+  ':outer:\n:inner:\nbody\n:!inner:\n:!outer:\n', [])
 expect('a real link', 'A [live](/page) link.\n', [])
 
 console.log('\na host may replace the vocabulary');
-expect('its own self-closing name is exempt', '::: spacer\n:::\n', [], { selfClosing: ['spacer'] })
-expect('and an ordinary block is still flagged', '::: card\n:::\n', ['BMX-W002'],
+expect('its own self-closing name is exempt', ':spacer:\n:!spacer:\n', [], { selfClosing: ['spacer'] })
+expect('and an ordinary block is still flagged', ':card:\n:!card:\n', ['BMX-W002'],
   { selfClosing: ['spacer'] })
 // The default list is HTML's, so replacing it un-exempts HTML's names — which is the point of
 // replacing it, and worth pinning so nobody "fixes" it into a merge.
-expect('replacing the list means br is no longer exempt', '::: br\n:::\n', ['BMX-W002'],
+expect('replacing the list means br is no longer exempt', ':br:\n:!br:\n', ['BMX-W002'],
   { selfClosing: ['spacer'] })
 
 console.log('\na document that does not parse');

@@ -130,9 +130,9 @@ attribute through it.
 **A block takes classes and an id in its head:**
 
 ```bmx
-::: card .featured .wide #plans
+:card: .featured .wide #plans
 Any **markdown** in here.
-:::
+:!card:
 ```
 
 At most one `#id` — a second is an error, because an id is an address and two of them leaves *"where
@@ -178,13 +178,13 @@ link does not move them.
 
 **The honest caveat: a positional selector is brittle.** Insert a paragraph above the bar and the whole
 thing restyles, because `:first-of-type` now points at prose. That is exactly what a **block** fixes —
-`::: nav` names the region, and the selector stops depending on where the region happens to sit:
+`:nav:` names the region, and the selector stops depending on where the region happens to sit:
 
 ```bmx
-::: nav .bar
+:nav: .bar
 - [Coffee](/coffee)
 - [Kit](/kit)
-:::
+:!nav:
 ```
 
 A block emits nothing on its own, so this needs a host that declares `nav` — the level-1 renderer
@@ -193,7 +193,7 @@ framework at all; a named block is the version that survives editing.
 
 ## What the host owns
 
-A block emits nothing by itself, so what `::: card .featured` becomes is entirely the host's
+A block emits nothing by itself, so what `:card: .featured` becomes is entirely the host's
 decision — including whether those classes reach the output at all. `burxt/bmx.bx`'s level-1 renderer
 declares no blocks and refuses them; a framework like star-burxt declares them and decides their
 markup.

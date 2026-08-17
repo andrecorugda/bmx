@@ -284,27 +284,39 @@ function parseLines(rows, offsetOf, textOf) {
 // ---- blocks -----------------------------------------------------------------
 
 // How many colons a line opens or closes with.
-function fenceLength(text) {
-  let n = 0
-  while (n < text.length && text[n] === ':') n++
-  return n
-}
+// **A block opens with `:name:` and closes with `:!name:`, and nesting is by NAME.** 0.6 nested by
+// fence length — a longer `::::` contained a shorter `:::` — and that rule is gone, along with the
+// counting it asked of a reader. Andre's spelling, and the argument for it is one line of a real
+// component: `:!button:` says what it closes, where `:::` said only *something ends here*.
+//
+// The closer is checked, which is what makes it worth writing: `:!for:` against an open `button` is
+// refused (`BMX-E035`), so a closer can be wrong but it cannot LIE. That distinction is the whole
+// reason it is not merely a comment.
+const OPENER = /^:([A-Za-z][A-Za-z0-9_-]*):(.*)$/
+const CLOSER = /^:!([A-Za-z][A-Za-z0-9_-]*):[ \t]*$/
+// A one-liner ends with its own closer: `:span: class=box :!span:`. Matched at END of line only, so a
+// `:!x:` inside a head's expression is untouched.
+const ONELINER = /^(.*?)[ \t]*:!([A-Za-z][A-Za-z0-9_-]*):[ \t]*$/
+// 0.6's spelling, recognised ONLY to say so. A document written for 0.6 fed to 0.7 would otherwise
+// render its fences as paragraph text — the format's whole claim is that it does not do that.
+const OLD_FENCE = /^:{3,}/
+// A line that reaches for an opener and misses. Without this, `:9lives:` is a paragraph beginning with
+// a colon rather than a refusal — silence in the one place the format promises noise.
+const MALFORMED = /^:([^:\s]*):/
 
 export function parse(source) {
   const rows = lines(source)
-  const [children, end] = parseBlocks(rows, 0, 0)
+  const [children, end] = parseBlocks(rows, 0, null, -1)
   if (end !== rows.length) {
-    // parseBlocks only stops early on a closing fence, and at depth 0 there is nothing to close.
-    throw new BmxError('BMX-E032', rows[end].offset,
-      'a closing fence longer than any open block')
+    // parseBlocks only stops early on a closer, and at the top level nothing is open.
+    throw new BmxError('BMX-E032', rows[end].offset, 'a closer with no open block')
   }
   return { type: 'document', children }
 }
 
-// Blocks are the one construct the format grew for structure, and they nest by fence LENGTH —
-// a longer fence contains a shorter one, which is the rule code fences already use. `depth` is
-// the fence length of the enclosing block, or 0 at the top level.
-function parseBlocks(rows, from, depth) {
+// `open` is the name of the enclosing block, or null at the top level — a NAME rather than 0.6's
+// fence length, because that is what a closer now carries.
+function parseBlocks(rows, from, open, openRow) {
   const children = []
   let i = from
 
@@ -341,49 +353,93 @@ function parseBlocks(rows, from, depth) {
       }
     }
 
-    const fence = fenceLength(text)
-    if (fence >= 3) {
-      const rest = text.slice(fence)
-      // A line of ONLY colons closes. It closes the nearest open block whose fence is no longer
-      // than this one; at depth 0 nothing is open, so it is an error.
-      if (rest.trim() === '') {
-        if (depth > 0 && fence >= depth) return [children, i]
-        throw new BmxError('BMX-E032', row.offset,
-          depth === 0 ? 'a closing fence with no open block'
-                      : 'a closing fence longer than any open block')
+    // **A 0.6 document is refused by name rather than rendered as text.** This is the one diagnostic
+    // in 0.7 that most people will meet, so it says what to run.
+    if (OLD_FENCE.test(text)) {
+      throw new BmxError('BMX-E036', row.offset,
+        'this is the 0.6 fence: 0.7 opens with `:name:` and closes with `:!name:`. Run `python3 tools/migrate-0.7.py` over the file')
+    }
+
+    // ---- a closer: `:!name:` ----
+    let m = CLOSER.exec(text)
+    if (m) {
+      if (open === null) {
+        throw new BmxError('BMX-E032', row.offset, 'a closer with no open block')
       }
-      // `:::card` and `::: card` are the same block: spaces after the fence are not content.
-      let at = 0
-      while (at < rest.length && (rest[at] === ' ' || rest[at] === '\t')) at++
-      let stop = at
-      while (stop < rest.length && rest[stop] !== ' ' && rest[stop] !== '\t') stop++
-      const name = rest.slice(at, stop)
-      if (!isName(name)) {
-        throw new BmxError('BMX-E030', row.offset, 'a block name is a letter, then letters, digits, - and _')
+      if (m[1] !== open) {
+        const at = rows[openRow]
+        // **The check that makes a named closer worth writing.** Without it `:!for:` against an open
+        // `button` would close the button anyway and the document would read as something it is not —
+        // a closer that can be wrong AND is believed is worse than the bare `:::` it replaced.
+        // **Both positions, opened-at and closed-at.** A message with one position sends the reader
+        // back to counting, which is the exact work a named closer exists to delete. The Burxt session
+        // asked for this and was right.
+        throw new BmxError('BMX-E035', row.offset,
+          `\`:!${m[1]}:\` closes nothing here — the open block is \`${open}\`, opened at ` +
+          `${openRow + 1}:${at.indent + 1}, so its closer is \`:!${open}:\``)
       }
-      const rawHead = rest.slice(stop)
-      const head = rawHead.replace(/^[ \t]+|[ \t]+$/g, '')
+      return [children, i]
+    }
+
+    // A `:something:` whose something is not a name. Checked AFTER the closer and the real opener, so
+    // `:!name:` and `:name:` reach their own branches first.
+    m = MALFORMED.exec(text)
+    if (m && !isName(m[1])) {
+      throw new BmxError('BMX-E030', row.offset,
+        'a block name is a letter, then letters, digits, - and _')
+    }
+
+    // ---- an opener: `:name:` and its head ----
+    m = OPENER.exec(text)
+    if (m) {
+      const name = m[1]
+      let rest = m[2]
+      // A one-liner closes on its own line: `:span: class=box :!span:`. The trailing closer is taken
+      // only at END of line and only when it names THIS block, so `:!x:` inside a head is left alone.
+      let oneLiner = false
+      const trailing = ONELINER.exec(rest)
+      if (trailing && trailing[2] === name) {
+        rest = trailing[1]
+        oneLiner = true
+      }
+      const head = rest.replace(/^[ \t]+|[ \t]+$/g, '')
       // At most one #id. Everything else in the head belongs to the host.
       if ((head.match(/(^|[ \t])#[A-Za-z]/g) || []).length > 1) {
         throw new BmxError('BMX-E033', row.offset, 'a block may carry at most one #id')
       }
       let pad = 0
-      while (pad < rawHead.length && (rawHead.charCodeAt(pad) === SPACE || rawHead.charCodeAt(pad) === TAB)) pad++
-      // The head's offset is where its first byte is — after the fence, the name, and any spaces.
-      const headOffset = row.offset + fence + stop + pad
-      const [body, end] = parseBlocks(rows, i + 1, fence)
-      if (end >= rows.length) {
-        throw new BmxError('BMX-E031', row.offset, 'unterminated block: no closing fence')
+      while (pad < rest.length && (rest.charCodeAt(pad) === SPACE || rest.charCodeAt(pad) === TAB)) pad++
+      // The head's first byte: past `:`, the name, `:`, and any spaces.
+      const headOffset = row.offset + 1 + name.length + 1 + pad
+
+      // **A one-liner's body is EMPTY, and that is a decision rather than an omission.** A head is
+      // opaque to BMX by §4a.1 — the bytes after the name, unparsed, because heads belong to the host
+      // — so in `:span: class=text {{ label }} :!span:` the format cannot tell where `class=text`
+      // ended and the label began. There is no delimiter, and inventing one is a rule added. So
+      // everything before the closer is head, and a block that needs a BODY takes three lines, where
+      // the newline is the delimiter.
+      const [body, end] = oneLiner ? [[], i] : parseBlocks(rows, i + 1, name, i)
+      if (!oneLiner && end >= rows.length) {
+        throw new BmxError('BMX-E031', row.offset, `unterminated block: no \`:!${name}:\``)
       }
       children.push({
         type: 'block',
         name,
         head,
+        // **`one_line` exists because two documents that mean different things produced the same
+        // node.** `:span: class=text hello :!span:` and the two-line form both came out as
+        // `head: "class=text hello", children: []` — so a host wanting to treat trailing text as
+        // BODY on the one-liner had to guess, and guessing would silently change the meaning of the
+        // two-line form as well. star-burxt asked for it, having measured that its own head parser
+        // turns a bare word into a boolean attribute and drops the text: `<span class="text" hello>`,
+        // no refusal. The format cannot fix that — head meaning is the host's — but it can stop
+        // withholding the one fact the host needs to fix it.
+        one_line: oneLiner,
         offset: row.offset,
         head_offset: headOffset,
         children: body,
       })
-      i = end + 1
+      i = oneLiner ? i + 1 : end + 1
       continue
     }
 
@@ -490,7 +546,7 @@ function parseBlocks(rows, from, depth) {
       const inner = stripEnd(rows[j].text)
       const startsBlock =
         isBlank(inner) ||
-        fenceLength(inner) >= 3 ||
+        OPENER.test(inner) || CLOSER.test(inner) || OLD_FENCE.test(inner) ||
         inner.startsWith('#') ||
         inner.startsWith('```') ||
         inner.startsWith('> ') ||
@@ -616,28 +672,6 @@ const LINTS = [
         for (const block of list) {
           if (block.children) block.type === 'block' ? walk(block.children) : inline(block.children)
           if (block.items) for (const item of block.items) inline(item.children)
-        }
-      }
-      walk(blocks)
-    },
-  },
-  {
-    code: 'BMX-W004',
-    // A fence longer than three only means something when it CONTAINS a shorter one. Written without
-    // a reason it reads as significant and is not, which is the kind of noise a reviewer stops seeing.
-    check(blocks, source, warn) {
-      const walk = (list) => {
-        for (const block of list) {
-          if (block.type !== 'block') continue
-          const line = source.slice(block.offset)
-          const fence = /^:+/.exec(line)
-          const nested = block.children.some((child) => child.type === 'block')
-          if (fence && fence[0].length > 3 && !nested) {
-            warn(block.offset,
-              `a ${fence[0].length}-colon fence contains no block, so it means the same as three. ` +
-              'A longer fence is how nesting is expressed — using one without nesting hides that.')
-          }
-          walk(block.children)
         }
       }
       walk(blocks)

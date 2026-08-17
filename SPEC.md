@@ -1,4 +1,4 @@
-# BMX 0.6 — the grammar
+# BMX 0.7 — the grammar
 
 **BMX is markdown with one unambiguous reading and a typed hole in it.**
 
@@ -34,7 +34,7 @@ intent.
 classified, so these two documents have the same AST:
 
 ```
-::: card                 ::: card
+:card: ::: card
 # Today                    # Today
 :::                      :::
 ```
@@ -48,7 +48,7 @@ Two consequences worth stating, because both are places a reader could reasonabl
 
 - **A list and a quote still may not nest, indented or not.** A line whose first non-space bytes are
   `- `, `<digits>. ` or `> ` **and which is indented** is `BMX-E012` — see §2.3 and §2.5. Those two
-  constructs have no nesting in 0.6 at all, so indenting them is not a second spelling of something
+  constructs have no nesting in 0.7 at all, so indenting them is not a second spelling of something
   legal; it is the illegal thing with space in front of it.
 - **A code block's content keeps its own shape.** Content lines have the *opening fence's* indentation
   removed and nothing more, so a fence indented inside a block still holds exactly the code you wrote,
@@ -112,7 +112,7 @@ exactly one space after the marker. Consecutive item lines form one list. A blan
 - An ordered list's numbers are **content, not instructions**: a renderer emits them as written.
   A list numbered `1. 1. 1.` renders as `1. 1. 1.`, because a format that silently renumbers is
   a format whose output does not match its source.
-- A list item's content is inline content. **List nesting is not in 0.6** — a line beginning with
+- A list item's content is inline content. **List nesting is not in 0.7** — a line beginning with
   spaces then `- ` is `BMX-E012`, refused rather than guessed at, and the trigger for adding it
   is a real document that needs it.
 - This is the **one** thing indentation still decides, and it decides it by refusing. Everywhere else
@@ -151,7 +151,7 @@ lines of content, then exactly three backticks at the start of a line.
 ```
 
 `> ` at the start of a line, after any leading spaces (§1). Consecutive lines form one quote; the
-content of each is inline content. **No nested quotes in 0.6** — `> > ` is `BMX-E012`, and so is an
+content of each is inline content. **No nested quotes in 0.7** — `> > ` is `BMX-E012`, and so is an
 indented `> `, for the same reason an indented `- ` is.
 
 ## 3. Inline content
@@ -222,9 +222,9 @@ A **block** is the format's one extension point for structure, and it is the sam
 BMX captures a name and some text, and refuses to interpret the text.
 
 ```
-::: for line in order.lines
+:for: line in order.lines
 - {{ line.sku }} x {{ to_string(line.qty) }}
-:::
+:!for:
 ```
 
 That is a block named `for` with the head `line in order.lines` and a body of ordinary BMX.
@@ -236,42 +236,76 @@ component named `card` are not four constructs; they are one construct used four
 
 ### 4a.1 Opening and closing
 
-An opening fence is **three or more colons** at the start of a line, then a **name**, then an
-optional **head** to the end of the line. A closing fence is a line of **only** colons, at least
-as many as opened it.
+A block **opens** with `:name:` and **closes** with `:!name:`, each on its own line:
 
-- Spaces between the fence and the name are not content: `:::card` and `::: card` are the same
-  block.
-- A name is a letter, then letters, digits, `-` and `_`. `BMX-E030` otherwise.
-- **A line of only colons closes**, so a block with no name cannot be written — it would be
-  indistinguishable from a closing fence, and one spelling per concept beats an escape rule.
-- The head is the bytes after the name, with leading and trailing spaces and tabs removed. It may
-  be empty.
+```
+:card: title="Pricing"
+Any **markdown** in here.
+:!card:
+```
+
+- A name is a letter, then letters, digits, `-` and `_`. A `:something:` whose something is not a
+  name is `BMX-E030` — refused rather than left to render as a paragraph starting with a colon.
+- The head is the bytes after the closing colon of the marker, with leading and trailing spaces and
+  tabs removed. It may be empty.
 - **The head is never parsed.** It is captured with its byte offset, like a slot's expression.
+- **A closer names its block, and a mismatch is `BMX-E035`.** `:!for:` against an open `button` is
+  refused, and the message carries BOTH positions — where the block opened and where the wrong closer
+  is. That is the entire reason a named closer is worth its characters over an anonymous one: without
+  the check it is a comment, and a comment that can disagree with the structure is worse than nothing.
 - An unclosed block at end of document is `BMX-E031`. It is never closed implicitly.
+- **A block may open and close on one line**: `:span: class=box :!span:`. The trailing closer is
+  recognised only at end of line and only when it names *this* block, so a `:!x:` inside a head is
+  untouched. **Its body is empty** — everything between the marker and the closer is head. That is a
+  decision, not an omission: a head is opaque to BMX, so in `:span: class=text {{ label }} :!span:`
+  the format cannot tell where `class=text` ended and the label began. There is no delimiter and
+  inventing one is a rule added, so a block that needs a *body* takes three lines, where the newline
+  is the delimiter.
+
+**On `:word:` and emoji shortcodes.** `:tada:` alone on a line is a block named `tada`, and a host that
+declares no such block refuses it. That is a real collision with a convention several tools use, and the
+ruling is that **the format does not adjust for it** — a shortcode that wants to survive gets wrapped,
+`emoji(:tada:)`. Two reasons it is the right way round: a shortcode mid-sentence was never at risk (a
+fence is recognised only at the start of a line), and the collision fails *loudly* — an unknown block is
+refused, so nobody ships a page with a missing `tada`. A format that gave up its own structural syntax
+to avoid a naming clash with an optional convention would be paying its central cost for someone else's
+sugar.
+
+**Why `!`.** It is already the negation operator of the host this format was designed for — a reader
+who knows `!a` is *not a* reads `:!button:` as *not a button from here on* with nothing to learn. `/`
+was proposed, borrowing XML, and rejected: it reads as an escape, and it would have given a character
+with no current meaning in the host a second one. Choosing the mark that already means this beats
+importing a convention.
 
 ### 4a.2 Nesting
 
-**A longer fence contains a shorter one**, which is the rule code fences already use, so there is
-nothing new to learn and nothing to count:
+**Blocks nest by NAME, and there is nothing to count:**
 
 ```
-:::: for section in page.sections
+:for: section in page.sections
 ## {{ section.title }}
 
-::: card title="Detail"
+:card: title="Detail"
 {{ section.body }}
-:::
-::::
+:!card:
+:!for:
 ```
 
-A closing fence closes the nearest open block whose fence is **no longer** than its own — the
-same rule a code fence uses, so `::::` legitimately closes a `:::` block. A closing fence with **no
-open block at all** is `BMX-E032`.
+`:!name:` closes the innermost open block, which must be named `name`; anything else is `BMX-E035`.
+A closer with **no open block at all** is `BMX-E032`.
 
-*(These two sentences contradicted each other in the first draft: one said a longer closer was an
-error, the other said it closed. Writing the conformance case is what exposed it, which is the
-argument for the suite being the specification's executable half.)*
+**0.6 nested by fence length** — a longer `::::` contained a shorter `:::`, the rule code fences use —
+and 0.7 deletes it. Two reasons, and the second is the one that matters:
+
+- **Nothing has to be counted.** A reader of `:!button:` knows what it closes. A reader of `:::` knows
+  only that *something* ends, and finds out by counting openers upward.
+- **A miscount used to produce a valid document with the wrong shape**, which is the silent-wrong-answer
+  class this format exists to remove — sitting in the format's own structure. A named closer cannot be
+  silently wrong: it is either right or `BMX-E035`.
+
+*(An earlier draft of the length rule contradicted itself — one sentence said a longer closer was an
+error, the next said it closed. Writing the conformance case is what exposed it, and the case is what
+made deleting the whole rule safe.)*
 
 ### 4a.3 Attributes
 
@@ -280,7 +314,7 @@ class and an id go**, because those two are the ones every host wants and every 
 differently:
 
 ```
-::: card title="Pricing" .featured .wide #plans
+:card: title="Pricing" .featured .wide #plans
 ```
 
 - `.name` is a class, `#name` is an id. Both use the §4a.1 name rule.
@@ -342,7 +376,7 @@ implementation may build whatever it likes in memory.
 | `emphasis` \| `strong` \| `link` | `children`, `offset`; `link` also `target` |
 | `code_span` | `value` |
 | `slot` | `expression`, `offset` |
-| `block` | `name`, `head`, `offset`, `head_offset`, `children` |
+| `block` | `name`, `head`, `one_line` (bool), `offset`, `head_offset`, `children` |
 | `inline_block` | `name`, `head`, `offset`, `head_offset` |
 
 **Every node except `text` and `code_span` carries an `offset`, and it is the byte index of the
@@ -359,6 +393,22 @@ a column pointing past the end of what was wrong, and worst on a block with no h
 So a block's `offset` is its fence and its `head_offset` is its head — both, because a host
 highlighting or reporting on a head genuinely needs that position and it is not recoverable from the
 fence.
+
+**`one_line` distinguishes two documents that would otherwise be the same node**, and it is in 0.7
+because a host measured what its absence costs. These two:
+
+```
+:span: class=text hello :!span:      :span: class=text hello
+                                     :!span:
+```
+
+both carry `head: "class=text hello"` and no children. But they do not mean the same thing to a host:
+in the first, `hello` is where a *body* would go and a host may reasonably treat it as content; in the
+second the author wrote it as head. Without the flag a host has to guess, and a guess that splits heads
+changes the meaning of the two-line form too — star-burxt measured its own head parser turning `hello`
+into a boolean attribute and dropping the text, producing `<span class="text" hello></span>` with no
+refusal. **BMX cannot fix that, because head meaning is the host's; it can stop withholding the one
+fact the host needs to fix it.**
 
 A slot keeps the one real exception, and it is stated rather than implied: **a slot's `offset` is the
 first byte of the *trimmed expression***, per §4, not of the `{{`. That is deliberate — the host is
@@ -389,13 +439,15 @@ others.
 | `BMX-E004` | unterminated link |
 | `BMX-E010` | tab in leading whitespace |
 | `BMX-E011` | malformed heading |
-| `BMX-E012` | list or quote nesting, which 0.6 does not have (blocks nest — see §4a.2). An indented `- `, `<digits>. ` or `> ` only; an indented line is otherwise ordinary (§1) |
+| `BMX-E012` | list or quote nesting, which 0.7 does not have (blocks nest — see §4a.2). An indented `- `, `<digits>. ` or `> ` only; an indented line is otherwise ordinary (§1) |
 | `BMX-E020` | unterminated code span |
 | `BMX-E021` | invalid escape |
 | `BMX-E022` | empty slot expression |
 | `BMX-E030` | a block name that is not a name |
 | `BMX-E031` | unterminated block |
 | `BMX-E032` | a closing fence with no open block |
+| `BMX-E035` | a closer names a different block than the one open here. The message carries both positions |
+| `BMX-E036` | 0.6's `:::` fence, recognised only in order to refuse it by name and say what to run |
 | `BMX-E033` | a second `#id` on one block |
 | `BMX-E034` | unterminated inline block |
 
@@ -403,7 +455,7 @@ A conforming parser **stops at the first error**. Recovery is a later question a
 one — an editor wants every error at once — but recovery that differs between implementations is
 worse than no recovery.
 
-## 7. What 0.6 deliberately does not have
+## 7. What 0.7 deliberately does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons is a list somebody will "fix" at random.
@@ -416,7 +468,6 @@ reasons is a list somebody will "fix" at random.
 | Raw HTML passthrough | it would put an unescaped hole in the format, and [`ESCAPING.md`](ESCAPING.md) says why that is the host's `raw` to grant, not the format's |
 | Error recovery | §6 |
 | Front matter | it is how a host will declare a view's signature, and it must be designed WITH a host rather than guessed at |
-| A **named closer** — `::: /for` | nothing. This one is refused rather than deferred, and the reason is that it can be WRONG: `::: /for` closing a `button` is a document lying about its own structure, which means a new refusal to write and a new way to be refused. Indentation (§1) answers the same need — *which opener does this close* — and cannot be wrong, because it means nothing. Proposed by star-burxt with the recommendation that it be rejected, which is the right way to raise one |
 
 **Loops, conditionals, components and event bindings are NOT on this list any more**, and how they
 left it is worth recording. They were refused in 0.1 on the reasoning that *a view is a function
@@ -424,6 +475,14 @@ and the host already has control flow* — which is true when the host compiles 
 everywhere else. A receipt with N line items could not be written in BMX at all: the host had to
 build the list, so the markup for a line lived in the host's code rather than in the document.
 **A markup format that cannot express repetition is not a markup format.**
+
+**A named closer was on this list for about two hours, and taking it off is worth recording.** It was
+rejected on the argument that a closer which can be *wrong* is a new way for a document to lie about its
+own structure — and that argument is simply answered: refuse the mismatch. `:!for:` against an open
+`button` is `BMX-E035`, so it cannot lie, only be caught. The rejection was reasoned from a property the
+construct does not have once it is checked, which is a failure mode worth naming: **an objection to an
+unchecked version of a thing is not an objection to the thing.** It survived being written into a
+normative document by an hour.
 
 They arrived as §4a, and as **one** construct rather than four, so the grammar grew by three rules
 instead of a dozen. That was the constraint: [`VERSIONING.md`](VERSIONING.md) says 1.0 needs an

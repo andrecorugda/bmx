@@ -96,22 +96,22 @@ check(
 );
 check(
   "a block's name is a tag, its head is the host's",
-  "::: card title=\"Pricing\" .featured #plans\n:::\n",
+  ":card: title=\"Pricing\" .featured #plans\n:!card:\n",
   0,
   "title=",
   ["meta.block.head.bmx"],
 );
-check("a block's name", "::: card x\n:::\n", 0, "card", ["entity.name.tag.block.bmx"]);
+check("a block's name", ":card: x\n:!card:\n", 0, "card", ["entity.name.tag.block.bmx"]);
 check(
   "a class in a head is BMX's business",
-  "::: card .featured\n:::\n",
+  ":card: .featured\n:!card:\n",
   0,
   "featured",
   ["entity.other.attribute-name.class.bmx"],
 );
 check(
   "an id in a head is BMX's business",
-  "::: card #plans\n:::\n",
+  ":card: #plans\n:!card:\n",
   0,
   "plans",
   ["entity.other.attribute-name.id.bmx"],
@@ -146,14 +146,14 @@ check(
 // ---- nesting by fence length ----
 check(
   "a longer fence contains a shorter one",
-  ":::: for s in page.sections\n::: card t\n:::\n::::\n",
+  ":for: s in page.sections\n:card: t\n:!card:\n:!for:\n",
   1,
   "card",
   ["entity.name.tag.block.bmx"],
 );
 check(
   "and the outer block is still open on the inner line",
-  ":::: for s in page.sections\n::: card t\n:::\n::::\n",
+  ":for: s in page.sections\n:card: t\n:!card:\n:!for:\n",
   1,
   "card",
   ["meta.block.bmx"],

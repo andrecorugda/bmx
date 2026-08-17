@@ -2,159 +2,192 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "BMX",
   "scopeName": "text.bmx",
-
   "//": [
     "**THE TWO SCOPES A HOST INJECTS INTO ARE PART OF BMX'S PROMISE, NOT AN IMPLEMENTATION DETAIL.**",
     "",
-    "BMX captures a block's head and a slot's expression OPAQUELY and hands them to the host — that",
+    "BMX captures a block's head and a slot's expression OPAQUELY and hands them to the host \u2014 that",
     "is BOUNDARY.md's whole rule. Highlighting has to say the same thing, or an editor would be",
     "claiming to know what `on:click=save(line.id)` means when the format does not.",
-    "",
     "So the head and the expression get their own named scopes and NOTHING inside them is coloured",
     "here:",
-    "",
     "    meta.block.head.bmx           everything after a block's name",
     "    meta.slot.expression.bmx      the text between {{ and }}",
     "    meta.inline-block.head.bmx    the text between [ and ] of an inline block",
-    "",
     "A host injects with `injectionSelector: \"L:meta.slot.expression.bmx\"` and colours its own",
     "expression language there. Two hosts can do it differently in the same editor and neither has to",
     "patch this file. **These three names are therefore a compatibility surface**: renaming one",
     "breaks every host's grammar, so it is a major change under VERSIONING.md, exactly like renaming",
     "an AST field.",
-    "",
-    "Order matters twice below. A fenced code block wins over everything, because §5 says its content",
-    "is never parsed — a `{{` inside one is text and colouring it as a slot would be a lie an author",
+    "Order matters twice below. A fenced code block wins over everything, because \u00a75 says its content",
+    "is never parsed \u2014 a `{{` inside one is text and colouring it as a slot would be a lie an author",
     "could not turn off. And a longer ::: fence must be tried before a shorter one, or `::::` reads as",
     "`:::` followed by a stray colon."
   ],
-
   "patterns": [
-    { "include": "#fenced-code" },
-    { "include": "#block-4" },
-    { "include": "#block-3" },
-    { "include": "#heading" },
-    { "include": "#quote" },
-    { "include": "#list" },
-    { "include": "#inline" }
+    {
+      "include": "#fenced-code"
+    },
+    {
+      "include": "#block"
+    },
+    {
+      "include": "#heading"
+    },
+    {
+      "include": "#quote"
+    },
+    {
+      "include": "#list"
+    },
+    {
+      "include": "#inline"
+    }
   ],
-
   "repository": {
     "fenced-code": {
-      "//": "First, and its content has no patterns at all. §5: nothing inside is parsed.",
+      "//": "First, and its content has no patterns at all. \u00a75: nothing inside is parsed.",
       "begin": "^\\s*(`{3,}|~{3,})\\s*([A-Za-z0-9_+-]*)\\s*$",
       "beginCaptures": {
-        "1": { "name": "punctuation.definition.raw.bmx" },
-        "2": { "name": "fenced_code.block.language.bmx" }
+        "1": {
+          "name": "punctuation.definition.raw.bmx"
+        },
+        "2": {
+          "name": "fenced_code.block.language.bmx"
+        }
       },
       "end": "^\\s*(\\1)\\s*$",
-      "endCaptures": { "1": { "name": "punctuation.definition.raw.bmx" } },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.raw.bmx"
+        }
+      },
       "name": "markup.raw.block.bmx"
     },
-
-    "block-4": {
-      "//": "A four-or-longer fence, tried before three so nesting reads correctly.",
-      "begin": "^\\s*(:{4,})[ \\t]*([A-Za-z][A-Za-z0-9_-]*)?[ \\t]*(.*)$",
-      "beginCaptures": {
-        "1": { "name": "punctuation.definition.block.begin.bmx" },
-        "2": { "name": "entity.name.tag.block.bmx" },
-        "3": { "name": "meta.block.head.bmx", "patterns": [{ "include": "#head-known" }] }
-      },
-      "end": "^\\s*(\\1)\\s*$",
-      "endCaptures": { "1": { "name": "punctuation.definition.block.end.bmx" } },
-      "name": "meta.block.bmx",
-      "patterns": [{ "include": "$self" }]
-    },
-
-    "block-3": {
-      "begin": "^\\s*(:{3})[ \\t]*([A-Za-z][A-Za-z0-9_-]*)?[ \\t]*(.*)$",
-      "beginCaptures": {
-        "1": { "name": "punctuation.definition.block.begin.bmx" },
-        "2": { "name": "entity.name.tag.block.bmx" },
-        "3": { "name": "meta.block.head.bmx", "patterns": [{ "include": "#head-known" }] }
-      },
-      "end": "^\\s*(:{3})\\s*$",
-      "endCaptures": { "1": { "name": "punctuation.definition.block.end.bmx" } },
-      "name": "meta.block.bmx",
-      "patterns": [{ "include": "$self" }]
-    },
-
     "head-known": {
       "//": [
-        "The ONLY parts of a head BMX has an opinion about, per §4a: `.class` and `#id`. Everything",
-        "else stays bare inside `meta.block.head.bmx` for a host to claim — including `title=\"x\"` and",
+        "The ONLY parts of a head BMX has an opinion about, per \u00a74a: `.class` and `#id`. Everything",
+        "else stays bare inside `meta.block.head.bmx` for a host to claim \u2014 including `title=\"x\"` and",
         "`on:click=save(n)`, which look like attributes and are not the format's business."
       ],
       "patterns": [
         {
           "match": "(\\.)([A-Za-z][A-Za-z0-9_-]*)",
           "captures": {
-            "1": { "name": "punctuation.definition.class.bmx" },
-            "2": { "name": "entity.other.attribute-name.class.bmx" }
+            "1": {
+              "name": "punctuation.definition.class.bmx"
+            },
+            "2": {
+              "name": "entity.other.attribute-name.class.bmx"
+            }
           }
         },
         {
           "match": "(#)([A-Za-z][A-Za-z0-9_-]*)",
           "captures": {
-            "1": { "name": "punctuation.definition.id.bmx" },
-            "2": { "name": "entity.other.attribute-name.id.bmx" }
+            "1": {
+              "name": "punctuation.definition.id.bmx"
+            },
+            "2": {
+              "name": "entity.other.attribute-name.id.bmx"
+            }
           }
         }
       ]
     },
-
     "heading": {
       "match": "^\\s*(#{1,6})[ \\t]+(.*?)[ \\t]*#*$",
       "captures": {
-        "1": { "name": "punctuation.definition.heading.bmx" },
-        "2": { "name": "entity.name.section.bmx", "patterns": [{ "include": "#inline" }] }
+        "1": {
+          "name": "punctuation.definition.heading.bmx"
+        },
+        "2": {
+          "name": "entity.name.section.bmx",
+          "patterns": [
+            {
+              "include": "#inline"
+            }
+          ]
+        }
       },
       "name": "markup.heading.bmx"
     },
-
     "quote": {
       "match": "^\\s*(>)[ \\t]?(.*)$",
       "captures": {
-        "1": { "name": "punctuation.definition.quote.bmx" },
-        "2": { "name": "markup.quote.bmx", "patterns": [{ "include": "#inline" }] }
+        "1": {
+          "name": "punctuation.definition.quote.bmx"
+        },
+        "2": {
+          "name": "markup.quote.bmx",
+          "patterns": [
+            {
+              "include": "#inline"
+            }
+          ]
+        }
       }
     },
-
     "list": {
       "match": "^\\s*([-*+]|[0-9]{1,9}[.)])[ \\t]+(.*)$",
       "captures": {
-        "1": { "name": "punctuation.definition.list.begin.bmx" },
-        "2": { "patterns": [{ "include": "#inline" }] }
+        "1": {
+          "name": "punctuation.definition.list.begin.bmx"
+        },
+        "2": {
+          "patterns": [
+            {
+              "include": "#inline"
+            }
+          ]
+        }
       }
     },
-
     "inline": {
       "patterns": [
-        { "include": "#escape" },
-        { "include": "#code-span" },
-        { "include": "#slot" },
-        { "include": "#inline-block" },
-        { "include": "#strong" },
-        { "include": "#emphasis" },
-        { "include": "#link" }
+        {
+          "include": "#escape"
+        },
+        {
+          "include": "#code-span"
+        },
+        {
+          "include": "#slot"
+        },
+        {
+          "include": "#inline-block"
+        },
+        {
+          "include": "#strong"
+        },
+        {
+          "include": "#emphasis"
+        },
+        {
+          "include": "#link"
+        }
       ]
     },
-
     "escape": {
-      "//": "§3: only these five may be escaped, so only these are coloured as an escape.",
+      "//": "\u00a73: only these five may be escaped, so only these are coloured as an escape.",
       "match": "\\\\[`*\\[{\\\\]",
       "name": "constant.character.escape.bmx"
     },
-
     "code-span": {
       "//": "Before slots: a `{{ x }}` inside backticks is text, and colouring it would be a lie.",
       "begin": "(`+)",
-      "beginCaptures": { "1": { "name": "punctuation.definition.raw.bmx" } },
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.raw.bmx"
+        }
+      },
       "end": "(\\1)",
-      "endCaptures": { "1": { "name": "punctuation.definition.raw.bmx" } },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.raw.bmx"
+        }
+      },
       "name": "markup.inline.raw.bmx"
     },
-
     "slot": {
       "//": [
         "**The injection point.** The expression is not coloured here, on purpose: BMX does not know",
@@ -162,13 +195,20 @@
         "`meta.slot.expression.bmx` and gets its own colours with no change to this file."
       ],
       "begin": "(\\{\\{)",
-      "beginCaptures": { "1": { "name": "punctuation.section.embedded.begin.bmx" } },
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.embedded.begin.bmx"
+        }
+      },
       "end": "(\\}\\})|$",
-      "endCaptures": { "1": { "name": "punctuation.section.embedded.end.bmx" } },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.section.embedded.end.bmx"
+        }
+      },
       "name": "meta.slot.bmx",
       "contentName": "meta.slot.expression.bmx"
     },
-
     "inline-block": {
       "//": [
         "`::key[Ctrl+S]::`. Deliberately coloured differently from a slot, because the guarantee",
@@ -177,56 +217,153 @@
       ],
       "begin": "(::)([A-Za-z][A-Za-z0-9_-]*)(\\[)",
       "beginCaptures": {
-        "1": { "name": "punctuation.definition.inline-block.bmx" },
-        "2": { "name": "entity.name.function.inline-block.bmx" },
-        "3": { "name": "punctuation.section.embedded.begin.bmx" }
+        "1": {
+          "name": "punctuation.definition.inline-block.bmx"
+        },
+        "2": {
+          "name": "entity.name.function.inline-block.bmx"
+        },
+        "3": {
+          "name": "punctuation.section.embedded.begin.bmx"
+        }
       },
       "end": "(\\])(::)|$",
       "endCaptures": {
-        "1": { "name": "punctuation.section.embedded.end.bmx" },
-        "2": { "name": "punctuation.definition.inline-block.bmx" }
+        "1": {
+          "name": "punctuation.section.embedded.end.bmx"
+        },
+        "2": {
+          "name": "punctuation.definition.inline-block.bmx"
+        }
       },
       "contentName": "meta.inline-block.head.bmx"
     },
-
     "strong": {
       "begin": "(\\*\\*)(?=\\S)",
-      "beginCaptures": { "1": { "name": "punctuation.definition.bold.bmx" } },
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.bold.bmx"
+        }
+      },
       "end": "(\\*\\*)|$",
-      "endCaptures": { "1": { "name": "punctuation.definition.bold.bmx" } },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.bold.bmx"
+        }
+      },
       "name": "markup.bold.bmx",
       "patterns": [
-        { "include": "#escape" },
-        { "include": "#code-span" },
-        { "include": "#slot" },
-        { "include": "#link" }
+        {
+          "include": "#escape"
+        },
+        {
+          "include": "#code-span"
+        },
+        {
+          "include": "#slot"
+        },
+        {
+          "include": "#link"
+        }
       ]
     },
-
     "emphasis": {
       "begin": "(\\*)(?=\\S)(?!\\*)",
-      "beginCaptures": { "1": { "name": "punctuation.definition.italic.bmx" } },
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.italic.bmx"
+        }
+      },
       "end": "(\\*)|$",
-      "endCaptures": { "1": { "name": "punctuation.definition.italic.bmx" } },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.italic.bmx"
+        }
+      },
       "name": "markup.italic.bmx",
       "patterns": [
-        { "include": "#escape" },
-        { "include": "#code-span" },
-        { "include": "#slot" },
-        { "include": "#link" }
+        {
+          "include": "#escape"
+        },
+        {
+          "include": "#code-span"
+        },
+        {
+          "include": "#slot"
+        },
+        {
+          "include": "#link"
+        }
       ]
     },
-
     "link": {
       "match": "(\\[)([^\\]]*)(\\])(\\()([^)]*)(\\))",
       "captures": {
-        "1": { "name": "punctuation.definition.link.bmx" },
-        "2": { "name": "string.other.link.title.bmx", "patterns": [{ "include": "#slot" }] },
-        "3": { "name": "punctuation.definition.link.bmx" },
-        "4": { "name": "punctuation.definition.link.bmx" },
-        "5": { "name": "markup.underline.link.bmx" },
-        "6": { "name": "punctuation.definition.link.bmx" }
+        "1": {
+          "name": "punctuation.definition.link.bmx"
+        },
+        "2": {
+          "name": "string.other.link.title.bmx",
+          "patterns": [
+            {
+              "include": "#slot"
+            }
+          ]
+        },
+        "3": {
+          "name": "punctuation.definition.link.bmx"
+        },
+        "4": {
+          "name": "punctuation.definition.link.bmx"
+        },
+        "5": {
+          "name": "markup.underline.link.bmx"
+        },
+        "6": {
+          "name": "punctuation.definition.link.bmx"
+        }
       }
+    },
+    "block": {
+      "//": "`:name: head` \u2026 `:!name:`. The end pattern backreferences the name capture, so a block stays open until ITS OWN closer \u2014 a `:!other:` inside leaves the colouring where the parser puts the error rather than ending the block early.",
+      "begin": "^\\s*(:)([A-Za-z][A-Za-z0-9_-]*)(:)[ \\t]*(.*)$",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.block.begin.bmx"
+        },
+        "2": {
+          "name": "entity.name.tag.block.bmx"
+        },
+        "3": {
+          "name": "punctuation.definition.block.begin.bmx"
+        },
+        "4": {
+          "name": "meta.block.head.bmx",
+          "patterns": [
+            {
+              "include": "#head-known"
+            }
+          ]
+        }
+      },
+      "end": "^\\s*(:!)(\\2)(:)\\s*$",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.block.end.bmx"
+        },
+        "2": {
+          "name": "entity.name.tag.block.bmx"
+        },
+        "3": {
+          "name": "punctuation.definition.block.end.bmx"
+        }
+      },
+      "name": "meta.block.bmx",
+      "patterns": [
+        {
+          "include": "$self"
+        }
+      ]
     }
   }
 }

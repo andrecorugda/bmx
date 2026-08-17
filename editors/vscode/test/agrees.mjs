@@ -241,6 +241,21 @@ for (const { path, body } of snippets) {
 console.log();
 console.log(`${snippets.length - skipped} documentation snippets compared, ${compared} characters`);
 console.log(`${skipped} skipped as deliberately-invalid documents, where neither tool defines a colour`);
+
+// **A ceiling on the skips, because this check once lost nineteen documents without failing.**
+//
+// Respelling the fence in 0.7 made every `:::` snippet in the docs stop parsing, and `parses()` sent
+// them all to `skipped` — so the run still said *the two tools agree on every character*, about a set
+// that had shrunk by 40%. The number below is the count of documents in the guide that are
+// deliberately broken, because teaching what a refusal looks like is half of what the guide is for.
+// If it rises, either somebody added a broken example or the format moved under the documentation, and
+// both want a person to look.
+const DELIBERATELY_BROKEN = 6;
+if (skipped > DELIBERATELY_BROKEN) {
+  console.error(`\n${skipped} documents did not parse, and only ${DELIBERATELY_BROKEN} are meant to.`);
+  console.error('Either a new broken example needs counting here, or the docs have fallen behind the format.');
+  process.exit(1);
+}
 if (failures) {
   console.log(`${failures} disagreements — the site and the editor would show different colours`);
   process.exit(1);

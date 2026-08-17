@@ -75,7 +75,7 @@ BMX-E011 at 0: a heading needs exactly one space after its #
 Also: seven or more `#`, and an empty heading. **It is not read as a paragraph beginning with
 `#`** — that reading is how a typo'd heading silently becomes body text.
 
-### `BMX-E012` — list or quote nesting, which 0.6 does not have
+### `BMX-E012` — list or quote nesting, which 0.7 does not have
 
 ```
 - one
@@ -85,7 +85,7 @@ Also: seven or more `#`, and an empty heading. **It is not read as a paragraph b
 BMX-E012 at 6: a list may not nest; this line is indented. Put the `- ` at the start of the line, or make it a block — see §4a.2
 ```
 
-Refused rather than guessed at. **Blocks nest** — see [`:::` blocks](syntax.html#blocks) — lists
+Refused rather than guessed at. **Blocks nest** — see [`:name:` blocks](syntax.html#blocks) — lists
 and quotes do not, and a real document that needs it is what would earn it a version.
 
 **It fires for an indented `- `, `<digits>. ` or `> ` and nothing else.** Indentation elsewhere is
@@ -95,9 +95,9 @@ where leading space still decides anything, and it decides it by refusing.
 *Every version through 0.5.1 refused **every** indented line with this error, so a document like*
 
 ```
-::: div
+:div:
   hello
-:::
+:!div:
 ```
 
 *was told a list may not nest, about a document containing no list.* That is the worst shape a
@@ -128,29 +128,60 @@ ends up with a different answer.
 ### `BMX-E030` — a block name that is not a name
 
 ```
-:::9lives
-:::
+:9lives:
+:!9lives:
 ```
 
-A block name is a letter, then letters, digits, `-` and `_`. A line of **only** colons closes a
-block, so a block with no name cannot be written at all — it would be indistinguishable from a
-closing fence.
+A block name is a letter, then letters, digits, `-` and `_`. **A `:something:` whose something is not a
+name is refused, not treated as text** — otherwise a typo'd block renders as a paragraph beginning with
+a colon, which is the silence this format exists to remove.
 
 ### `BMX-E031` — unterminated block
 
-A `:::` that never closes. Never closed implicitly at end of file, for the same reason an
-unterminated code fence is not.
+A `:name:` with no `:!name:`. Never closed implicitly at end of file, for the same reason an
+unterminated code fence is not — and the message names the closer it was looking for.
 
-### `BMX-E032` — a closing fence with nothing open
+### `BMX-E032` — a closer with nothing open
 
-A `:::` line where no block is open. Note that a **longer** fence legitimately closes a shorter
-one — `::::` closes a `:::` block, exactly as with code fences.
+A `:!name:` line where no block is open.
+
+### `BMX-E035` — a closer that names another block
+
+```
+:card:
+Body.
+:!for:
+```
+
+```
+BMX-E035 at 13: `:!for:` closes nothing here — the open block is `card`, opened at 1:1, so its closer is `:!card:`
+```
+
+**Both positions, and that is the point.** A closer that names its block is only worth its characters if
+the format checks the name — unchecked, it is a comment that can disagree with the structure. And a
+message with one position sends you back to counting openers, which is the work the named closer exists
+to delete.
+
+### `BMX-E036` — the 0.6 fence
+
+```
+::: card
+:::
+```
+
+```
+BMX-E036 at 0: this is the 0.6 fence: 0.7 opens with `:name:` and closes with `:!name:`. Run `python3 tools/migrate-0.7.py` over the file
+```
+
+0.7 respelled the fence. The old one is recognised **only** so that it can be refused by name — a 0.6
+document fed to a 0.7 parser would otherwise render its fences as paragraph text, and a format whose
+one claim is that it never does that cannot start with its own syntax.
 
 ### `BMX-E033` — a second `#id` on one block
 
 ```
-:::card #one #two
-:::
+:card: #one #two
+:!card:
 ```
 
 An id is an address. Two of them leaves *"where is it"* with no answer. Classes are unlimited.
@@ -248,15 +279,15 @@ baseline whatever it is.
 ### `BMX-W002` — a block with no head and no body
 
 ```bmx
-::: bare
-:::
+:bare:
+:!bare:
 ```
 
 It renders as nothing. Almost always an unfinished edit.
 
 **Two cases are exempt because they are correct.** A block with a *head* is carrying its meaning
-there — `::: props order: Order` and `::: input on:input=save(id)` are both complete. And a **void
-element** must have an empty body: `::: br` and `::: hr` are right, and a renderer that gave them
+there — `:props: order: Order` and `:input: on:input=save(id)` are both complete. And a **void
+element** must have an empty body: `:br:` and `:hr:` are right, and a renderer that gave them
 children would be refused. The exempt names are HTML's void elements by default, and a host whose
 vocabulary differs replaces the list.
 
@@ -268,17 +299,6 @@ A [dead]() link.
 
 An empty target points at the current page, which nobody means. Give it a target, or write the text
 without brackets.
-
-### `BMX-W004` — a fence longer than its nesting needs
-
-```bmx
-:::: card
-no nested block in here
-::::
-```
-
-A longer fence only means something when it **contains** a shorter one. Written without a reason it
-reads as significant and is not — and that is the kind of noise a reviewer stops seeing.
 
 ## Where you see these
 

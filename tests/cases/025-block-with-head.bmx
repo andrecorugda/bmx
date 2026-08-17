@@ -1,3 +1,3 @@
-::: for line in order.lines
+:for: line in order.lines
 - {{ line.sku }}
-:::
+:!for:
