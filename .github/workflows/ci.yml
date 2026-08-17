@@ -110,6 +110,16 @@ jobs:
       - name: The two implementations agree with each other
         run: python3 tests/agree.py 'node reference/bmx.js' /tmp/bmx-parse
 
+      # **Level 2, which is the reason the format was worth defining.** `harness.py` above asks
+      # whether this parser matches the spec; this asks whether a generated view carries the
+      # guarantees the document could not — a missing field, a wrong type and re-rounded money are
+      # all compile errors, and a `javascript:` target never reaches a page.
+      #
+      # It lived in Burxt's `tests/runner.rs` while `bmx.bx` lived in Burxt's `lib/`, and moved
+      # here with the implementation rather than staying behind as a claim nobody runs.
+      - name: A document becomes a view the compiler checks
+        run: python3 burxt/test.py
+
       # A package is not usable because its own tests pass — star-burxt's suite was green through a
       # gap that made every symbol unreachable, because its only consumer lived inside the package.
       # So: a program OUTSIDE this repository, reaching BMX the way anyone else would.

@@ -1308,7 +1308,13 @@ function bmx_emit_burxt(blocks: [Block], source_name: String, name: String, para
             out = out + "// Every slot in the document became an ordinary Burxt expression below, so the\n";
             out = out + "// compiler checks it: a missing field is a type error, and a rounding contract\n";
             out = out + "// survives into the tag. That is what the document could not do by itself.\n";
-            out = out + "use \"lib/html.bx\";\n\n";
+            // **`std/`, not `lib/`.** A generated view is written wherever its author wants it,
+            // and `use "lib/html.bx"` resolves relative to THAT file — so it only worked when
+            // somebody arranged a `lib/` beside the output, which the old test did with a symlink.
+            // `std/` names the standard library from anywhere, which is the whole reason it exists,
+            // and it is the only form that works for a consumer who reached this generator through
+            // a package rather than through Burxt's own tree.
+            out = out + "use \"std/html.bx\";\n\n";
             out = out + "pure function " + name + "(" + signature + ") -> Html\n";
             let mutable i: Int = 0;
             while i < len(clauses) {
