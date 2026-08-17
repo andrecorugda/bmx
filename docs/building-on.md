@@ -153,6 +153,32 @@ none.
 **No cross-file component resolution in the format.** A block names a component; how a host finds
 it is the host's module system, not BMX's.
 
+## Give your library its own version number
+
+Not BMX's. They measure different promises, and 0.2 is the worked example of why.
+
+0.2 added two node kinds — `Fenced` and `InlineBlock`. Against the conformance suite that is a
+**minor**: cases were added, none edited, every 0.1 document still parses to what it did before.
+
+If your library **exports its AST**, the same change is a **major** for you. Anyone matching on a
+node kind now has a case they do not handle — and in a language with exhaustive matching that is a
+compile error in code nobody touched.
+
+> Adding a node kind is a minor for the format and a major for any library that exposes the tree.
+
+Neither number is wrong. One number cannot carry both, so pin them separately: your own version,
+plus a statement of which BMX version you target. A library at 3.0 targeting BMX 0.2 is normal and
+says something true.
+
+**The design consequence is worth thinking about before your first release: exporting a tree is a
+bigger promise than exporting a function.** If you return rendered output, or a documented subset
+of node kinds, this never reaches your consumers. Export the tree when you want hosts to build on
+it — that is what level 2 needs — but as a decision rather than a side effect of making your own
+tests compile.
+
+Full rules in
+[`VERSIONING.md`](https://github.com/andrecorugda/bmx/blob/main/VERSIONING.md).
+
 ## If you extend the format anyway
 
 Sometimes the answer really is a format change. Then:
