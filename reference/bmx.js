@@ -457,19 +457,42 @@ function parseBlocks(rows, from, depth) {
 // Warnings, never errors. An error means BMX refuses the document; these all render fine. A linter
 // that fails a build is a linter people turn off.
 
+// **Names for which an empty body is correct rather than an oversight.**
+//
+// BMX does not know what a block means — that is BOUNDARY.md — so it cannot know that `br` is void.
+// A host does. But BMX is not vocabulary-neutral either: its renderer emits HTML tags and
+// ESCAPING.md is an HTML rule, so **HTML is the one vocabulary this format may assume by default**,
+// and saying so is better than pretending neutrality and then warning on every `<br>`.
+//
+// star-burxt reported this: `html_element` carries
+// `requires !html_is_void(tag) || len(children) == 0`, so a void element MUST have an empty body and
+// the rule was warning on correct code. Their example — `::: input on:input=…` — turned out already
+// clean, because it has a head; the real false positive was narrower, `::: br` and `::: hr` with no
+// head at all. A host with a different vocabulary passes its own list.
+const SELF_CLOSING = [
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+  'link', 'meta', 'source', 'track', 'wbr',
+]
+
 const LINTS = [
   {
     code: 'BMX-W001',
     // A heading level skip breaks the document outline, which is what a screen reader navigates by
     // and what a table of contents is built from. Structural, and invisible when you look at a page.
+    //
+    // **WITHIN the document, never "must start at h1".** A component that opens at `##` is correct —
+    // the `#` belongs to the page embedding it — so the first heading sets the baseline whatever it
+    // is. star-burxt asked which of the two this was; it was already the right one and the message
+    // did not say so, which is the same thing as being unclear.
     check(blocks, source, warn) {
       let previous = 0
       for (const block of blocks) {
         if (block.type !== 'heading') continue
         if (previous && block.level > previous + 1) {
           warn(block.offset,
-            `a heading jumps from level ${previous} to ${block.level}. The outline a reader ` +
-            `navigates by has a gap in it — use h${previous + 1}, or make the parent shallower.`)
+            `a heading jumps from level ${previous} to ${block.level} within this document. The ` +
+            `outline a reader navigates by has a gap in it — use h${previous + 1}, or make the ` +
+            `parent shallower. (Opening at any level is fine: only the jump is flagged.)`)
         }
         previous = block.level
       }
@@ -478,12 +501,15 @@ const LINTS = [
   {
     code: 'BMX-W002',
     // A block with no body renders as an empty element. It is almost always an unfinished edit, and
-    // the one case where it is deliberate — a self-contained component like `props` — has a head.
-    check(blocks, source, warn) {
+    // the cases where it is deliberate are exempt: a block with a HEAD is carrying its meaning there
+    // (`props`, `input on:input=…`), and a void element must have an empty body by contract.
+    check(blocks, source, warn, options) {
+      const closing = options.selfClosing ?? SELF_CLOSING
       const walk = (list) => {
         for (const block of list) {
           if (block.type === 'block') {
-            if (block.children.length === 0 && block.head.trim() === '') {
+            if (block.children.length === 0 && block.head.trim() === ''
+                && !closing.includes(block.name)) {
               warn(block.offset,
                 `\`${block.name}\` has no head and no body, so it renders as nothing. ` +
                 `Give it content, give it a head, or delete it.`)
@@ -544,11 +570,14 @@ const LINTS = [
 /**
  * Everything a linter can say about a document that PARSES.
  *
+ * `options.selfClosing` replaces the list of block names for which an empty body is expected. The
+ * default is HTML's void elements; a host whose vocabulary differs passes its own.
+ *
  * Returns `{ code, message, offset, line, column }` objects, in document order. A document that does
  * not parse has one error and no warnings — there is nothing to lint in a tree that does not exist,
  * and reporting style notes about a broken document buries the reason it is broken.
  */
-export function lint(source) {
+export function lint(source, options = {}) {
   let blocks
   try {
     blocks = parse(source).children
@@ -560,7 +589,7 @@ export function lint(source) {
   for (const rule of LINTS) {
     rule.check(blocks, source, (offset, message) => {
       found.push({ code: rule.code, message, offset, ...at(source, offset) })
-    })
+    }, options)
   }
   return found.sort((a, b) => a.offset - b.offset)
 }

@@ -224,6 +224,10 @@ attributes, or about how a component ought to be written.
 The outline a reader navigates by now has a gap in it, and a page looks identical either way — which
 is why this is worth a warning rather than a glance. Use `##`, or make the parent shallower.
 
+**It is about the jump, never about starting at `h1`.** A document that opens at `##` is correct —
+a component's headings are relative to the page that embeds it — so the first heading sets the
+baseline whatever it is.
+
 ### `BMX-W002` — a block with no head and no body
 
 ```bmx
@@ -231,8 +235,13 @@ is why this is worth a warning rather than a glance. Use `##`, or make the paren
 :::
 ```
 
-It renders as nothing. Almost always an unfinished edit; the deliberate case — a self-contained block
-like `props` — has a head.
+It renders as nothing. Almost always an unfinished edit.
+
+**Two cases are exempt because they are correct.** A block with a *head* is carrying its meaning
+there — `::: props order: Order` and `::: input on:input=save(id)` are both complete. And a **void
+element** must have an empty body: `::: br` and `::: hr` are right, and a renderer that gave them
+children would be refused. The exempt names are HTML's void elements by default, and a host whose
+vocabulary differs replaces the list.
 
 ### `BMX-W003` — a link with an empty target
 

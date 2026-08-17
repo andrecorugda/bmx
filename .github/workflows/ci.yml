@@ -57,6 +57,13 @@ jobs:
       - name: The site's colours and the editor's agree
         run: node editors/vscode/test/agrees.mjs
 
+      # **A lint that fires on correct code is worse than no lint**, because the fix is to switch the
+      # linter off and then no rule runs. So half of these cases are negatives, and the negatives came
+      # from a consumer rather than from imagination — star-burxt reported BMX-W002 warning on void
+      # elements, whose bodies must be empty by contract.
+      - name: The linter fires where it should and stays quiet where it should
+        run: node tests/lints.mjs
+
       # **Every failure mode of a language server is a silence.** A wrong Content-Length, a frame
       # split across two chunks, a request answered with nothing — the editor does not error, it just
       # stops showing diagnostics, and the author concludes the extension is broken. So the framing is
