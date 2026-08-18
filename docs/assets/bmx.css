@@ -296,3 +296,15 @@
 @media (max-width: 768px) {
   .bar .mark img { height: 14.5px; }
 }
+
+/* The landing page's heading is the wordmark. **star-burxt's numbers, deliberately** — 40px, 32px on a
+ * phone — because the two marks are cropped to their ink, so one number renders the same amount of letter
+ * on both sites. `site.css` already scopes `img.lockup` to `.hero`, so the class is free here and the
+ * `h1` carries it rather than the image.
+ *
+ * `display: block` on the image so the `h1` has no descender gap under it, and the heading keeps the
+ * margins it had as text — Andre's *"your spacing is already correct"*, so nothing here touches it. */
+.doc-body h1.lockup img { height: 40px; width: auto; display: block; }
+@media (max-width: 640px) {
+  .doc-body h1.lockup img { height: 32px; }
+}
