@@ -297,14 +297,18 @@
   .bar .mark img { height: 14.5px; }
 }
 
-/* The landing page's heading is the wordmark. **star-burxt's numbers, deliberately** — 40px, 32px on a
- * phone — because the two marks are cropped to their ink, so one number renders the same amount of letter
- * on both sites. `site.css` already scopes `img.lockup` to `.hero`, so the class is free here and the
- * `h1` carries it rather than the image.
+/* The landing page's mark, above the tagline. **star-burxt's four numbers, deliberately** — 40px, 32px on
+ * a phone, and their two margins — because the two marks are cropped to their ink, so one height renders
+ * the same amount of letter on both sites, and the pages then breathe the same.
  *
- * `display: block` on the image so the `h1` has no descender gap under it, and the heading keeps the
- * margins it had as text — Andre's *"your spacing is already correct"*, so nothing here touches it. */
-.doc-body h1.lockup img { height: 40px; width: auto; display: block; }
+ * The gap under the mark is the one Andre circled on their page when it was the sum of two margins, so it
+ * is set once here: `.lockup + h1` overrides the heading's own `margin-top` rather than adding to it.
+ *
+ * `display: block` on the image so there is no descender gap beneath it. `site.css` scopes `img.lockup`
+ * to `.hero`, so this class is free and the `<p>` carries it. */
+.doc-body p.lockup { margin: 1.75rem 0 0; }
+.doc-body p.lockup + h1 { margin-top: .85rem; }
+.doc-body p.lockup img { height: 40px; width: auto; display: block; }
 @media (max-width: 640px) {
-  .doc-body h1.lockup img { height: 32px; }
+  .doc-body p.lockup img { height: 32px; }
 }

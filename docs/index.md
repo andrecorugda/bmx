@@ -4,24 +4,28 @@ title: BMX
 description: "Burxt Markup Language, Extensible — you write markdown, you get a page, and it tells you when the document is wrong."
 ---
 
-<!-- **The heading IS the wordmark.** Andre, comparing this page with star-burxt's: *"on landing page you
-     write BMX not use the wordmark icon like the star but your spacing is already correct same size
-     replace it with bmx wordmark icon."*
+<!-- **The mark, then the tagline as the heading** — star-burxt's arrangement, which Andre asked for by
+     pointing at it: *"follow star where the tag line is big Build a front end by writing a document."*
 
-     The mark goes INSIDE the `h1` rather than in a `<p>` above it, which is where star puts theirs. The
-     difference is that their `h1` is a sentence — *Build a front end by writing a document* — so their mark
-     needs its own element. Mine is the word `BMX`, so the mark replaces it exactly: the page keeps one
-     `h1`, the outline is unchanged, and `alt="BMX"` carries the same text to a reader who gets no images.
-     **A heading rendered as an image is only safe when the alt text IS the heading**, which is true here
-     and would not be if the mark stood in for a sentence.
+     Their page reads mark → big `h1` sentence → explanatory paragraph, and the `h1` does not contain the
+     product's name at all. That is the part worth copying: **a landing heading should say what you get,
+     not what the thing is called.** The name is already in the mark above it, in the tab title, and in the
+     paragraph below, so spending the one big line on it says nothing a visitor did not already know.
 
-     Sized at 40px of ink to match star's `.lockup img`, and the viewBox is cropped to the ink, so 40px is
-     40px of letter on both sites rather than 40px of box holding different amounts of nothing. -->
-<h1 class="lockup">
+     So the mark moves out of the `h1` into its own `<p>`, exactly as star does, and the heading becomes the
+     claim. `alt="BMX"` still carries the name for anyone without images.
+
+     **The tagline is `SPEC.md` §1, not copy.** *"It always fails loudly… never output that looks nearly
+     right."* Every word of "cannot be quietly wrong" is that sentence, which is the one thing BMX has that
+     markdown does not — and the reason it is worth a heading is that it is the only claim here a reader
+     cannot get from any other markdown dialect. -->
+<p class="lockup">
   <img src="{{ site.baseurl }}/assets/bmx-lockup.svg" alt="BMX" width="239" height="96">
-</h1>
+</p>
 
 {% raw %}
+# Write a page that cannot be quietly wrong
+
 **Burxt Markup Language, Extensible.** You write markdown. You get a page.
 
 {% endraw %}{% include showcase.html %}{% raw %}
