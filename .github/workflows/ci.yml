@@ -168,6 +168,19 @@ jobs:
       - name: Every example is indented the way the format says
         run: python3 tools/fmt.py --check docs/*.md docs/guide/*.md README.md editors/vscode/README.md
 
+      # **A zero-dependency parser whose runtime requirement is undocumented is not portable — it is
+      # untested on everything except the machine that wrote it.** `reference/bmx.js` is what this project
+      # offers a stranger to copy, and nothing said which Node runs it. CI provides 20, which is a PIN;
+      # the floor is 14, measured (nullish coalescing is the newest thing in the file).
+      #
+      # The check reads the floor out of `docs/install.md` so the number lives in one place, and it exists
+      # because measuring it went wrong first: `\.at\(` matched `...at(source, offset)` — a spread of a
+      # local function — and reported a floor 2.6 versions too high, which I nearly published.
+      - name: The reference parser needs nothing newer than the Node it promises
+        run: |
+          python3 tests/portability.py
+          python3 tests/portability.py --prove-it
+
       # **Three status claims were stale at once, one of them nine releases behind** — and a stale
       # NOT-DONE is found by nobody, because a reader who is told a feature is absent believes it and
       # leaves. The version lives in `SPEC.md`'s title; this checks every page against it.

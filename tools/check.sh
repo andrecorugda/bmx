@@ -77,6 +77,8 @@ echo
 echo "the documentation"
 run "every example is indented the way the format says" bash -c '
   python3 tools/fmt.py --check docs/*.md docs/guide/*.md README.md editors/vscode/README.md'
+run "the reference parser needs nothing newer than the Node it promises" bash -c '
+  python3 tests/portability.py && python3 tests/portability.py --prove-it'
 run "every version the documentation states agrees with SPEC.md" bash -c '
   python3 tests/version.py && python3 tests/version.py --prove-it'
 run "every doc page closes its raw tag" bash -c '

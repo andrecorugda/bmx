@@ -72,7 +72,7 @@ how to turn it into a page, how to style the output, and every error it can give
 ## Two implementations, on purpose
 
 BMX ships a **reference parser** — [`reference/bmx.js`](reference/bmx.js), zero dependencies,
-written to be read — alongside the spec, not instead of one. CommonMark shipped `cmark` the same
+**Node 14 or newer**, written to be read — alongside the spec, not instead of one. CommonMark shipped `cmark` the same
 way, and the three-dialect mess this format exists to fix came from a spec that had no reference.
 
 The second implementation is [`burxt/bmx.bx`](burxt/bmx.bx), for

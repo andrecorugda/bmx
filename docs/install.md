@@ -174,6 +174,13 @@ it has zero dependencies and is written to be read.
 curl -O https://raw.githubusercontent.com/andrecorugda/bmx/main/reference/bmx.js
 ```
 
+**Node 14 or newer**, and that number is measured rather than chosen: the newest thing the file uses is
+nullish coalescing. CI runs it on Node 20, which is a *pin* and not this floor — see the note about Burxt's
+two numbers above; the same distinction applies here, one runtime down. `tests/portability.py` reads the
+floor out of this sentence and fails if the file ever uses something newer, because **a zero-dependency
+parser whose runtime requirement is undocumented is not portable, it is untested on everything but one
+machine.**
+
 ```js
 import { parse, BmxError } from './bmx.js'
 
