@@ -57,6 +57,8 @@ run "the preview does what the button promises" bash -c '
   mkdir -p editors/vscode/reference &&
   cp reference/bmx.js editors/vscode/reference/bmx.mjs &&
   node editors/vscode/test/preview.js'
+run "every brand asset carries the family's margin and its own crop" bash -c '
+  python3 tests/branding.py && python3 tests/branding.py --prove-it'
 run "the extension packages" bash -c '
   python3 editors/vscode/pack.py >/dev/null &&
   python3 -c "

@@ -124,6 +124,16 @@ jobs:
 
       # A .vsix nobody built is a .vsix that does not package — and the file list in pack.py is
       # written out rather than globbed, so a missing entry is only found by packaging.
+      # **Andre's complaint was that an icon "looks like it is really sticking to the edge".** Measured,
+      # it filled 86% of its height — four clear pixels at 48px. The family is cropped to its ink at 70%,
+      # and three icons on consecutive rows of a file tree read inconsistent margins as misalignment
+      # rather than as three different logos. Also: no white background rect, which is a box on any
+      # tinted surface.
+      - name: Every brand asset carries the family's margin and its own crop
+        run: |
+          python3 tests/branding.py
+          python3 tests/branding.py --prove-it
+
       - name: The extension packages
         run: |
           python3 editors/vscode/pack.py
