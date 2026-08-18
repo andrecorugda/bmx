@@ -693,15 +693,84 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: I
                         "a block name is a letter, then letters, digits, - and _"));
                 }
                 let mutable rest: String = substring(text, marker + 1, len(text) - (marker + 1));
-                // A one-liner closes on its own line: `:span: class=box :!span:`. Taken only at END
-                // of line and only when it names THIS block, so a `:!x:` inside a head is left alone.
                 let target: String = ":!" + name + ":";
-                let trimmed: String = bmx_strip_end(rest);
                 let mutable one_liner: Bool = false;
-                if len(trimmed) >= len(target)
-                   && substring(trimmed, len(trimmed) - len(target), len(target)) == target {
-                    rest = substring(trimmed, 0, len(trimmed) - len(target));
-                    one_liner = true;
+                let mutable inline_body: String = "";
+                let mutable bracket_at: Int = 0;
+                // Where the inline body starts in the SOURCE. It is not the head's offset — passing that
+                // put the body's nodes eleven bytes early, and `tests/agree.py` caught it because the
+                // reference implementation computes the real position. A differential test cannot see a
+                // rule both sides get wrong, but it sees this instantly.
+                let mutable body_at: Int = 0;
+
+                // ---- a DELIMITED head: `:name: -> [ … ] body` ----
+                //
+                // **What lets a body share the line with a head**, which nothing could before 0.9. A
+                // head is opaque bytes, so `:span: class=text hello :!span:` sent `hello` into the head
+                // and the text silently vanished. Andre's answer: the author says where the head stops.
+                //
+                // BMX still parses NOTHING inside the brackets — it learns one bracket pair as a
+                // delimiter, and the commas and `name=value` stay the host's, exactly as before.
+                let mutable arrow: Int = 0;
+                while arrow < len(rest) && bmx_is_space(byte_at(rest, arrow)) {
+                    arrow += 1;
+                }
+                let mutable delimited: Bool = false;
+                if arrow + 2 < len(rest) && byte_at(rest, arrow) == 45 && byte_at(rest, arrow + 1) == 62 {
+                    let mutable lbrack: Int = arrow + 2;
+                    while lbrack < len(rest) && bmx_is_space(byte_at(rest, lbrack)) {
+                        lbrack += 1;
+                    }
+                    if lbrack < len(rest) && byte_at(rest, lbrack) == 91 {
+                        delimited = true;
+                        let mutable close: Int = lbrack + 1;
+                        while close < len(rest) && byte_at(rest, close) != 93 {
+                            close += 1;
+                        }
+                        if close >= len(rest) {
+                            return Result.Error(bmx_error("BMX-E037", line.offset,
+                                "a delimited head needs its `]`: `:" + name + ": -> [ … ]`"));
+                        }
+                        // The head ends at the FIRST `]`, which is the escape hatch rather than a
+                        // defect: a host needing a `]` in a value writes the undelimited form, which
+                        // takes the whole line and has no delimiter to collide with.
+                        let after: String = substring(rest, close + 1, len(rest) - (close + 1));
+                        bracket_at = lbrack + 1;
+                        rest = substring(rest, lbrack + 1, close - (lbrack + 1));
+
+                        let rear: String = bmx_strip_end(after);
+                        if len(rear) >= len(target)
+                           && substring(rear, len(rear) - len(target), len(target)) == target {
+                            let raw_body: String = substring(rear, 0, len(rear) - len(target));
+                            let mutable lead: Int = 0;
+                            while lead < len(raw_body) && bmx_is_space(byte_at(raw_body, lead)) {
+                                lead += 1;
+                            }
+                            body_at = line.offset + marker + 1 + close + 1 + lead;
+                            inline_body = string_trim(raw_body);
+                            one_liner = true;
+                        } else {
+                            if !bmx_is_blank(rear) {
+                                // **Refused rather than merged.** Otherwise the body has two sources —
+                                // this line and the lines below — and a reader cannot tell which won.
+                                return Result.Error(bmx_error("BMX-E038", line.offset,
+                                    "a body after `]` needs the block to close on the same line — add `:!"
+                                    + name + ":`, or put the body on the lines below"));
+                            }
+                        }
+                    }
+                }
+
+                // The undelimited form, unchanged: a one-liner closes on its own line and everything
+                // before the closer is head. Taken only at END of line and only when it names THIS
+                // block, so a `:!x:` inside a head is left alone.
+                if !delimited {
+                    let trimmed: String = bmx_strip_end(rest);
+                    if len(trimmed) >= len(target)
+                       && substring(trimmed, len(trimmed) - len(target), len(target)) == target {
+                        rest = substring(trimmed, 0, len(trimmed) - len(target));
+                        one_liner = true;
+                    }
                 }
                 let head: String = string_trim(rest);
                 // At most one `#id`. Everything else in the head belongs to the host — but an id
@@ -729,15 +798,26 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: I
                 }
                 let mutable pad: Int = 0;
                 while pad < len(rest) && bmx_is_space(byte_at(rest, pad)) { pad += 1; }
-                let head_at: Int = line.offset + marker + 1 + pad;
+                let head_at: Int = line.offset + marker + 1 + pad + bracket_at;
                 let mutable kids: [Block] = [];
                 if one_liner {
-                    // **A one-liner's body is EMPTY, and that is a decision rather than an omission.**
-                    // A head is opaque to BMX — the bytes after the name, unparsed, because heads
-                    // belong to the host — so in `:span: class=text {{ label }} :!span:` the format
-                    // cannot tell where `class=text` ended and the label began. There is no
-                    // delimiter, and inventing one is a rule added. A block that needs a BODY takes
-                    // three lines, where the newline is the delimiter.
+                    // **An UNDELIMITED one-liner's body is empty, and a delimited one's is not.** With
+                    // no `-> [ … ]` the format cannot tell where `class=text` ended and `hello` began,
+                    // so everything is head; with the delimiter the author has said, and what follows
+                    // the `]` is inline content BMX parses and escapes — which is the whole difference
+                    // between this and a host-side `child="…"`, where the body is a string the format
+                    // never looks at and therefore never escapes.
+                    if len(inline_body) > 0 {
+                        match bmx_parse_inline(inline_body, body_at) {
+                            Error(e) => { return Result.Error(e); }
+                            Ok(part) => {
+                                let para: Int = push(kids, Block.Paragraph(BmxWords {
+                                    children: bmx_merge_text(part),
+                                    offset: line.offset,
+                                }));
+                            }
+                        }
+                    }
                     let added: Int = push(out, Block.Fenced(BmxBlock {
                         name: name,
                         head: head,

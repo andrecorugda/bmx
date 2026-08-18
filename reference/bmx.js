@@ -399,13 +399,59 @@ function parseBlocks(rows, from, open, openRow) {
     if (m) {
       const name = m[1]
       let rest = m[2]
+
+      // ---- a DELIMITED head: `:name: -> [ … ] body` ----
+      //
+      // **This is what lets a body share the line with a head**, and until 0.9 nothing could. A head is
+      // opaque bytes, so in `:span: class=text hello :!span:` the format could not tell where
+      // `class=text` ended and `hello` began — everything went to the head and the text silently
+      // vanished. Andre's answer: let the author say where the head stops.
+      //
+      // `->` rather than `=>`: both are Burxt tokens, and the direction of `->` reads correctly
+      // (name, then what is attached), while `=>` is a match arm and would make `:case: Post(id) =>
+      // [x]` look like one. Chosen over a bare `[`, which cannot work — `[text](url)` is a link, so
+      // `:button: [Coffee](/c)` would be ambiguous with a body that begins with one.
+      //
+      // **BMX still parses nothing inside the brackets.** It learns one bracket pair as a delimiter;
+      // the commas, the `name=value`, all of it stays the host's, exactly as an undelimited head does.
+      let bracketed = null
+      const opens = /^[ \t]*->[ \t]*\[/.exec(rest)
+      if (opens) {
+        const from = opens[0].length
+        const close = rest.indexOf(']', from)
+        if (close < 0) {
+          throw new BmxError('BMX-E037', row.offset,
+            `a delimited head needs its \`]\`: \`:${name}: -> [ … ]\``)
+        }
+        // **The head ends at the FIRST `]`, and that is the escape hatch rather than a defect.** A host
+        // needing a `]` inside a value writes the undelimited form, which takes the whole line and has
+        // no delimiter to collide with. No escape syntax added, and zero real heads contain a bracket.
+        bracketed = { head: rest.slice(from, close), after: rest.slice(close + 1), at: from }
+        rest = bracketed.head
+      }
+
       // A one-liner closes on its own line: `:span: class=box :!span:`. The trailing closer is taken
       // only at END of line and only when it names THIS block, so `:!x:` inside a head is left alone.
       let oneLiner = false
-      const trailing = ONELINER.exec(rest)
-      if (trailing && trailing[2] === name) {
-        rest = trailing[1]
-        oneLiner = true
+      let inlineBody = ''
+      if (bracketed) {
+        const trailing = ONELINER.exec(bracketed.after)
+        if (trailing && trailing[2] === name) {
+          inlineBody = trailing[1].replace(/^[ \t]+|[ \t]+$/g, '')
+          oneLiner = true
+        } else if (bracketed.after.trim() !== '') {
+          // **Body text on a line that does not close is refused rather than merged.** Otherwise the
+          // body has two sources — this line and the lines below — and a reader cannot tell which one
+          // won. One unambiguous reading is the whole point, so the answer is a refusal, not a rule.
+          throw new BmxError('BMX-E038', row.offset,
+            `a body after \`]\` needs the block to close on the same line — add \`:!${name}:\`, or put the body on the lines below`)
+        }
+      } else {
+        const trailing = ONELINER.exec(rest)
+        if (trailing && trailing[2] === name) {
+          rest = trailing[1]
+          oneLiner = true
+        }
       }
       const head = rest.replace(/^[ \t]+|[ \t]+$/g, '')
       // At most one #id. Everything else in the head belongs to the host.
@@ -418,8 +464,9 @@ function parseBlocks(rows, from, open, openRow) {
       }
       let pad = 0
       while (pad < rest.length && (rest.charCodeAt(pad) === SPACE || rest.charCodeAt(pad) === TAB)) pad++
-      // The head's first byte: past `:`, the name, `:`, and any spaces.
-      const headOffset = row.offset + 1 + name.length + 1 + pad
+      // The head's first byte: past `:`, the name, `:`, and any spaces — plus the `-> [` when the head
+      // is delimited, so a host highlighting a head still points at its first byte rather than the arrow.
+      const headOffset = row.offset + 1 + name.length + 1 + pad + (bracketed ? bracketed.at : 0)
 
       // **A one-liner's body is EMPTY, and that is a decision rather than an omission.** A head is
       // opaque to BMX by §4a.1 — the bytes after the name, unparsed, because heads belong to the host
@@ -427,7 +474,13 @@ function parseBlocks(rows, from, open, openRow) {
       // ended and the label began. There is no delimiter, and inventing one is a rule added. So
       // everything before the closer is head, and a block that needs a BODY takes three lines, where
       // the newline is the delimiter.
-      const [body, end] = oneLiner ? [[], i] : parseBlocks(rows, i + 1, name, i)
+      // A delimited one-liner's body is INLINE CONTENT — parsed and escaped by BMX, with real slot
+      // nodes — which is the difference between this and a host-side `child="…"` attribute, where the
+      // body is a string the format never looks at and therefore never escapes.
+      const inlineNodes = inlineBody === ''
+        ? []
+        : [{ type: 'paragraph', children: parseInline(inlineBody, row.offset + text.length - inlineBody.length - (`:!${name}:`.length) - 1), offset: row.offset }]
+      const [body, end] = oneLiner ? [inlineNodes, i] : parseBlocks(rows, i + 1, name, i)
       if (!oneLiner && end >= rows.length) {
         throw new BmxError('BMX-E031', row.offset, `unterminated block: no \`:!${name}:\``)
       }

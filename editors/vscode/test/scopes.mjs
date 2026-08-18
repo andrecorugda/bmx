@@ -143,6 +143,27 @@ check(
   ["meta.slot.expression.bmx"],
 );
 
+// ---- a delimited head (0.9) ----
+//
+// **The head must keep `meta.block.head.bmx` in BOTH forms.** That scope is what every host's grammar
+// injects into (see the compatibility note in the grammar itself), so a delimited head landing in some
+// new scope would silently stop every framework colouring its own expressions — with nothing failing.
+check(
+  "a delimited head is still the host's head",
+  ':button: -> [on:click=save(id)] Save :!button:\n', 0, "on:click=save(id)",
+  ["meta.block.head.bmx"],
+);
+check(
+  "the arrow is punctuation, not part of the head — and named so the site's table already covers it",
+  ':button: -> [class=x] Save :!button:\n', 0, "->",
+  ["punctuation.definition.head.arrow.bmx"],
+);
+check(
+  "and the body after the bracket is content rather than head",
+  ':button: -> [class=x] Save :!button:\n', 0, "Save",
+  ["text.bmx"],
+);
+
 // ---- nesting by name ----
 check(
   "a block inside a block",

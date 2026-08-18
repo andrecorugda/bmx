@@ -75,7 +75,7 @@ BMX-E011 at 0: a heading needs exactly one space after its #
 Also: seven or more `#`, and an empty heading. **It is not read as a paragraph beginning with
 `#`** — that reading is how a typo'd heading silently becomes body text.
 
-### `BMX-E012` — list or quote nesting, which 0.8 does not have
+### `BMX-E012` — list or quote nesting, which 0.9 does not have
 
 ```
 - one
@@ -329,6 +329,28 @@ has already chosen to indent and then contradicts itself.
 **And the step is the document's own.** A file indenting by four is consistent; being told that two is
 correct would be the format having an opinion about whitespace, which it spends [§1](syntax.html#indentation)
 refusing to have.
+
+### `BMX-E037` — a delimited head with no `]`
+
+```bmx
+:button: -> [class=x
+:!button:
+```
+
+The bracket that opens a head has to close on the same line. A head is one line by definition, so there
+is nowhere else for the `]` to be.
+
+### `BMX-E038` — a body after `]` on a line that does not close
+
+```bmx
+:button: -> [class=x] Save
+  more body
+:!button:
+```
+
+**Refused rather than merged.** With `Save` on the opening line and `more body` below it, the block's
+body has two sources and nothing says which comes first — so the format asks you to pick: close the line
+(`:!button:` at the end of it) or move `Save` down with the rest.
 
 ## Where you see these
 

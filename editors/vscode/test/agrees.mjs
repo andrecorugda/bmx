@@ -250,7 +250,7 @@ console.log(`${skipped} skipped as deliberately-invalid documents, where neither
 // deliberately broken, because teaching what a refusal looks like is half of what the guide is for.
 // If it rises, either somebody added a broken example or the format moved under the documentation, and
 // both want a person to look.
-const DELIBERATELY_BROKEN = 6;
+const DELIBERATELY_BROKEN = 8;   // 6 in the guide, plus `BMX-E037` and `BMX-E038` on the errors page
 if (skipped > DELIBERATELY_BROKEN) {
   console.error(`\n${skipped} documents did not parse, and only ${DELIBERATELY_BROKEN} are meant to.`);
   console.error('Either a new broken example needs counting here, or the docs have fallen behind the format.');

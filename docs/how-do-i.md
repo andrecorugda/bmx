@@ -125,6 +125,39 @@ a border-radius.
 that matters, name the region with a block — `:nav: .bar` — and your host decides what it renders as.
 [Styling the output](styling.html#a-whole-page-bar-included) has both versions side by side.
 
+## …put a block on one line
+
+Say where the head stops, with `-> [ … ]`, and the rest of the line is the body:
+
+```bmx
+:button: -> [on:click=save(id), .featured, #plans] Save :!button:
+```
+
+```html
+<button class="featured" id="plans">Save</button>
+```
+
+**Without the brackets there is no body.** `:button: on:click=save(id) Save :!button:` puts `Save` in the
+*head*, because the format cannot tell where your attributes stopped and your text began — and then a
+host reading a bare word as a boolean attribute drops it silently. The brackets are you saying which is
+which.
+
+The body is real content, so this works:
+
+```bmx
+:span: -> [class=price] **{{ order.total }}** :!span:
+```
+
+The `**` is emphasis and the slot is escaped, both by BMX. That is the difference from passing the text
+as an attribute — an attribute value is a string the format never looks inside.
+
+Two rules worth knowing, and both are refusals rather than surprises:
+
+- **The head ends at the first `]`.** If a value of yours needs a `]`, use the form without brackets —
+  it takes the whole line, so there is no delimiter to collide with.
+- **A body needs the line to close.** `:b: -> [x] body` with `:!b:` further down is refused: the body
+  would have two sources and no reader could tell which won.
+
 ## …react to a click
 
 ```bmx

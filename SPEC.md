@@ -1,4 +1,4 @@
-# BMX 0.8 — the grammar
+# BMX 0.9 — the grammar
 
 **BMX is markdown with one unambiguous reading and a typed hole in it.**
 
@@ -127,7 +127,7 @@ exactly one space after the marker. Consecutive item lines form one list. A blan
 - An ordered list's numbers are **content, not instructions**: a renderer emits them as written.
   A list numbered `1. 1. 1.` renders as `1. 1. 1.`, because a format that silently renumbers is
   a format whose output does not match its source.
-- A list item's content is inline content. **List nesting is not in 0.8** — a line beginning with
+- A list item's content is inline content. **List nesting is not in 0.9** — a line beginning with
   spaces then `- ` is `BMX-E012`, refused rather than guessed at, and the trigger for adding it
   is a real document that needs it.
 - **The sentence above is narrower than it looks, and two releases read it too widely.** What is refused
@@ -171,7 +171,7 @@ lines of content, then exactly three backticks at the start of a line.
 ```
 
 `> ` at the start of a line, after any leading spaces (§1). Consecutive lines form one quote; the
-content of each is inline content. **No nested quotes in 0.8** — `> > ` is `BMX-E012`. An indented `> `
+content of each is inline content. **No nested quotes in 0.9** — `> > ` is `BMX-E012`. An indented `> `
 is **not** a nest and never was: nesting is spelled with a second `> `, so indentation has no part to
 play and an indented quote is just a quote a formatter moved.
 
@@ -277,11 +277,39 @@ Any **markdown** in here.
 - An unclosed block at end of document is `BMX-E031`. It is never closed implicitly.
 - **A block may open and close on one line**: `:span: class=box :!span:`. The trailing closer is
   recognised only at end of line and only when it names *this* block, so a `:!x:` inside a head is
-  untouched. **Its body is empty** — everything between the marker and the closer is head. That is a
-  decision, not an omission: a head is opaque to BMX, so in `:span: class=text {{ label }} :!span:`
-  the format cannot tell where `class=text` ended and the label began. There is no delimiter and
-  inventing one is a rule added, so a block that needs a *body* takes three lines, where the newline
-  is the delimiter.
+  untouched. Without a delimiter **its body is empty** — everything between the marker and the closer
+  is head, because a head is opaque and the format cannot tell where `class=text` ended and a body
+  began.
+
+- **A head may be DELIMITED, and then a body can share the line**: `:name: -> [ … ] body`.
+
+  ```
+  :button: -> [on:click=save(id), .featured, #plans] Save :!button:
+  ```
+
+  The head is the bytes between `[` and the first `]`; everything after the `]` is **body**, and on a
+  one-liner that body is *inline content* — parsed, escaped, with real slot nodes. That is the whole
+  point of the delimiter: a host-side `child="**bold**"` attribute can carry the same text, but as a
+  string the format never looks at and therefore never escapes, and `**bold**` in it is six characters
+  rather than emphasis.
+
+  - **BMX parses nothing inside the brackets.** It learns one bracket pair as a delimiter; the commas,
+    the `name=value`, all of it stays the host's, exactly as an undelimited head does. Ids and classes
+    are still counted (§4a.3) because those two the format has always had an opinion about.
+  - **The head ends at the first `]`**, and that is the escape hatch rather than a defect: a host
+    needing a `]` inside a value writes the undelimited form, which takes the whole line and has no
+    delimiter to collide with. `BMX-E037` if the `]` never arrives.
+  - **Body text after the `]` requires the line to close.** `:b: -> [x] body` with the closer on a
+    later line is `BMX-E038`, refused rather than merged — otherwise the body has two sources, this
+    line and the lines below, and a reader cannot tell which won.
+  - **The delimiter is optional and the undelimited form is unchanged**, so every document written
+    before 0.9 means exactly what it did.
+
+  **Why `->`.** Both arrows are host tokens; `->` is the return arrow and reads in the right direction
+  (name, then what is attached), while `=>` is a match arm and would make `:case: Post(id) => [x]`
+  look like one. A bare `[` cannot work: `[text](url)` is a link, so `:button: [Coffee](/c)` would be
+  ambiguous with a body that begins with one. Andre's spelling, and the ambiguity is the reason the
+  marker is not redundant.
 
 **On `:word:` and emoji shortcodes.** `:tada:` alone on a line is a block named `tada`, and a host that
 declares no such block refuses it. That is a real collision with a convention several tools use, and the
@@ -476,7 +504,7 @@ others.
 | `BMX-E004` | unterminated link |
 | `BMX-E010` | tab in leading whitespace |
 | `BMX-E011` | malformed heading |
-| `BMX-E012` | list or quote nesting, which 0.8 does not have (blocks nest — see §4a.2). A `- ` or `<digits>. ` **deeper than the list already open**, or a `> > `; an indented line is otherwise ordinary (§1) |
+| `BMX-E012` | list or quote nesting, which 0.9 does not have (blocks nest — see §4a.2). A `- ` or `<digits>. ` **deeper than the list already open**, or a `> > `; an indented line is otherwise ordinary (§1) |
 | `BMX-E020` | unterminated code span |
 | `BMX-E021` | invalid escape |
 | `BMX-E022` | empty slot expression |
@@ -484,6 +512,8 @@ others.
 | `BMX-E031` | unterminated block |
 | `BMX-E032` | a closer with no open block |
 | `BMX-E035` | a closer names a different block than the one open here. The message carries both positions |
+| `BMX-E037` | a delimited head whose `]` never arrives |
+| `BMX-E038` | body text after a `]` on a line that does not close the block |
 | `BMX-E036` | 0.6's `:::` fence, recognised only in order to refuse it by name and say what to run |
 | `BMX-E033` | a second `#id` on one block |
 | `BMX-E034` | unterminated inline block |
@@ -492,7 +522,7 @@ A conforming parser **stops at the first error**. Recovery is a later question a
 one — an editor wants every error at once — but recovery that differs between implementations is
 worse than no recovery.
 
-## 7. What 0.8 deliberately does not have
+## 7. What 0.9 deliberately does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons is a list somebody will "fix" at random.

@@ -263,3 +263,27 @@ The shape of the mistake is worth keeping too. `- ` and `> ` were refused **as l
 property of a line's *relationship to another line* — a marker deeper than the list already open. A rule
 stated about the wrong subject will be implemented too widely every time, and it was, twice: every version
 through 0.5.1 refused any indented line at all, and 0.6–0.7 refused any indented marker.
+
+## 0.9 is a minor that adds a delimiter, and the question that decided it
+
+0.9 lets a head be delimited — `:name: -> [ … ] body` — so a block can carry a body on one line.
+`git diff --stat tests/`: **twelve files added, none modified.** A minor, because the delimiter is
+optional and the undelimited form is untouched, so every document written before it means exactly what
+it did.
+
+The alternative was making brackets the *only* head form: uniform, one spelling per concept, and a
+major that would have re-swept star-burxt's 72 examples two days running. **Two spellings is honest here
+because each has a distinct job** — the undelimited head takes the whole line and has no delimiter to
+collide with, which is also the escape hatch for a head containing `]`.
+
+**What the delimiter buys is the format's own guarantee, not syntax.** A host can already pass a body as
+an attribute (`child="…"`), and star shipped that — but an attribute value is a string BMX never looks
+inside, so `child="**bold**"` is six characters and nothing escapes it. After a `]`, the body is inline
+content: real emphasis, real slot nodes, escaped by the format. That is the difference between a
+workaround at the boundary and a feature inside it.
+
+And `->` rather than `=>` or a bare `[`, which is worth recording because two of the three are wrong for
+measurable reasons: `=>` is the host's match arm, so `:case: Post(id) => [x]` would read as one; a bare
+`[` collides with `[text](url)`, so a body beginning with a link would be ambiguous. `->` is the host's
+return arrow — 556 occurrences in its standard library against 135 for `=>` — so it is the glyph a reader
+already parses fluently, and its direction reads correctly: name, then what is attached.

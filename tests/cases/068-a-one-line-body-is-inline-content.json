@@ -1,0 +1,1 @@
+{"type":"document","children":[{"type":"block","name":"span","head":"class=text","one_line":true,"offset":0,"head_offset":11,"children":[{"type":"paragraph","children":[{"type":"strong","children":[{"type":"text","value":"bold"}],"offset":23},{"type":"text","value":" and "},{"type":"slot","expression":"label","offset":39}],"offset":0}]}]}

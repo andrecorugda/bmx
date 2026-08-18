@@ -197,6 +197,20 @@
       // The whitespace after the marker belongs to neither the name nor the head — the grammar's
       // `[ \t]*` eats it between captures, so a head starting one character early is a real
       // divergence and `agrees.mjs` caught it.
+      // a delimited head: :name: -> [head] body      (0.9)
+      m = /^(\s*)(:)([A-Za-z][A-Za-z0-9_-]*)(:)([ \t]*)(->)([ \t]*)(\[)([^\]]*)(\])([ \t]*)(.*)$/.exec(line);
+      if (m) {
+        let head = escapeHtml(m[9])
+          .replace(/(\.)([A-Za-z][A-Za-z0-9_-]*)/g, '<span class="t-class">$1$2</span>')
+          .replace(/(#)([A-Za-z][A-Za-z0-9_-]*)/g, '<span class="t-id">$1$2</span>');
+        out.push(m[1] + span('fence', m[2]) + span('name', m[3]) + span('fence', m[4]) + m[5]
+                 + span('punct', m[6]) + m[7] + span('punct', m[8])
+                 + (m[9] ? '<span class="t-head">' + head + '</span>' : '')
+                 + span('punct', m[10]) + m[11]
+                 + (m[12] ? bmxInline(m[12]) : ''));
+        continue;
+      }
+
       m = /^(\s*)(:)([A-Za-z][A-Za-z0-9_-]*)(:)([ \t]*)(.*)$/.exec(line);
       if (m) {
         let head = m[6];

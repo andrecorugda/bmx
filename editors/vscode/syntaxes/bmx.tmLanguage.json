@@ -324,8 +324,8 @@
       }
     },
     "block": {
-      "//": "`:name: head` \u2026 `:!name:`. The end pattern backreferences the name capture, so a block stays open until ITS OWN closer \u2014 a `:!other:` inside leaves the colouring where the parser puts the error rather than ending the block early.",
-      "begin": "^\\s*(:)([A-Za-z][A-Za-z0-9_-]*)(:)[ \\t]*(.*)$",
+      "//": "`:name: head` \u2026 `:!name:`, and `:name: -> [head] body` since 0.9. The end pattern backreferences the name capture, so a block stays open until ITS OWN closer. **The head keeps `meta.block.head.bmx` in both forms** \u2014 that scope is the compatibility surface hosts inject into, so a delimited head must not land somewhere else or every host's grammar silently stops colouring.",
+      "begin": "^\\s*(:)([A-Za-z][A-Za-z0-9_-]*)(:)(?:[ \\t]*(->)[ \\t]*(\\[)([^\\]]*)(\\])[ \\t]*(.*)|[ \\t]*(.*))$",
       "beginCaptures": {
         "1": {
           "name": "punctuation.definition.block.begin.bmx"
@@ -337,6 +337,30 @@
           "name": "punctuation.definition.block.begin.bmx"
         },
         "4": {
+          "name": "punctuation.definition.head.arrow.bmx"
+        },
+        "5": {
+          "name": "punctuation.definition.head.begin.bmx"
+        },
+        "6": {
+          "name": "meta.block.head.bmx",
+          "patterns": [
+            {
+              "include": "#head-known"
+            }
+          ]
+        },
+        "7": {
+          "name": "punctuation.definition.head.end.bmx"
+        },
+        "8": {
+          "patterns": [
+            {
+              "include": "#inline"
+            }
+          ]
+        },
+        "9": {
           "name": "meta.block.head.bmx",
           "patterns": [
             {
