@@ -74,6 +74,15 @@ jobs:
       #
       # It runs over the documentation's OWN snippets, because the divergence that matters is one a
       # reader can see. It found five real bugs on its first run.
+      # **A gutter with unnumbered lines in it is worse than no gutter.** star-burxt built this first and
+      # wrapped one of its painter's three exits, so the numbers stopped partway down the panel. This
+      # asserts one box per line and that stripping the markup returns the document — the second is what
+      # keeps a panel from being a trap for anyone who copies out of it.
+      - name: Every line is numbered and the document survives painting
+        run: |
+          node editors/vscode/test/panel.mjs
+          node editors/vscode/test/panel.mjs --prove-it
+
       - name: The site's colours and the editor's agree
         run: node editors/vscode/test/agrees.mjs
 

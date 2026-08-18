@@ -121,6 +121,21 @@ function fromSite(source, painted) {
       i = close + 2;
       continue;
     }
+    // **A span that carries no token class still has to be balanced.** 0.12.2 wraps every line in
+    // `<span class="cl w2">` for the gutter and the indent guides, which is presentation rather than
+    // classification. Without this branch the opener fell through to the character loop and was compared
+    // as literal text, and the `</span>` below popped a class that a real token owned — so a wrapper
+    // added for line numbers would have been read as a colouring disagreement on every line.
+    //
+    // `undefined` on the stack rather than a name: `stack.at(-1) ?? null` then reports *no class* for
+    // text inside the wrapper, which is what a wrapper means, while a real `t-` span pushed on top of it
+    // still wins.
+    if (painted.startsWith('<span class="', i)) {
+      const close = painted.indexOf('">', i);
+      stack.push(undefined);
+      i = close + 2;
+      continue;
+    }
     if (painted.startsWith("</span>", i)) { stack.pop(); i += 7; continue; }
     if (painted.startsWith("&amp;", i)) { row.push(stack.at(-1) ?? null); i += 5; continue; }
     if (painted.startsWith("&lt;", i)) { row.push(stack.at(-1) ?? null); i += 4; continue; }

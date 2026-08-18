@@ -67,3 +67,80 @@
   .t-comment { font-style: italic; }
   .t-keyword, .t-fence, .t-slot-mark, .t-heading, .t-strong { font-weight: 700; }
 }
+
+/* ---- an editor-style panel: a numbered gutter and indent guides -------------------------------------
+ *
+ * Andre asked for both on both sites — *"indention line a bit visible like you see who are same level
+ * right?"* — and star-burxt built it first and sent the technique with the parts it had to measure. This
+ * is that, with its palette.
+ *
+ * **The load-bearing choice is `inline-block`, not `block`.** A block-level line swallows the newline
+ * between it and the next, and what a reader copies then depends on how a browser rejoins block
+ * boundaries. Left between two inline-blocks, the `\n` is still text — so the clipboard is exactly the
+ * document, which is the same rule the display-indent follows. **Newlines are text, indentation is
+ * padding, a line number is neither**: `content: counter(cl)` cannot be selected or copied at all.
+ */
+.doc-body pre {
+  counter-reset: cl;
+  padding-left: 3.6em;            /* room for the gutter, which is drawn outside each line's box */
+}
+
+.doc-body pre code .cl {
+  display: inline-block;
+  position: relative;
+  counter-increment: cl;
+  min-width: 100%;
+
+  /* **A blank line's box reports height 0**, so its number lands a pixel from the next line's — star
+   * measured `3` and `4` printed on top of each other. A min-height matching the line box fixes it. */
+  min-height: 1.55em;
+
+  /* **And then that row measured 27px against everyone else's 21**, because an EMPTY inline-block
+   * baselines from its bottom edge and the descender space goes underneath. `top` evens the rhythm.
+   * Neither defect is visible in a screenshot; star found both by reading the GAPS between the first ten
+   * boxes — `[21, 21, 27, 21, 21]` — which is worth doing here whenever this block changes. */
+  vertical-align: top;
+}
+
+.doc-body pre code .cl::before {
+  content: counter(cl);
+  position: absolute;
+  left: -3.4em;
+  width: 2.4em;
+  text-align: right;
+  color: var(--gutter);
+  user-select: none;                 /* a number is not part of the document */
+  -webkit-user-select: none;
+}
+
+/* The guides: one repeating rule supplies the period, and `background-size` clips it to this line's own
+ * depth, so the rules stop where the code starts instead of striping the whole row. */
+.doc-body pre code [class*=" w"] {
+  background-image: repeating-linear-gradient(to right,
+    var(--guide) 0 1px, transparent 1px var(--guide-step));
+  background-repeat: no-repeat;
+}
+
+/* The step is the language's own — a BMX document indents by two, a Burxt one by four — so a guide is
+ * never drawn at a column where that language has no level. `code.js` passes the same number. */
+.doc-body pre > code.language-bmx   { --guide-step: 2ch; }
+.doc-body pre > code.language-burxt { --guide-step: 4ch; }
+
+.doc-body pre code .w1 { background-size: 2ch 100%; }
+.doc-body pre code .w2 { background-size: 4ch 100%; }
+.doc-body pre code .w3 { background-size: 6ch 100%; }
+.doc-body pre code .w4 { background-size: 8ch 100%; }
+.doc-body pre code .w5 { background-size: 10ch 100%; }
+.doc-body pre code .w6 { background-size: 12ch 100%; }
+.doc-body pre code .w7 { background-size: 14ch 100%; }
+.doc-body pre code .w8 { background-size: 16ch 100%; }
+
+.doc-body pre > code.language-burxt.language-burxt .w1 { background-size: 4ch 100%; }
+.doc-body pre > code.language-burxt.language-burxt .w2 { background-size: 8ch 100%; }
+.doc-body pre > code.language-burxt.language-burxt .w3 { background-size: 12ch 100%; }
+.doc-body pre > code.language-burxt.language-burxt .w4 { background-size: 16ch 100%; }
+
+:root { --gutter: #9aa1ad; --guide: #c3cad6; }
+@media (prefers-color-scheme: dark) {
+  :root { --gutter: #6b7280; --guide: #3a4250; }
+}

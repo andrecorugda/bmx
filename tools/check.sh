@@ -46,6 +46,8 @@ echo "the editor surface"
 if [ -d editors/vscode/node_modules/vscode-textmate ]; then
   run "the grammar puts every scope where it says it does" node editors/vscode/test/scopes.mjs
   run "the site's colours and the editor's agree" node editors/vscode/test/agrees.mjs
+  run "every line is numbered and the document survives painting" bash -c '
+    node editors/vscode/test/panel.mjs && node editors/vscode/test/panel.mjs --prove-it'
 else
   printf '  \033[33mskip\033[0m  the grammar tests need `cd editors/vscode && npm install vscode-textmate vscode-oniguruma`\n'
 fi

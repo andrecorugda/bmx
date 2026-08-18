@@ -169,6 +169,9 @@
 
   function bmx(src) {
     const lines = src.split('\n');
+    // **The guide step is the language's own, not a constant.** A BMX document indents by two —
+    // `tools/fmt.py` decides that and the site's examples follow it — while a `burxt` block indents by
+    // four. One shared number would draw a guide where neither language has a level.
     const out = [];
     let fence = null; // the ``` or ~~~ currently open, if any
     let comment = false; // inside a `<!-- … -->` that has not closed on an earlier line
@@ -285,15 +288,62 @@
 
       out.push(bmxInline(line));
     }
+    // **Every line is boxed HERE, in one place, and that is the whole reason this is safe.**
+    //
+    // The loop above has 24 exits. star-burxt built the same thing with a wrapper called at each exit,
+    // wrapped one of three, and got a gutter that numbered most of a panel and silently skipped the
+    // rest — **numbers that stop at line 5 are worse than no numbers**, because the ones before it stop
+    // meaning anything. This painter pushes exactly one entry per line, so wrapping the ARRAY cannot
+    // miss an exit no matter how many are added later.
+    //
+    // `inline-block`, not `block`, and the newline stays OUTSIDE the box. star measured why: a
+    // block-level line swallows the `\n`, and then what a reader copies depends on how a browser
+    // rejoins block boundaries. Left between two inline-blocks it is still text, so the clipboard is
+    // exactly the document — the same rule the display-indent follows. **Newlines are text,
+    // indentation is padding, a line number is neither.**
     return out.join('\n');
+  }
+
+  /**
+   * Wrap every line of painted HTML in one box, for the gutter and the indent guides.
+   *
+   * **One wrapper for both languages, at the only point they share.** The `bmx` painter has 24 exits
+   * and `burxt` builds a single string character by character, so a wrapper called at each exit would
+   * have to be right 25 times. star-burxt built exactly that, wrapped one of three exits, and got a
+   * panel where the numbers stopped partway — **a gutter with unnumbered lines in it is worse than no
+   * gutter**, because the numbers before the gap stop meaning anything. Applied to the finished string
+   * it cannot miss an exit that does not exist yet.
+   *
+   * `inline-block`, not `block`, and the newline stays OUTSIDE the box — star measured why. A
+   * block-level line swallows the `\n`, and what a reader copies then depends on how a browser rejoins
+   * block boundaries. Left between two inline-blocks it is still text, so the clipboard is exactly the
+   * document. **Newlines are text, indentation is padding, a line number is neither.**
+   *
+   * `step` is the language's own: a BMX document indents by two — `tools/fmt.py` decides that — and a
+   * `burxt` block by four. One shared number would draw a guide where neither language has a level.
+   */
+  function boxLines(painted, step) {
+    // **A blank line inherits the depth above it**, or the guide column breaks wherever a document
+    // breathes — which is every real component. A blank line has no leading spaces to measure, so
+    // measuring is the wrong question: what a reader wants to see is that the level continues.
+    let carried = 0;
+    return painted.split('\n').map((html) => {
+      const text = html.replace(/<[^>]*>/g, '');
+      // The depth comes from the PAINTED line's own leading spaces, which survive painting as text.
+      const lead = /^(?:&nbsp;| )*/.exec(text)[0].length;
+      const depth = text.trim() === '' ? carried : Math.min(8, Math.floor(lead / step));
+      if (text.trim() !== '') carried = depth;
+      return `<span class="cl${depth > 0 ? ' w' + depth : ''}">${html}</span>`;
+    }).join('\n');
   }
 
   // ---- wiring ----------------------------------------------------------------------------------
 
-  const LANGUAGES = { burxt, bmx };
+  // Each language paints, and carries the indent step its own documents use.
+  const LANGUAGES = { burxt: [burxt, 4], bmx: [bmx, 2] };
 
   function paint() {
-    for (const [language, fn] of Object.entries(LANGUAGES)) {
+    for (const [language, [fn, step]] of Object.entries(LANGUAGES)) {
       const blocks = document.querySelectorAll(
         `pre > code.language-${language}, pre.language-${language} > code`,
       );
@@ -301,7 +351,7 @@
         if (block.dataset.painted) return;
         // textContent, never innerHTML: the text arrives already escaped by Jekyll, and reading
         // the markup back would double-escape every `<` in a Decimal<2>.
-        block.innerHTML = fn(block.textContent);
+        block.innerHTML = boxLines(fn(block.textContent), step);
         block.dataset.painted = '1';
       });
     }
