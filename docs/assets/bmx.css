@@ -36,6 +36,27 @@
 .side a.burxt {
   color: #E8502A;
 }
+
+/* **The lockup follows `.bar .mark img`, and it is one rule because the alternative already bit me.**
+ * I first wrote `height="22"` on the element. `site.css` drops `.bar .mark img` to 20px below 768px —
+ * so the BMX mark shrank at narrow widths and this one did not, and two marks in one bar at 22 and 20
+ * read as a mistake in the smaller one. **A size given in HTML cannot follow a media query**, so the
+ * attributes carry the PNG's intrinsic 1311x360 (which reserves the right box before it loads) and CSS
+ * owns what is rendered.
+ *
+ * **768px, checked rather than taken.** The Burxt session relayed this breakpoint as 900px. `site.css`
+ * is a byte copy of theirs and the rule sits inside `@media (max-width: 768px)` at line 1016, so writing
+ * 900 here would have made the two marks disagree from 769 to 900 — the same defect, inverted, and
+ * introduced by the message that warned me about it. **A number is worth less than the file it came
+ * from, even when the file is the same file.**
+ *
+ * 22px of box is 22px of `b`: this lockup is 100% ink and its tallest element is that letter, which is
+ * also true of `[b]mx` now that its viewBox is cropped to the glyph. **The shared letter is the thing
+ * being matched — not the box, and not the word beside it.** */
+.bar .links a.burxt img { height: 22px; width: auto; display: block; }
+@media (max-width: 900px) {
+  .bar .links a.burxt img { height: 20px; }
+}
 .bar .links a.burxt:hover,
 .side a.burxt:hover {
   color: #c33d1b;
