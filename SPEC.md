@@ -1,4 +1,4 @@
-# BMX 0.9 — the grammar
+# BMX 0.10 — the grammar
 
 **BMX is markdown with one unambiguous reading and a typed hole in it.**
 
@@ -127,7 +127,7 @@ exactly one space after the marker. Consecutive item lines form one list. A blan
 - An ordered list's numbers are **content, not instructions**: a renderer emits them as written.
   A list numbered `1. 1. 1.` renders as `1. 1. 1.`, because a format that silently renumbers is
   a format whose output does not match its source.
-- A list item's content is inline content. **List nesting is not in 0.9** — a line beginning with
+- A list item's content is inline content. **List nesting is not in 0.10** — a line beginning with
   spaces then `- ` is `BMX-E012`, refused rather than guessed at, and the trigger for adding it
   is a real document that needs it.
 - **The sentence above is narrower than it looks, and two releases read it too widely.** What is refused
@@ -171,13 +171,31 @@ lines of content, then exactly three backticks at the start of a line.
 ```
 
 `> ` at the start of a line, after any leading spaces (§1). Consecutive lines form one quote; the
-content of each is inline content. **No nested quotes in 0.9** — `> > ` is `BMX-E012`. An indented `> `
+content of each is inline content. **No nested quotes in 0.10** — `> > ` is `BMX-E012`. An indented `> `
 is **not** a nest and never was: nesting is spelled with a second `> `, so indentation has no part to
 play and an indented quote is just a quote a formatter moved.
 
 ## 3. Inline content
 
 Parsed left to right. Four constructs, and each **must** be closed on the same line.
+
+**A delimiter's own characters may appear inside it, and what protects them is stated per construct.**
+This is one rule with three instances, and every instance was wrong before 0.10:
+
+| construct | ends at | protected by |
+|---|---|---|
+| a slot `{{ … }}` | the first `}}` | a `"…"` run — the content is a host expression, where a string's bytes are data |
+| a link `[…](…)` | the `)` that balances the `(` | nesting — `/wiki/Foo_(bar)` is one address, and this is CommonMark's rule |
+| a delimited head `-> [ … ]` | the first `]` | a `"…"` run and a `{{ … }}` run, for the same reason as a slot (§4a.1) |
+
+**When the protection never closes, the construct refuses.** `{{ f("x }}` has no `}}` outside a quoted
+run and is `BMX-E001`; `[a](/x(y` never balances and is `BMX-E004`.
+
+*Before 0.10 each took its delimiter's first occurrence, so `{{ pick("}}", n) }}` yielded the expression
+`pick("` and `[Foo](/wiki/Foo_(bar))` the target `/wiki/Foo_(bar` — silently, both of them. A truncated
+expression is still valid syntax, so it compiles and renders something plausible: **the danger is not
+that it breaks, it is that it keeps working.** star-burxt reached the same sentence from the other side
+on the same day, having found three more instances in its own scanners.*
 
 | Written | Node |
 |---|---|
@@ -515,7 +533,7 @@ others.
 | `BMX-E004` | unterminated link |
 | `BMX-E010` | tab in leading whitespace |
 | `BMX-E011` | malformed heading |
-| `BMX-E012` | list or quote nesting, which 0.9 does not have (blocks nest — see §4a.2). A `- ` or `<digits>. ` **deeper than the list already open**, or a `> > `; an indented line is otherwise ordinary (§1) |
+| `BMX-E012` | list or quote nesting, which 0.10 does not have (blocks nest — see §4a.2). A `- ` or `<digits>. ` **deeper than the list already open**, or a `> > `; an indented line is otherwise ordinary (§1) |
 | `BMX-E020` | unterminated code span |
 | `BMX-E021` | invalid escape |
 | `BMX-E022` | empty slot expression |
@@ -533,7 +551,7 @@ A conforming parser **stops at the first error**. Recovery is a later question a
 one — an editor wants every error at once — but recovery that differs between implementations is
 worse than no recovery.
 
-## 7. What 0.9 deliberately does not have
+## 7. What 0.10 deliberately does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons is a list somebody will "fix" at random.

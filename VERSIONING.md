@@ -309,3 +309,30 @@ It is called a patch anyway, and the reasoning is the part worth keeping rather 
 question answers *could a document change*. Neither answers *did anyone have time to rely on it*, and
 for a defect found inside its own release, that third question is the one that decides. Write the
 reasoning down rather than the number, because the number will look wrong to whoever reads the diff.
+
+## 0.10 is a major that fixes one defect in three places
+
+Three delimiters, each ending at its own first occurrence, each silently:
+
+    {{ pick("}}", n) }}       expression became `pick("`
+    [Foo](/wiki/Foo_(bar))    target became `/wiki/Foo_(bar`
+    -> [title="a]b"]          head became `title="a`     (fixed in 0.9.1)
+
+**A major, by the honest question rather than the mechanical one.** `git diff --stat tests/` shows only
+additions, so the rule at the top of this file says minor. But `[a](/x(y` was accepted before and is
+`BMX-E004` now — *a document that was valid becomes an error*, which is the definition. Unlike 0.9.1
+there is no one-hour window to appeal to: slots and links have been in the format since 0.1, so a
+document with an unbalanced paren in a target has had every release to exist.
+
+**Why refusing beats the alternative**, since the alternative would have kept it a minor: falling back to
+the first `)` when the parens do not balance preserves every document that parses today, and preserves
+the silent truncation with it. That is the trade — one version number against a class of wrong answers
+that says nothing. The format's whole claim is that it fails loudly, so the version number is the cheaper
+thing to spend.
+
+**And the rule is stated ONCE now, in §3, as one rule with three instances**, because that is what it is.
+Fixing the head in 0.9.1 and stopping there would have been the shape this project keeps re-learning:
+nine escape defects that were one recursion, five separator checks that were one predicate, three
+consuming loops that needed one refusal. star-burxt found three more instances of this same defect in its
+own scanners on the same day, which is the strongest evidence that the sentence — *a delimiter rule has
+to know what protects a delimiter* — is worth more than any of the six fixes.

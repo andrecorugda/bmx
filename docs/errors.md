@@ -75,7 +75,7 @@ BMX-E011 at 0: a heading needs exactly one space after its #
 Also: seven or more `#`, and an empty heading. **It is not read as a paragraph beginning with
 `#`** — that reading is how a typo'd heading silently becomes body text.
 
-### `BMX-E012` — list or quote nesting, which 0.9 does not have
+### `BMX-E012` — list or quote nesting, which 0.10 does not have
 
 ```
 - one

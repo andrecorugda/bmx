@@ -151,9 +151,10 @@ function parseInline(text, base) {
     }
 
     if (c === '{' && text[i + 1] === '{') {
-      const close = text.indexOf('}}', i + 2)
+      const close = slotEnd(text, i + 2)
       if (close < 0) {
-        throw new BmxError('BMX-E001', base + i, 'unterminated slot: no }} on this line')
+        throw new BmxError('BMX-E001', base + i,
+          'unterminated slot: no }} on this line, outside a quoted value')
       }
       const raw = text.slice(i + 2, close)
       const expression = raw.replace(/^[ \t]+|[ \t]+$/g, '')
@@ -228,8 +229,11 @@ function parseInline(text, base) {
       if (text[shut + 1] !== '(') {
         throw new BmxError('BMX-E004', base + i, "a link's text must be followed by (target)")
       }
-      const end = text.indexOf(')', shut + 2)
-      if (end < 0) throw new BmxError('BMX-E004', base + i, 'unterminated link target')
+      const end = targetEnd(text, shut + 2)
+      if (end < 0) {
+        throw new BmxError('BMX-E004', base + i,
+          "unterminated link target: its parentheses do not balance, so there is no `)` that ends it")
+      }
       flush()
       out.push({
         type: 'link',
@@ -279,6 +283,61 @@ function parseLines(rows, offsetOf, textOf) {
     kids.push(...parseInline(textOf(row), offsetOf(row)))
   })
   return mergeText(kids)
+}
+
+// **Three delimiters in this format, and all three needed the same thing said about them.**
+//
+// A delimited head ended at the first `]`, a slot at the first `}}`, a link target at the first `)` —
+// and in each case the delimiter's own characters can appear legitimately inside. The results were
+// silent, which is what makes this one defect rather than three:
+//
+//     {{ pick("}}", n) }}            slot expression became `pick("`
+//     [Foo](/wiki/Foo_(bar))         target became `/wiki/Foo_(bar`
+//     -> [title="a]b"]               head became `title="a`
+//
+// **A delimiter rule has to know what protects a delimiter.** star-burxt reached the same sentence from
+// the other side the same day, three times over in its own scanners, and put the danger better than I
+// did: it is not that a truncated value breaks, it is that it keeps working. A truncated expression is
+// still valid syntax, so it compiles and renders something plausible.
+//
+// What protects what is different per delimiter, and that is semantic rather than arbitrary:
+//
+// - a HEAD and a SLOT hold host expressions, where a `"` run is a string and its contents are data
+// - a LINK TARGET is a URL, where parentheses nest — `/wiki/Foo_(bar)` is one real address, and this is
+//   CommonMark's rule rather than an invention
+//
+// When the protection never closes, every one of them refuses. That is the same answer in three places
+// and it points at the line that is actually wrong.
+
+// The first `}}` outside a quoted run, or -1.
+function slotEnd(text, from) {
+  let i = from
+  let quoted = false
+  while (i < text.length) {
+    if (quoted) {
+      if (text[i] === '"') quoted = false
+    } else if (text[i] === '"') {
+      quoted = true
+    } else if (text[i] === '}' && text[i + 1] === '}') {
+      return i
+    }
+    i++
+  }
+  return -1
+}
+
+// The `)` that balances the target's opening `(`, or -1. A URL's parentheses nest; a quoted run does
+// not arise, because a target is not an expression.
+function targetEnd(text, from) {
+  let depth = 1
+  for (let i = from; i < text.length; i++) {
+    if (text[i] === '(') depth++
+    else if (text[i] === ')') {
+      depth--
+      if (depth === 0) return i
+    }
+  }
+  return -1
 }
 
 // Where a delimited head ends: the first `]` that is not inside a quoted value or a slot.
