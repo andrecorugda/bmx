@@ -2,7 +2,7 @@
   "name": "bmx",
   "displayName": "BMX",
   "description": "BMX \u2014 markdown with one unambiguous reading and a typed hole in it. Highlighting and a live preview for .bmx documents, with injection points a host builds on.",
-  "version": "0.1.0",
+  "version": "0.12.2",
   "publisher": "andrecorugda",
   "license": "MIT OR Apache-2.0",
   "engines": {

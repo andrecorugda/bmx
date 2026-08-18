@@ -21,11 +21,11 @@ Three things, and you can have the first two in under a minute:
 
 ## VS Code
 
-Download `bmx-0.1.0.vsix` from the
+Download `bmx.vsix` from the
 [repository](https://github.com/andrecorugda/bmx/tree/main/editors/vscode) and install it:
 
 ```sh
-code --install-extension bmx-0.1.0.vsix
+code --install-extension bmx.vsix
 ```
 
 Open any `.bmx` file. That is the whole setup — no compiler, no toolchain, nothing to configure.

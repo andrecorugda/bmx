@@ -186,7 +186,7 @@ Both of those assertions were checked by deliberately breaking the grammar and c
 VS Code:
 
 ```sh
-code --install-extension editors/vscode/bmx-0.1.0.vsix
+code --install-extension editors/vscode/bmx.vsix
 ```
 
 Build it yourself from a checkout — no npm, no `vsce`, no toolchain:

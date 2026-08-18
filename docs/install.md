@@ -16,7 +16,7 @@ Colour, a live preview and inline diagnostics come from an extension that bundle
 so it needs **no compiler and no toolchain**:
 
 ```sh
-code --install-extension bmx-0.1.0.vsix
+code --install-extension bmx.vsix
 ```
 
 Helix and Neovim get diagnostics from a language server that needs only Node. All three are on

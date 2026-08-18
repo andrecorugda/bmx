@@ -134,10 +134,24 @@ jobs:
           python3 tests/branding.py
           python3 tests/branding.py --prove-it
 
+      # **Thirty commits changed the package and the version never moved off 0.1.0.** VS Code decides
+      # whether to offer an update by comparing versions, so anyone who installed the first 0.1.0 holds a
+      # grammar that knows only the 0.6 fence and their editor tells them they are current. The cause was
+      # ergonomic — the version was in the FILENAME, so bumping it broke seven install commands — and the
+      # fix was to take it out of the filename. This is what makes the bump non-optional.
+      #
+      # It runs BEFORE the packaging step on purpose: that step packs and then inspects the result, which
+      # overwrites the evidence one line before looking for it. A check that regenerates the artefact it
+      # verifies cannot see a stale one.
+      - name: The extension's version is the format's, and the committed package is the packed one
+        run: |
+          python3 tests/extension.py
+          python3 tests/extension.py --prove-it
+
       - name: The extension packages
         run: |
           python3 editors/vscode/pack.py
-          python3 -c "import zipfile,sys; z=zipfile.ZipFile('editors/vscode/bmx-0.1.0.vsix'); need=['[Content_Types].xml','extension.vsixmanifest','extension/package.json','extension/syntaxes/bmx.tmLanguage.json','extension/icon.png']; miss=[n for n in need if n not in z.namelist()]; sys.exit(f'missing {miss}') if miss else None; sys.exit('corrupt') if z.testzip() else print('vsix ok')"
+          python3 -c "import zipfile,sys; z=zipfile.ZipFile('editors/vscode/bmx.vsix'); need=['[Content_Types].xml','extension.vsixmanifest','extension/package.json','extension/syntaxes/bmx.tmLanguage.json','extension/icon.png']; miss=[n for n in need if n not in z.namelist()]; sys.exit(f'missing {miss}') if miss else None; sys.exit('corrupt') if z.testzip() else print('vsix ok')"
 
       # A page that documents `{{` is a page Jekyll reads as Liquid, so every doc wraps its body
       # in {% raw %}. An UNCLOSED one is worse than a missing one: the missing case fails on the

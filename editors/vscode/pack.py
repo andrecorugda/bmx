@@ -2,7 +2,7 @@
 """Package the extension as a .vsix, with no toolchain.
 
     python3 editors/vscode/pack.py            # writes bmx-<version>.vsix here
-    code --install-extension editors/vscode/bmx-0.1.0.vsix
+    code --install-extension editors/vscode/bmx.vsix
 
 Adapted from Burxt's packer, which is the same three-part archive and the same
 promise: this directory needs no toolchain to use. Two differences, both real:
@@ -108,7 +108,18 @@ def manifest(pkg):
 
 def main():
     pkg = json.loads((HERE / "package.json").read_text())
-    out = HERE / f"{pkg['name']}-{pkg['version']}.vsix"
+
+    # **The filename carries no version, and that is a fix rather than laziness.** It used to be
+    # `bmx-<version>.vsix`, which put the version in seven places — two READMEs, three doc pages, this
+    # docstring, CI — so bumping it broke every install command in the repository. The result was
+    # predictable and measured: **thirty commits changed the package and the version never moved off
+    # 0.1.0.** VS Code decides whether to offer an update by comparing versions, so anyone who installed
+    # the first 0.1.0 has a grammar that knows only the 0.6 fence and will never be told otherwise.
+    #
+    # A version belongs where a tool reads it — `package.json`, and the manifest built from it. A stable
+    # filename means the install command in the docs is correct forever, and bumping the version costs
+    # one edit in one file. `tests/extension.py` fails if that edit is not made.
+    out = HERE / f"{pkg['name']}.vsix"
 
     # `reference/bmx.js` lives at the repository root, not here. Staged rather than symlinked,
     # because a .vsix is a zip and a symlink in one is a file nobody can read.
@@ -120,13 +131,34 @@ def main():
     if missing:
         raise SystemExit(f"cannot package, these are missing: {missing}")
 
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("[Content_Types].xml", CONTENT_TYPES)
-        z.writestr("extension.vsixmanifest", manifest(pkg))
-        for name in FILES:
-            z.write(HERE / name, f"extension/{name}")
+    # **Every entry gets the same fixed timestamp, so packing twice gives identical bytes.** Without
+    # this, three entries moved on every run — the two written from strings take the current time, and
+    # `reference/bmx.mjs` is written by this script a moment earlier, so it carries a fresh mtime. The
+    # consequence is not cosmetic: **a committed artefact that cannot be reproduced cannot be checked
+    # against its source**, so a stale `.vsix` is undetectable and CI's repack-then-inspect step
+    # overwrites the evidence before looking at it.
+    #
+    # The trap this fell into is worth naming, because the check I wrote first had it: two packs run
+    # back-to-back land in the same two-second bucket, which is the granularity a zip stores, so a
+    # reproducibility test that packs twice in a row **passes on a non-reproducible packer**. It took a
+    # three-second sleep to see it. `tests/extension.py` asserts the fixed stamp itself rather than
+    # comparing two runs, because that cannot pass by accident.
+    EPOCH = (1980, 1, 1, 0, 0, 0)   # the earliest a zip can represent
 
-    print(f"wrote {out.relative_to(HERE.parent.parent)} ({out.stat().st_size} bytes)")
+    def entry(name, external=0o644 << 16):
+        info = zipfile.ZipInfo(name, date_time=EPOCH)
+        info.compress_type = zipfile.ZIP_DEFLATED
+        info.external_attr = external
+        return info
+
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr(entry("[Content_Types].xml"), CONTENT_TYPES)
+        z.writestr(entry("extension.vsixmanifest"), manifest(pkg))
+        for name in FILES:
+            z.writestr(entry(f"extension/{name}"), (HERE / name).read_bytes())
+
+    print(f"wrote {out.relative_to(HERE.parent.parent)} "
+          f"({out.stat().st_size} bytes, version {pkg['version']})")
     print("install with:  code --install-extension", out)
 
 

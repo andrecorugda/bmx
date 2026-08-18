@@ -59,11 +59,13 @@ run "the preview does what the button promises" bash -c '
   node editors/vscode/test/preview.js'
 run "every brand asset carries the family's margin and its own crop" bash -c '
   python3 tests/branding.py && python3 tests/branding.py --prove-it'
+run "the extension's version is the format's, and the committed package is the packed one" bash -c '
+  python3 tests/extension.py && python3 tests/extension.py --prove-it'
 run "the extension packages" bash -c '
   python3 editors/vscode/pack.py >/dev/null &&
   python3 -c "
 import zipfile, sys
-z = zipfile.ZipFile(\"editors/vscode/bmx-0.1.0.vsix\")
+z = zipfile.ZipFile(\"editors/vscode/bmx.vsix\")
 need = [\"[Content_Types].xml\", \"extension.vsixmanifest\", \"extension/package.json\",
         \"extension/syntaxes/bmx.tmLanguage.json\", \"extension/icon.png\"]
 miss = [n for n in need if n not in z.namelist()]

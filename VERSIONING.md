@@ -485,3 +485,61 @@ where star-burxt's own comma fix had to go, and where every scanner fix this wee
 asked and then argued against its own request — a name arriving at runtime means the content model is
 unknown until it runs, so a host cannot tell an author that a `<p>` may not hold a `<div>`. `BMX-E030`
 stays, and §7 says why so nobody re-raises it.
+
+## 0.12.1: six documented calls, five of them unreachable
+
+A patch, and the reason it was tagged without an entry here is worth the entry: the fix was small and the
+finding was not. `docs/` told a host to call `bmx_to_html`, `bmx_bind`, `bmx_json`, `bmx_html` and
+`bmx_emit_burxt`. **None of them was `public`, so a dependent package could not reach any of them** —
+somebody following the documentation writes the call and stops.
+
+**Nothing caught it because the boundary is the PACKAGE, not the file.** A non-`public` function called
+from another file in the same tree compiles happily, so `public` had been applied to whatever
+`burxt/examples/` needed — and those live inside the package. **No test that stays inside this repository
+can see the boundary at all.** CI's one consumer test called `bmx_parse`, the single name that worked.
+
+`tests/surface.py` reaches every documented name from a real dependent package, and it checks **both
+directions**. The reverse one is worse: six functions were `public`, depended on by star-burxt, and
+mentioned in no documentation — so `VERSIONING.md`'s compatibility promise covered half the surface a
+consumer was actually using. **Reachable-and-unwritten is worse than written-and-unreachable**: the first
+breaks a consumer silently at some later date, the second stops them at the keyboard today.
+
+Its control has to be a genuinely private function *discovered from the source*. Aimed at an invented
+name, the compiler answers `unknown function` — a refusal, convincing, and nothing to do with visibility.
+
+## 0.12.2: thirty commits changed the extension and its version never moved
+
+No format change, so the suite is untouched and this is a patch by the rule at the top. What moved is the
+thing a user installs.
+
+`git log -- editors/vscode/bmx-0.1.0.vsix` counts **thirty** commits. Unzipping the first against the last
+gives two different grammars — an 8,931-byte one that knows only `::: card`, and a 13,235-byte one that
+knows `:name:` / `:!name:` — **both declaring version 0.1.0.** VS Code decides whether to offer an update
+by comparing versions, so anyone who installed the extension before the 0.7 respelling has a highlighter
+that paints today's documents wrong and an editor telling them they are current. There is no symptom
+except colour.
+
+**The cause was ergonomic, which is why care would never have fixed it.** The version was in the
+*filename*, so it appeared in seven places — two READMEs, three doc pages, the packer's docstring, CI —
+and bumping it broke every install command in the repository. **A version that is expensive to change is a
+version that does not change.** So the filename lost its version (`bmx.vsix`, stable) and the version now
+lives only where a tool reads it. The extension's `major.minor` must equal `SPEC.md`'s; the patch is free.
+
+**Two things had to be built before that could be checked.**
+
+`pack.py` is deterministic now. Three entries carried the current time — the two written from strings, and
+`reference/bmx.mjs`, which the packer writes moments earlier — so the bytes moved on every run and a stale
+committed `.vsix` was undetectable. Nothing detected it: CI packs and *then* inspects the result. **A check
+that regenerates the artefact it is verifying cannot see a stale one.**
+
+And the reproducibility is asserted as a property of the archive, not by packing twice. **The first
+version of that check packed twice in a row and passed on the non-reproducible packer**, because a zip
+stores timestamps at two-second granularity and back-to-back runs share a bucket. A three-second sleep
+exposed it. A test that can only fail when it happens to straddle a boundary is a test that reports
+success — the fifth face of a lying measurement, after a pattern that matched nothing, an equality that
+matched, an assertion that could not fail, and a runner that could not report one.
+
+**The language server had the identical defect**, found by grepping for the version string I had just
+removed: it answered `initialize` with `0.1.0` while producing 0.12 diagnostics, and its own test asserted
+the `serverInfo` **name** — the half that never changes. A client logs that field, so every bug report
+about a diagnostic would have named the wrong version.

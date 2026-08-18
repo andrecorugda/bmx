@@ -122,7 +122,7 @@ function handle(message) {
             // mode, so anything cleverer would be a claim without a measurement behind it.
             textDocumentSync: 1,
           },
-          serverInfo: { name: 'bmx-lsp', version: '0.1.0' },
+          serverInfo: { name: 'bmx-lsp', version: '0.12.2' },
         },
       })
       break

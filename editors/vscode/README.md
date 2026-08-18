@@ -37,7 +37,7 @@ example.
 ## Installing
 
 ```sh
-code --install-extension bmx-0.1.0.vsix
+code --install-extension bmx.vsix
 ```
 
 Or build it from a checkout — no toolchain, no npm:
