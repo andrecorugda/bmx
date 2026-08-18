@@ -164,6 +164,52 @@ check(
   ["text.bmx"],
 );
 
+// ---- a one-liner's closer, which had no scope at all ----
+//
+// **Andre saw the symptom; the cause was worse.** A one-liner was matched by the begin/end block rule,
+// whose `end` wants `^\s*:!name:$` — a line that never arrives — so `meta.block.bmx` ran to the end of
+// the FILE and the trailing closer fell into the body with no scope. A `match` rule cannot leave
+// anything open, which is why `#one-liner` is a separate rule tried before `#block`.
+check(
+  "a one-liner's closer is a closer",
+  ':button: -> [class=x] Save :!button:\n', 0, ":!",
+  ["punctuation.definition.block.end.bmx"],
+);
+check(
+  "and it carries the block's name",
+  ':button: -> [class=x] Save :!button:\n', 0, "button",
+  ["entity.name.tag.block.bmx"],
+);
+check(
+  "the body between `]` and the closer is content, not head",
+  ':button: -> [class=x] Save :!button:\n', 0, "Save",
+  ["text.bmx"],
+);
+// The UNdelimited form has no body: everything before the closer is head, and the closer is still one.
+check(
+  "an undelimited one-liner's head stops at the closer",
+  ':span: class=box :!span:\n', 0, "class=box",
+  ["meta.block.head.bmx"],
+);
+check(
+  "and its closer is not part of that head",
+  ':span: class=box :!span:\n', 0, ":!",
+  ["punctuation.definition.block.end.bmx"],
+);
+// **The line AFTER a one-liner must be outside the block**, which is the half Andre's report implied
+// rather than named: an opener with no closer swallows everything below it.
+check(
+  "a one-liner does not swallow the line below it",
+  ':span: class=box :!span:\nordinary prose\n', 1, "ordinary prose",
+  ["text.bmx"],
+);
+// And the indented multi-line form, where the closer sits in its opener's column.
+check(
+  "an indented closer is still a closer",
+  ':section: class=card\n  :button: on:click=go\n    Save\n  :!button:\n:!section:\n', 3, ":!",
+  ["punctuation.definition.block.end.bmx"],
+);
+
 // ---- nesting by name ----
 check(
   "a block inside a block",

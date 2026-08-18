@@ -197,6 +197,33 @@
       // The whitespace after the marker belongs to neither the name nor the head — the grammar's
       // `[ \t]*` eats it between captures, so a head starting one character early is a real
       // divergence and `agrees.mjs` caught it.
+      // **a one-liner, both forms — tried before the two below.** `:name: -> [head] body :!name:` and
+      // `:name: head :!name:`. Until 0.11.3 the trailing closer fell into the body or the head and was
+      // painted as content: Andre noticed the closer was not styled, and in the EDITOR the same gap was
+      // worse, because the grammar treated a one-liner as an opener and every line below it stayed
+      // inside the block.
+      m = /^(\s*)(:)([A-Za-z][A-Za-z0-9_-]*)(:)(?:([ \t]*)(->)([ \t]*)(\[)([^\]]*)(\])([ \t]*)(.*?)|([ \t]*)(.*?))([ \t]*)(:!)(\3)(:)([ \t]*)$/.exec(line);
+      if (m) {
+        const headHook = (s) => escapeHtml(s)
+          .replace(/(\.)([A-Za-z][A-Za-z0-9_-]*)/g, '<span class="t-class">$1$2</span>')
+          .replace(/(#)([A-Za-z][A-Za-z0-9_-]*)/g, '<span class="t-id">$1$2</span>');
+        const closer = span('fence', m[16]) + span('name', m[17]) + span('fence', m[18]) + m[19];
+        if (m[6]) {
+          // delimited: the head is a head, and what follows the `]` is CONTENT
+          out.push(m[1] + span('fence', m[2]) + span('name', m[3]) + span('fence', m[4]) + m[5]
+                   + span('punct', m[6]) + m[7] + span('punct', m[8])
+                   + (m[9] ? '<span class="t-head">' + headHook(m[9]) + '</span>' : '')
+                   + span('punct', m[10]) + m[11]
+                   + (m[12] ? bmxInline(m[12]) : '') + m[15] + closer);
+        } else {
+          // undelimited: there is no body, so everything before the closer is head
+          out.push(m[1] + span('fence', m[2]) + span('name', m[3]) + span('fence', m[4]) + m[13]
+                   + (m[14] ? '<span class="t-head">' + headHook(m[14]) + '</span>' : '')
+                   + m[15] + closer);
+        }
+        continue;
+      }
+
       // a delimited head: :name: -> [head] body      (0.9)
       m = /^(\s*)(:)([A-Za-z][A-Za-z0-9_-]*)(:)([ \t]*)(->)([ \t]*)(\[)([^\]]*)(\])([ \t]*)(.*)$/.exec(line);
       if (m) {

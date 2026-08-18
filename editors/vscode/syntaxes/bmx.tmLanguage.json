@@ -27,6 +27,9 @@
       "include": "#fenced-code"
     },
     {
+      "include": "#one-liner"
+    },
+    {
       "include": "#block"
     },
     {
@@ -387,6 +390,63 @@
           "include": "$self"
         }
       ]
+    },
+    "one-liner": {
+      "//": "`:name: -> [head] body :!name:` and `:name: head :!name:`, on one line. Tried BEFORE #block, because #block would match the opener and then hunt for a closer line that does not exist.",
+      "name": "meta.block.bmx",
+      "match": "^\\s*(:)([A-Za-z][A-Za-z0-9_-]*)(:)(?:[ \\t]*(->)[ \\t]*(\\[)([^\\]]*)(\\])[ \\t]*(.*?)|[ \\t]*(.*?))[ \\t]*(:!)(\\2)(:)[ \\t]*$",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.block.begin.bmx"
+        },
+        "2": {
+          "name": "entity.name.tag.block.bmx"
+        },
+        "3": {
+          "name": "punctuation.definition.block.begin.bmx"
+        },
+        "4": {
+          "name": "punctuation.definition.head.arrow.bmx"
+        },
+        "5": {
+          "name": "punctuation.definition.head.begin.bmx"
+        },
+        "6": {
+          "name": "meta.block.head.bmx",
+          "patterns": [
+            {
+              "include": "#head-known"
+            }
+          ]
+        },
+        "7": {
+          "name": "punctuation.definition.head.end.bmx"
+        },
+        "8": {
+          "patterns": [
+            {
+              "include": "#inline"
+            }
+          ]
+        },
+        "9": {
+          "name": "meta.block.head.bmx",
+          "patterns": [
+            {
+              "include": "#head-known"
+            }
+          ]
+        },
+        "10": {
+          "name": "punctuation.definition.block.end.bmx"
+        },
+        "11": {
+          "name": "entity.name.tag.block.bmx"
+        },
+        "12": {
+          "name": "punctuation.definition.block.end.bmx"
+        }
+      }
     }
   }
 }
