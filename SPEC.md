@@ -339,7 +339,11 @@ differently:
 ```
 
 - `.name` is a class, `#name` is an id. Both use the §4a.1 name rule.
-- **At most one `#id` per block.** `BMX-E033` for a second.
+- **At most one `#id` per block.** `BMX-E033` for a second. An id is a `#` at the start of a head token,
+  where a token ends at whitespace **or a comma** — so `#one,#two` is refused, while a `#` inside a value
+  is not an id at all and `href=/page#section` carries none. Both implementations counted only
+  whitespace-separated ids until 0.8.2, so a comma evaded the rule in both, which is why `tests/agree.py`
+  could not see it: **two implementations agreeing is not two implementations being right.**
 - Everything else in the head is the host's, including `title="Pricing"` and any
   `on:click=save_order`. BMX captures the text and does not decide what an attribute means.
 

@@ -709,7 +709,16 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: I
                 let mutable ids: Int = 0;
                 let mutable h: Int = 0;
                 while h < len(head) {
-                    let starts: Bool = h == 0 || bmx_is_space(byte_at(head, h - 1));
+                    // A comma separates head tokens as surely as a space does: `#one,#two` slipped
+                    // past the whitespace-only version here AND in the reference implementation, so
+                    // the differential test agreed on being wrong. A `#` inside a value —
+                    // `href=/page#section` — must still not count, which is why this asks about the
+                    // character before rather than counting every `#`.
+                    let mutable before: Int = 32;
+                    if h > 0 {
+                        before = byte_at(head, h - 1);
+                    }
+                    let starts: Bool = bmx_is_space(before) || before == 44;
                     if starts && byte_at(head, h) == 35 && h + 1 < len(head) && html_is_name(substring(head, h + 1, 1)) {
                         ids += 1;
                     }

@@ -409,7 +409,11 @@ function parseBlocks(rows, from, open, openRow) {
       }
       const head = rest.replace(/^[ \t]+|[ \t]+$/g, '')
       // At most one #id. Everything else in the head belongs to the host.
-      if ((head.match(/(^|[ \t])#[A-Za-z]/g) || []).length > 1) {
+      // `(^|[ \t,])` — a comma separates head tokens as surely as a space does, and `#one,#two` slipped
+      // past the whitespace-only version in BOTH implementations, so the differential test agreed on
+      // being wrong. What must NOT count is a `#` inside a value, `href=/page#section`, which is why
+      // this asks about the character before rather than counting every `#`.
+      if ((head.match(/(^|[ \t,])#[A-Za-z]/g) || []).length > 1) {
         throw new BmxError('BMX-E033', row.offset, 'a block may carry at most one #id')
       }
       let pad = 0
