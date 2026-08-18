@@ -101,6 +101,12 @@ be kept in step by hand.
 > ```
 > error: `pure function bmx_parse_error` may not call `string_to_int`, which is not declared `pure`
 > ```
+>
+> **CI here builds against 1.4.0, and that is not the floor.** The pin is what this project tests
+> against; the floor is what your host needs. They moved apart when 1.4.0 shipped `burxt fmt`, which
+> this repository uses to check its own indentation — a tool, not a language feature. The formatted
+> implementation still compiles on 1.3.0 and passes all 92 cases there, measured rather than assumed.
+> **A pin quoted as a requirement tells every host to upgrade for a reason that is not theirs.**
 
 ### The two command-line tools
 

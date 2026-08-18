@@ -96,6 +96,8 @@ echo
 if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /dev/null -o /dev/null 2>&1 | grep -qv 'standard library'; then
   echo "the Burxt implementation — needs a released burxt on PATH and BURXT_LIB set"
   run "it compiles" bash -c 'burxt build burxt/examples/parse.bx -o /tmp/check-parse'
+  # Needs burxt 1.4.0 or newer, which is the pinned version — `fmt` did not exist before it.
+  run "it is formatted" bash -c 'burxt fmt --check burxt/bmx.bx'
   run "it passes the format's own suite" python3 tests/harness.py /tmp/check-parse
   run "the two implementations agree with each other" python3 tests/agree.py 'node reference/bmx.js' /tmp/check-parse
   run "no document can reach the output through a target or an info string" bash -c '

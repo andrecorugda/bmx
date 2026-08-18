@@ -231,7 +231,7 @@ jobs:
 
       - name: Install the Burxt this release of BMX supports
         env:
-          BURXT: 1.3.0
+          BURXT: 1.4.0
         run: |
           set -eux
           curl -fsSL -o /tmp/burxt.tar.gz \
@@ -244,6 +244,24 @@ jobs:
           # even though the install worked. Piped so the exit status is `head`'s: this line is here
           # to put the version in the log, not to be a test. Reported to Burxt.
           burxt --version 2>&1 | head -1
+
+      # **The formatting claim, tested at last.** `SPEC.md` and every example on the site are indented by
+      # `tools/fmt.py`, which is checked — but `burxt/bmx.bx` is Burxt source and nothing checked its
+      # indentation until `burxt fmt --check` shipped in 1.4.0. It was NOT formatted: 477 lines differed,
+      # every one of them purely leading or trailing whitespace, and one was a real defect — an `if` nested
+      # inside an `else` sat at the `else`'s own indentation, so the file read as though the branch were a
+      # sibling of the branch containing it.
+      #
+      # **A formatter is the one tool that finds what a reviewer's eye slides over**, which is the same
+      # reason `tools/fmt.py` exists for the documents. Requested from the Burxt session when it was still
+      # on their `develop`; verified against the released tarball rather than the branch.
+      #
+      # **After the install, and that is not incidental** — I wrote this step above it first, referring to a
+      # toolchain that would not exist for another thirty lines and to a path CI does not use. A step whose
+      # dependency runs later fails in a way that reads like the tool being broken.
+      - name: The Burxt implementation is formatted
+        run: |
+          burxt fmt --check burxt/bmx.bx
 
       - name: The Burxt implementation passes the format's own suite
         run: |

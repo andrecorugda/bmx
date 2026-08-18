@@ -442,65 +442,65 @@ pure function bmx_parse_inline(text: String, base: Int) -> Result<[Bmx], String>
                                 buffer = "";
                             }
                             let added: Int = push(out, Bmx.InlineBlock(BmxInline {
-                                name: name,
-                                head: substring(text, open + 1, shut - open - 1),
-                                offset: base + i,
-                                head_offset: base + open + 1,
+                                        name: name,
+                                        head: substring(text, open + 1, shut - open - 1),
+                                        offset: base + i,
+                                        head_offset: base + open + 1,
                             }));
                             i = shut + 3;
                         } else {
-                        if b == 91 {
-                            let shut: Int = string_find_from(text, "]", i + 1);
-                            if shut < 0 {
-                                return Result.Error(bmx_error("BMX-E004", base + i, "unterminated link text"));
-                            }
-                            if shut + 1 >= n || byte_at(text, shut + 1) != 40 {
-                                return Result.Error(bmx_error("BMX-E004", base + i, "a link's text must be followed by (target)"));
-                            }
-                            let end: Int = bmx_target_end(text, shut + 2);
-                            if end < 0 {
-                                return Result.Error(bmx_error("BMX-E004", base + i,
-                                    "unterminated link target: its parentheses do not balance, so there is no `)` that ends it"));
-                            }
-                            // **A slot in a target was emitted as LITERAL TEXT**, so `[Home]({{ url }})`
-                            // produced `href="{{ url }}"` — a broken link, rendered, with nothing said.
-                            // Refused rather than supported: substituting a bound value into a target
-                            // means the scheme check must run AFTER substitution, which is a design
-                            // decision. §7 carries the same open question for images.
-                            let target_text: String = substring(text, shut + 2, end - (shut + 2));
-                            if string_find(target_text, "\{\{") >= 0 {
-                                return Result.Error(bmx_error("BMX-E005", base + i,
-                                    "a link target is opaque, so a slot in one is not substituted — it would render as the characters `\{\{ … \}\}`. Use a block your host declares"));
-                            }
-                            if len(buffer) > 0 {
-                                let flushed: Int = push(out, Bmx.Text(buffer));
-                                buffer = "";
-                            }
-                            match bmx_parse_inline(substring(text, i + 1, shut - i - 1), base + i + 1) {
-                                Error(e) => { return Result.Error(e); }
-                                Ok(kids) => {
-                                    let target: String = substring(text, shut + 2, end - shut - 2);
-                                    let added: Int = push(out, Bmx.Link(BmxLink { target: target, children: kids, offset: base + i }));
+                            if b == 91 {
+                                let shut: Int = string_find_from(text, "]", i + 1);
+                                if shut < 0 {
+                                    return Result.Error(bmx_error("BMX-E004", base + i, "unterminated link text"));
                                 }
+                                if shut + 1 >= n || byte_at(text, shut + 1) != 40 {
+                                    return Result.Error(bmx_error("BMX-E004", base + i, "a link's text must be followed by (target)"));
+                                }
+                                let end: Int = bmx_target_end(text, shut + 2);
+                                if end < 0 {
+                                    return Result.Error(bmx_error("BMX-E004", base + i,
+                                            "unterminated link target: its parentheses do not balance, so there is no `)` that ends it"));
+                                }
+                                // **A slot in a target was emitted as LITERAL TEXT**, so `[Home]({{ url }})`
+                                // produced `href="{{ url }}"` — a broken link, rendered, with nothing said.
+                                // Refused rather than supported: substituting a bound value into a target
+                                // means the scheme check must run AFTER substitution, which is a design
+                                // decision. §7 carries the same open question for images.
+                                let target_text: String = substring(text, shut + 2, end - (shut + 2));
+                                if string_find(target_text, "\{\{") >= 0 {
+                                    return Result.Error(bmx_error("BMX-E005", base + i,
+                                            "a link target is opaque, so a slot in one is not substituted — it would render as the characters `\{\{ … \}\}`. Use a block your host declares"));
+                                }
+                                if len(buffer) > 0 {
+                                    let flushed: Int = push(out, Bmx.Text(buffer));
+                                    buffer = "";
+                                }
+                                match bmx_parse_inline(substring(text, i + 1, shut - i - 1), base + i + 1) {
+                                    Error(e) => { return Result.Error(e); }
+                                    Ok(kids) => {
+                                        let target: String = substring(text, shut + 2, end - shut - 2);
+                                        let added: Int = push(out, Bmx.Link(BmxLink { target: target, children: kids, offset: base + i }));
+                                    }
+                                }
+                                i = end + 1;
+                            } else {
+                                // **The mid-line comment refusal belongs HERE, where a `<` becomes ordinary
+                                // text.** Checking the whole string on entry falsely refused
+                                // `` `<!-- x -->` `` — a code span, which is the documented way to write
+                                // literal markup. A fix for a silent wrong answer introducing a false
+                                // refusal of correct input, because the check ran before the scan could
+                                // reach the construct that protects its content. By this point the scanner
+                                // has consumed code spans, links and slots, so this sees only text that
+                                // would really have been emitted.
+                                if b == 60 && i + 3 < n && byte_at(text, i + 1) == 33
+                                        && byte_at(text, i + 2) == 45 && byte_at(text, i + 3) == 45 {
+                                    return Result.Error(bmx_error("BMX-E007", base + i,
+                                            "a comment is a whole line — move `<!--` to the start of its own line, or put it in a code span to show it literally"));
+                                }
+                                buffer = buffer + byte_as_string(b);
+                                i += 1;
                             }
-                            i = end + 1;
-                        } else {
-                            // **The mid-line comment refusal belongs HERE, where a `<` becomes ordinary
-                            // text.** Checking the whole string on entry falsely refused
-                            // `` `<!-- x -->` `` — a code span, which is the documented way to write
-                            // literal markup. A fix for a silent wrong answer introducing a false
-                            // refusal of correct input, because the check ran before the scan could
-                            // reach the construct that protects its content. By this point the scanner
-                            // has consumed code spans, links and slots, so this sees only text that
-                            // would really have been emitted.
-                            if b == 60 && i + 3 < n && byte_at(text, i + 1) == 33
-                               && byte_at(text, i + 2) == 45 && byte_at(text, i + 3) == 45 {
-                                return Result.Error(bmx_error("BMX-E007", base + i,
-                                    "a comment is a whole line — move `<!--` to the start of its own line, or put it in a code span to show it literally"));
-                            }
-                            buffer = buffer + byte_as_string(b);
-                            i += 1;
-                        }
                         }
                     }
                 }
@@ -623,7 +623,7 @@ pure function bmx_row(raw: String, offset: Int) -> BmxLine {
 // `014-nested-list` failed, and the quote shape had no fixture at all until this pass added one.
 pure function bmx_no_nesting(offset: Int, what: String, fix: String) -> String {
     return bmx_error("BMX-E012", offset,
-        "a " + what + " may not nest; this line is indented. " + fix + " — see §4a.2");
+            "a " + what + " may not nest; this line is indented. " + fix + " — see §4a.2");
 }
 
 // **Three delimiters in this format and all three needed the same thing said about them.** A head ended
@@ -747,7 +747,7 @@ public function bmx_parse(source: String) -> Result<[Block], String> {
             // The reader only stops early on a closer, and at the top level nothing is open.
             if stop < len(lines) {
                 return Result.Error(bmx_error("BMX-E032", lines[stop].offset,
-                    "a closer with no open block"));
+                        "a closer with no open block"));
             }
             return Result.Ok(out);
         }
@@ -786,352 +786,282 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: I
                 }
                 if !closed {
                     return Result.Error(bmx_error("BMX-E006", line.offset,
-                        "unterminated comment: no `-->`"));
+                            "unterminated comment: no `-->`"));
                 }
                 i = j + 1;
             } else {
-            // A tab in leading whitespace. Every dialect gives it a different width, so a format
-            // promising one reading cannot accept it — even though the SPACES around it mean
-            // nothing, a reader aligning by eye and a parser counting bytes would disagree about
-            // what they are looking at.
-            if len(text) > 0 && byte_at(text, 0) == 9 {
-                return Result.Error(bmx_error("BMX-E010", line.offset, "a tab in leading whitespace has no defined width"));
-            }
-            // **Indentation is insignificant, with exactly two exceptions** (§1). They are
-            // exceptions because a list and a quote have no nesting AT ALL in this version, so an
-            // indented one is not a second spelling of something legal — it is the illegal thing
-            // with space in front of it.
-            //
-            // Until 0.5.1 this was a blanket refusal of every indented line, wearing the
-            // nested-list message: `::: div` / `  hello` / `:::` was told *a list may not nest*
-            // about a document with no list in it. That is the worst shape a diagnostic can have —
-            // confident, specific, and naming something the reader did not write.
-            // **An indented list or quote is NOT a nest, and 0.6 through 0.7 refused it as one.**
-            // Found by round-tripping the suite through `tools/fmt.py`: indenting `:for:` / `- item`
-            // produced *a list may not nest* about a document with one list in it, so the readable
-            // form of the most motivating example was illegal in the release that existed to allow it.
-            // A quote nests as `> > `, where indentation plays no part; a list nests when a marker is
-            // DEEPER than the list already open, which is checked where the items are consumed.
-
-            // ---- a 0.6 document, refused by name so nobody meets it as paragraph text --------
-            if bmx_is_old_fence(text) {
-                return Result.Error(bmx_error("BMX-E036", line.offset,
-                    "this is the 0.6 fence: 0.7 opens with `:name:` and closes with `:!name:`. Run `python3 tools/migrate-0.7.py` over the file"));
-            }
-            let closer: String = bmx_closer_name(text);
-            if len(closer) > 0 {
-                if len(open) == 0 {
-                    return Result.Error(bmx_error("BMX-E032", line.offset, "a closer with no open block"));
+                // A tab in leading whitespace. Every dialect gives it a different width, so a format
+                // promising one reading cannot accept it — even though the SPACES around it mean
+                // nothing, a reader aligning by eye and a parser counting bytes would disagree about
+                // what they are looking at.
+                if len(text) > 0 && byte_at(text, 0) == 9 {
+                    return Result.Error(bmx_error("BMX-E010", line.offset, "a tab in leading whitespace has no defined width"));
                 }
-                if closer != open {
-                    // **The check that makes a named closer worth writing.** Without it `:!for:`
-                    // against an open `button` would close the button anyway and the document would
-                    // read as something it is not. A closer that can be wrong AND is believed is
-                    // worse than the bare `:::` it replaced; refused, it can only be wrong.
-                    // **Both positions, opened-at and closed-at.** A message with one position sends
-                    // the reader back to counting, which is the work a named closer exists to delete.
-                    return Result.Error(bmx_error("BMX-E035", line.offset,
-                        "`:!" + closer + ":` closes nothing here — the open block is `" + open
-                        + "`, opened at " + to_string(open_row + 1) + ":"
-                        + to_string(lines[open_row].indent + 1)
-                        + ", so its closer is `:!" + open + ":`"));
-                }
-                return Result.Ok(i);
-            }
-            let marker: Int = bmx_marker_end(text);
-            if marker > 0 {
-                let name: String = substring(text, 1, marker - 1);
-                if !html_is_name(name) {
-                    // Without this a `:9lives:` is a paragraph beginning with a colon rather than a
-                    // refusal — silence in the one place the format promises noise. The fixture
-                    // `030-block-name-not-a-name` could not be migrated without it, which is how the
-                    // hole was found.
-                    return Result.Error(bmx_error("BMX-E030", line.offset,
-                        "a block name is a letter, then letters, digits, - and _"));
-                }
-                let mutable rest: String = substring(text, marker + 1, len(text) - (marker + 1));
-                let target: String = ":!" + name + ":";
-                let mutable one_liner: Bool = false;
-                let mutable inline_body: String = "";
-                let mutable bracket_at: Int = 0;
-                // Where the inline body starts in the SOURCE. It is not the head's offset — passing that
-                // put the body's nodes eleven bytes early, and `tests/agree.py` caught it because the
-                // reference implementation computes the real position. A differential test cannot see a
-                // rule both sides get wrong, but it sees this instantly.
-                let mutable body_at: Int = 0;
-
-                // ---- a DELIMITED head: `:name: -> [ … ] body` ----
+                // **Indentation is insignificant, with exactly two exceptions** (§1). They are
+                // exceptions because a list and a quote have no nesting AT ALL in this version, so an
+                // indented one is not a second spelling of something legal — it is the illegal thing
+                // with space in front of it.
                 //
-                // **What lets a body share the line with a head**, which nothing could before 0.9. A
-                // head is opaque bytes, so `:span: class=text hello :!span:` sent `hello` into the head
-                // and the text silently vanished. Andre's answer: the author says where the head stops.
-                //
-                // BMX still parses NOTHING inside the brackets — it learns one bracket pair as a
-                // delimiter, and the commas and `name=value` stay the host's, exactly as before.
-                let mutable arrow: Int = 0;
-                while arrow < len(rest) && bmx_is_space(byte_at(rest, arrow)) {
-                    arrow += 1;
+                // Until 0.5.1 this was a blanket refusal of every indented line, wearing the
+                // nested-list message: `::: div` / `  hello` / `:::` was told *a list may not nest*
+                // about a document with no list in it. That is the worst shape a diagnostic can have —
+                // confident, specific, and naming something the reader did not write.
+                // **An indented list or quote is NOT a nest, and 0.6 through 0.7 refused it as one.**
+                // Found by round-tripping the suite through `tools/fmt.py`: indenting `:for:` / `- item`
+                // produced *a list may not nest* about a document with one list in it, so the readable
+                // form of the most motivating example was illegal in the release that existed to allow it.
+                // A quote nests as `> > `, where indentation plays no part; a list nests when a marker is
+                // DEEPER than the list already open, which is checked where the items are consumed.
+
+                // ---- a 0.6 document, refused by name so nobody meets it as paragraph text --------
+                if bmx_is_old_fence(text) {
+                    return Result.Error(bmx_error("BMX-E036", line.offset,
+                            "this is the 0.6 fence: 0.7 opens with `:name:` and closes with `:!name:`. Run `python3 tools/migrate-0.7.py` over the file"));
                 }
-                let mutable delimited: Bool = false;
-                if arrow + 2 < len(rest) && byte_at(rest, arrow) == 45 && byte_at(rest, arrow + 1) == 62 {
-                    let mutable lbrack: Int = arrow + 2;
-                    while lbrack < len(rest) && bmx_is_space(byte_at(rest, lbrack)) {
-                        lbrack += 1;
+                let closer: String = bmx_closer_name(text);
+                if len(closer) > 0 {
+                    if len(open) == 0 {
+                        return Result.Error(bmx_error("BMX-E032", line.offset, "a closer with no open block"));
                     }
-                    if lbrack < len(rest) && byte_at(rest, lbrack) == 91 {
-                        delimited = true;
-                        let close: Int = bmx_head_end(rest, lbrack + 1);
-                        if close < 0 {
-                            return Result.Error(bmx_error("BMX-E037", line.offset,
-                                "a delimited head needs its `]`: `:" + name + ": -> [ … ]`"));
-                        }
-                        // The head ends at the FIRST `]`, which is the escape hatch rather than a
-                        // defect: a host needing a `]` in a value writes the undelimited form, which
-                        // takes the whole line and has no delimiter to collide with.
-                        let after: String = substring(rest, close + 1, len(rest) - (close + 1));
-                        bracket_at = lbrack + 1;
-                        rest = substring(rest, lbrack + 1, close - (lbrack + 1));
+                    if closer != open {
+                        // **The check that makes a named closer worth writing.** Without it `:!for:`
+                        // against an open `button` would close the button anyway and the document would
+                        // read as something it is not. A closer that can be wrong AND is believed is
+                        // worse than the bare `:::` it replaced; refused, it can only be wrong.
+                        // **Both positions, opened-at and closed-at.** A message with one position sends
+                        // the reader back to counting, which is the work a named closer exists to delete.
+                        return Result.Error(bmx_error("BMX-E035", line.offset,
+                                        "`:!" + closer + ":` closes nothing here — the open block is `" + open
+                                        + "`, opened at " + to_string(open_row + 1) + ":"
+                                        + to_string(lines[open_row].indent + 1)
+                                + ", so its closer is `:!" + open + ":`"));
+                    }
+                    return Result.Ok(i);
+                }
+                let marker: Int = bmx_marker_end(text);
+                if marker > 0 {
+                    let name: String = substring(text, 1, marker - 1);
+                    if !html_is_name(name) {
+                        // Without this a `:9lives:` is a paragraph beginning with a colon rather than a
+                        // refusal — silence in the one place the format promises noise. The fixture
+                        // `030-block-name-not-a-name` could not be migrated without it, which is how the
+                        // hole was found.
+                        return Result.Error(bmx_error("BMX-E030", line.offset,
+                                "a block name is a letter, then letters, digits, - and _"));
+                    }
+                    let mutable rest: String = substring(text, marker + 1, len(text) - (marker + 1));
+                    let target: String = ":!" + name + ":";
+                    let mutable one_liner: Bool = false;
+                    let mutable inline_body: String = "";
+                    let mutable bracket_at: Int = 0;
+                    // Where the inline body starts in the SOURCE. It is not the head's offset — passing that
+                    // put the body's nodes eleven bytes early, and `tests/agree.py` caught it because the
+                    // reference implementation computes the real position. A differential test cannot see a
+                    // rule both sides get wrong, but it sees this instantly.
+                    let mutable body_at: Int = 0;
 
-                        let rear: String = bmx_strip_end(after);
-                        if len(rear) >= len(target)
-                           && substring(rear, len(rear) - len(target), len(target)) == target {
-                            let raw_body: String = substring(rear, 0, len(rear) - len(target));
-                            let mutable lead: Int = 0;
-                            while lead < len(raw_body) && bmx_is_space(byte_at(raw_body, lead)) {
-                                lead += 1;
+                    // ---- a DELIMITED head: `:name: -> [ … ] body` ----
+                    //
+                    // **What lets a body share the line with a head**, which nothing could before 0.9. A
+                    // head is opaque bytes, so `:span: class=text hello :!span:` sent `hello` into the head
+                    // and the text silently vanished. Andre's answer: the author says where the head stops.
+                    //
+                    // BMX still parses NOTHING inside the brackets — it learns one bracket pair as a
+                    // delimiter, and the commas and `name=value` stay the host's, exactly as before.
+                    let mutable arrow: Int = 0;
+                    while arrow < len(rest) && bmx_is_space(byte_at(rest, arrow)) {
+                        arrow += 1;
+                    }
+                    let mutable delimited: Bool = false;
+                    if arrow + 2 < len(rest) && byte_at(rest, arrow) == 45 && byte_at(rest, arrow + 1) == 62 {
+                        let mutable lbrack: Int = arrow + 2;
+                        while lbrack < len(rest) && bmx_is_space(byte_at(rest, lbrack)) {
+                            lbrack += 1;
+                        }
+                        if lbrack < len(rest) && byte_at(rest, lbrack) == 91 {
+                            delimited = true;
+                            let close: Int = bmx_head_end(rest, lbrack + 1);
+                            if close < 0 {
+                                return Result.Error(bmx_error("BMX-E037", line.offset,
+                                        "a delimited head needs its `]`: `:" + name + ": -> [ … ]`"));
                             }
-                            body_at = line.offset + marker + 1 + close + 1 + lead;
-                            inline_body = string_trim(raw_body);
+                            // The head ends at the FIRST `]`, which is the escape hatch rather than a
+                            // defect: a host needing a `]` in a value writes the undelimited form, which
+                            // takes the whole line and has no delimiter to collide with.
+                            let after: String = substring(rest, close + 1, len(rest) - (close + 1));
+                            bracket_at = lbrack + 1;
+                            rest = substring(rest, lbrack + 1, close - (lbrack + 1));
+
+                            let rear: String = bmx_strip_end(after);
+                            if len(rear) >= len(target)
+                                    && substring(rear, len(rear) - len(target), len(target)) == target {
+                                let raw_body: String = substring(rear, 0, len(rear) - len(target));
+                                let mutable lead: Int = 0;
+                                while lead < len(raw_body) && bmx_is_space(byte_at(raw_body, lead)) {
+                                    lead += 1;
+                                }
+                                body_at = line.offset + marker + 1 + close + 1 + lead;
+                                inline_body = string_trim(raw_body);
+                                one_liner = true;
+                            } else {
+                                if !bmx_is_blank(rear) {
+                                    // **Refused rather than merged.** Otherwise the body has two sources —
+                                    // this line and the lines below — and a reader cannot tell which won.
+                                    return Result.Error(bmx_error("BMX-E038", line.offset,
+                                                    "a body after `]` needs the block to close on the same line — add `:!"
+                                            + name + ":`, or put the body on the lines below"));
+                                }
+                            }
+                        }
+                    }
+
+                    // The undelimited form, unchanged: a one-liner closes on its own line and everything
+                    // before the closer is head. Taken only at END of line and only when it names THIS
+                    // block, so a `:!x:` inside a head is left alone.
+                    if !delimited {
+                        let trimmed: String = bmx_strip_end(rest);
+                        if len(trimmed) >= len(target)
+                                && substring(trimmed, len(trimmed) - len(target), len(target)) == target {
+                            rest = substring(trimmed, 0, len(trimmed) - len(target));
                             one_liner = true;
-                        } else {
-                            if !bmx_is_blank(rear) {
-                                // **Refused rather than merged.** Otherwise the body has two sources —
-                                // this line and the lines below — and a reader cannot tell which won.
-                                return Result.Error(bmx_error("BMX-E038", line.offset,
-                                    "a body after `]` needs the block to close on the same line — add `:!"
-                                    + name + ":`, or put the body on the lines below"));
-                            }
                         }
                     }
-                }
-
-                // The undelimited form, unchanged: a one-liner closes on its own line and everything
-                // before the closer is head. Taken only at END of line and only when it names THIS
-                // block, so a `:!x:` inside a head is left alone.
-                if !delimited {
-                    let trimmed: String = bmx_strip_end(rest);
-                    if len(trimmed) >= len(target)
-                       && substring(trimmed, len(trimmed) - len(target), len(target)) == target {
-                        rest = substring(trimmed, 0, len(trimmed) - len(target));
-                        one_liner = true;
-                    }
-                }
-                let head: String = string_trim(rest);
-                // At most one `#id`. Everything else in the head belongs to the host — but an id
-                // is an ADDRESS, and a block with two of them has no answer to "where is it".
-                let mutable ids: Int = 0;
-                let mutable h: Int = 0;
-                while h < len(head) {
-                    // A comma separates head tokens as surely as a space does: `#one,#two` slipped
-                    // past the whitespace-only version here AND in the reference implementation, so
-                    // the differential test agreed on being wrong. A `#` inside a value —
-                    // `href=/page#section` — must still not count, which is why this asks about the
-                    // character before rather than counting every `#`.
-                    let mutable before: Int = 32;
-                    if h > 0 {
-                        before = byte_at(head, h - 1);
-                    }
-                    let starts: Bool = bmx_is_space(before) || before == 44;
-                    if starts && byte_at(head, h) == 35 && h + 1 < len(head) && html_is_name(substring(head, h + 1, 1)) {
-                        ids += 1;
-                    }
-                    h += 1;
-                }
-                if ids > 1 {
-                    return Result.Error(bmx_error("BMX-E033", line.offset, "a block may carry at most one #id"));
-                }
-                let mutable pad: Int = 0;
-                while pad < len(rest) && bmx_is_space(byte_at(rest, pad)) { pad += 1; }
-                let head_at: Int = line.offset + marker + 1 + pad + bracket_at;
-                let mutable kids: [Block] = [];
-                if one_liner {
-                    // **An UNDELIMITED one-liner's body is empty, and a delimited one's is not.** With
-                    // no `-> [ … ]` the format cannot tell where `class=text` ended and `hello` began,
-                    // so everything is head; with the delimiter the author has said, and what follows
-                    // the `]` is inline content BMX parses and escapes — which is the whole difference
-                    // between this and a host-side `child="…"`, where the body is a string the format
-                    // never looks at and therefore never escapes.
-                    if len(inline_body) > 0 {
-                        match bmx_parse_inline(inline_body, body_at) {
-                            Error(e) => { return Result.Error(e); }
-                            Ok(part) => {
-                                let para: Int = push(kids, Block.Paragraph(BmxWords {
-                                    children: bmx_merge_text(part),
-                                    offset: line.offset,
-                                }));
-                            }
+                    let head: String = string_trim(rest);
+                    // At most one `#id`. Everything else in the head belongs to the host — but an id
+                    // is an ADDRESS, and a block with two of them has no answer to "where is it".
+                    let mutable ids: Int = 0;
+                    let mutable h: Int = 0;
+                    while h < len(head) {
+                        // A comma separates head tokens as surely as a space does: `#one,#two` slipped
+                        // past the whitespace-only version here AND in the reference implementation, so
+                        // the differential test agreed on being wrong. A `#` inside a value —
+                        // `href=/page#section` — must still not count, which is why this asks about the
+                        // character before rather than counting every `#`.
+                        let mutable before: Int = 32;
+                        if h > 0 {
+                            before = byte_at(head, h - 1);
                         }
-                    }
-                    let added: Int = push(out, Block.Fenced(BmxBlock {
-                        name: name,
-                        head: head,
-                        one_line: true,
-                        offset: line.offset,
-                        head_offset: head_at,
-                        children: kids,
-                    }));
-                    i += 1;
-                } else {
-                    match bmx_parse_blocks(lines, i + 1, name, i, kids) {
-                        Error(e) => { return Result.Error(e); }
-                        Ok(end) => {
-                            if end >= len(lines) {
-                                return Result.Error(bmx_error("BMX-E031", line.offset,
-                                    "unterminated block: no `:!" + name + ":`"));
-                            }
-                            let added: Int = push(out, Block.Fenced(BmxBlock {
-                                name: name,
-                                head: head,
-                                one_line: false,
-                                offset: line.offset,
-                                head_offset: head_at,
-                                children: kids,
-                            }));
-                            i = end + 1;
+                        let starts: Bool = bmx_is_space(before) || before == 44;
+                        if starts && byte_at(head, h) == 35 && h + 1 < len(head) && html_is_name(substring(head, h + 1, 1)) {
+                            ids += 1;
                         }
+                        h += 1;
                     }
-                }
-            } else {
-            if byte_at(text, 0) == 35 {
-                let mutable level: Int = 0;
-                while level < len(text) && byte_at(text, level) == 35 {
-                    level += 1;
-                }
-                if level > 6 {
-                    return Result.Error(bmx_error("BMX-E011", line.offset, "a heading is one to six #"));
-                }
-                if level >= len(text) || byte_at(text, level) != 32 {
-                    return Result.Error(bmx_error("BMX-E011", line.offset, "a heading needs exactly one space after its #"));
-                }
-                let body: String = substring(text, level + 1, len(text) - level - 1);
-                if len(body) == 0 {
-                    return Result.Error(bmx_error("BMX-E011", line.offset, "a heading may not be empty"));
-                }
-                match bmx_parse_inline(body, line.offset + level + 1) {
-                    Error(e) => { return Result.Error(e); }
-                    Ok(kids) => {
-                        let added: Int = push(out, Block.Heading(BmxHeading { level: level, children: kids, offset: line.offset }));
+                    if ids > 1 {
+                        return Result.Error(bmx_error("BMX-E033", line.offset, "a block may carry at most one #id"));
                     }
-                }
-                i += 1;
-            } else {
-                if bmx_starts_with(text, "```") {
-                    let info: String = substring(text, 3, len(text) - 3);
-                    let mutable body: String = "";
-                    let mutable j: Int = i + 1;
-                    let mutable closed: Bool = false;
-                    while j < len(lines) && !closed {
-                        let inner: String = bmx_strip_end(lines[j].text);
-                        if inner == "```" {
-                            closed = true;
-                        } else {
-                            // The FENCE's indentation comes off; everything past it stays, so an
-                            // indented fence holds exactly the code you would have written at
-                            // column 0. Dedenting each line by its own indent would flatten it.
-                            body = body + bmx_strip_fence_indent(lines[j].raw, line.indent) + "\n";
-                        }
-                        j += 1;
-                    }
-                    // Markdown closes an open fence at end of document, which is the single
-                    // most common way a page becomes one giant code block with nobody told why.
-                    if !closed {
-                        return Result.Error(bmx_error("BMX-E003", line.offset, "unterminated code fence"));
-                    }
-                    let added: Int = push(out, Block.Code(BmxCode { info: info, value: body, offset: line.offset }));
-                    i = j;
-                } else {
-                    if bmx_starts_with(text, "> ") {
-                        if bmx_starts_with(text, "> > ") {
-                            return Result.Error(bmx_error("BMX-E012", line.offset, "a quote may not nest. A block nests — see the format's §4a.2"));
-                        }
-                        let mutable kids: [Bmx] = [];
-                        let mutable j: Int = i;
-                        while j < len(lines) && bmx_starts_with(bmx_strip_end(lines[j].text), "> ") {
-                            let inner: String = bmx_strip_end(lines[j].text);
-                            if j > i {
-                                let broke: Int = push(kids, Bmx.Text("\n"));
-                            }
-                            match bmx_parse_inline(substring(inner, 2, len(inner) - 2), lines[j].offset + 2) {
+                    let mutable pad: Int = 0;
+                    while pad < len(rest) && bmx_is_space(byte_at(rest, pad)) { pad += 1; }
+                    let head_at: Int = line.offset + marker + 1 + pad + bracket_at;
+                    let mutable kids: [Block] = [];
+                    if one_liner {
+                        // **An UNDELIMITED one-liner's body is empty, and a delimited one's is not.** With
+                        // no `-> [ … ]` the format cannot tell where `class=text` ended and `hello` began,
+                        // so everything is head; with the delimiter the author has said, and what follows
+                        // the `]` is inline content BMX parses and escapes — which is the whole difference
+                        // between this and a host-side `child="…"`, where the body is a string the format
+                        // never looks at and therefore never escapes.
+                        if len(inline_body) > 0 {
+                            match bmx_parse_inline(inline_body, body_at) {
                                 Error(e) => { return Result.Error(e); }
                                 Ok(part) => {
-                                    let mutable k: Int = 0;
-                                    while k < len(part) {
-                                        let one: Int = push(kids, part[k]);
-                                        k += 1;
-                                    }
+                                    let para: Int = push(kids, Block.Paragraph(BmxWords {
+                                                children: bmx_merge_text(part),
+                                                offset: line.offset,
+                                    }));
                                 }
                             }
-                            j += 1;
                         }
-                        let added: Int = push(out, Block.Quote(BmxWords { children: bmx_merge_text(kids), offset: line.offset }));
-                        i = j;
+                        let added: Int = push(out, Block.Fenced(BmxBlock {
+                                    name: name,
+                                    head: head,
+                                    one_line: true,
+                                    offset: line.offset,
+                                    head_offset: head_at,
+                                    children: kids,
+                        }));
+                        i += 1;
                     } else {
-                        let ordered_at: Int = bmx_ordered_marker(text);
-                        let unordered: Bool = bmx_starts_with(text, "- ");
-                        if unordered || ordered_at > 0 {
-                            let mutable items: [BmxItem] = [];
-                            let mutable j: Int = i;
-                            let mutable going: Bool = true;
-                            while j < len(lines) && going {
-                                let inner: String = bmx_strip_end(lines[j].text);
-                                let here_ordered: Int = bmx_ordered_marker(inner);
-                                let here_unordered: Bool = bmx_starts_with(inner, "- ");
-                                let mutable skip: Int = 0 - 1;
-                                if unordered && here_unordered { skip = 2; }
-                                if !unordered && here_ordered > 0 { skip = here_ordered; }
-                                if skip < 0 {
-                                    going = false;
-                                } else {
-                                    // **The only place list nesting can be caught**: a continuation
-                                    // line never reaches the top of the block loop, because this loop
-                                    // consumes it. Deeper than the item that opened the list is a
-                                    // nest; the same column or shallower is another item.
-                                    if lines[j].indent > line.indent {
-                                        return Result.Error(bmx_no_nesting(lines[j].offset, "list",
-                                            "Put the `- ` in the same column as the item above it, or make it a block"));
-                                    }
-                                    match bmx_parse_inline(substring(inner, skip, len(inner) - skip), lines[j].offset + skip) {
-                                        Error(e) => { return Result.Error(e); }
-                                        Ok(kids) => {
-                                            let added: Int = push(items, BmxItem { children: kids, offset: lines[j].offset });
-                                        }
-                                    }
-                                    j += 1;
+                        match bmx_parse_blocks(lines, i + 1, name, i, kids) {
+                            Error(e) => { return Result.Error(e); }
+                            Ok(end) => {
+                                if end >= len(lines) {
+                                    return Result.Error(bmx_error("BMX-E031", line.offset,
+                                            "unterminated block: no `:!" + name + ":`"));
                                 }
+                                let added: Int = push(out, Block.Fenced(BmxBlock {
+                                            name: name,
+                                            head: head,
+                                            one_line: false,
+                                            offset: line.offset,
+                                            head_offset: head_at,
+                                            children: kids,
+                                }));
+                                i = end + 1;
                             }
-                            let added: Int = push(out, Block.List(BmxList { ordered: !unordered, items: items, offset: line.offset }));
+                        }
+                    }
+                } else {
+                    if byte_at(text, 0) == 35 {
+                        let mutable level: Int = 0;
+                        while level < len(text) && byte_at(text, level) == 35 {
+                            level += 1;
+                        }
+                        if level > 6 {
+                            return Result.Error(bmx_error("BMX-E011", line.offset, "a heading is one to six #"));
+                        }
+                        if level >= len(text) || byte_at(text, level) != 32 {
+                            return Result.Error(bmx_error("BMX-E011", line.offset, "a heading needs exactly one space after its #"));
+                        }
+                        let body: String = substring(text, level + 1, len(text) - level - 1);
+                        if len(body) == 0 {
+                            return Result.Error(bmx_error("BMX-E011", line.offset, "a heading may not be empty"));
+                        }
+                        match bmx_parse_inline(body, line.offset + level + 1) {
+                            Error(e) => { return Result.Error(e); }
+                            Ok(kids) => {
+                                let added: Int = push(out, Block.Heading(BmxHeading { level: level, children: kids, offset: line.offset }));
+                            }
+                        }
+                        i += 1;
+                    } else {
+                        if bmx_starts_with(text, "```") {
+                            let info: String = substring(text, 3, len(text) - 3);
+                            let mutable body: String = "";
+                            let mutable j: Int = i + 1;
+                            let mutable closed: Bool = false;
+                            while j < len(lines) && !closed {
+                                let inner: String = bmx_strip_end(lines[j].text);
+                                if inner == "```" {
+                                    closed = true;
+                                } else {
+                                    // The FENCE's indentation comes off; everything past it stays, so an
+                                    // indented fence holds exactly the code you would have written at
+                                    // column 0. Dedenting each line by its own indent would flatten it.
+                                    body = body + bmx_strip_fence_indent(lines[j].raw, line.indent) + "\n";
+                                }
+                                j += 1;
+                            }
+                            // Markdown closes an open fence at end of document, which is the single
+                            // most common way a page becomes one giant code block with nobody told why.
+                            if !closed {
+                                return Result.Error(bmx_error("BMX-E003", line.offset, "unterminated code fence"));
+                            }
+                            let added: Int = push(out, Block.Code(BmxCode { info: info, value: body, offset: line.offset }));
                             i = j;
                         } else {
-                            // A paragraph: consecutive non-blank lines that begin no other
-                            // block, joined with a single newline.
-                            let mutable kids: [Bmx] = [];
-                            let mutable j: Int = i;
-                            let mutable going: Bool = true;
-                            while j < len(lines) && going {
-                                let inner: String = bmx_strip_end(lines[j].text);
-                                let starts_block: Bool = bmx_is_blank(inner)
-                                    || bmx_marker_end(inner) > 0 || len(bmx_closer_name(inner)) > 0
-                                    || bmx_is_old_fence(inner)
-                                    || bmx_starts_with(inner, "# ") || bmx_starts_with(inner, "#")
-                                    || bmx_starts_with(inner, "```") || bmx_starts_with(inner, "> ")
-                                    || bmx_starts_with(inner, "- ") || bmx_ordered_marker(inner) > 0;
-                                if j > i && starts_block {
-                                    going = false;
-                                } else {
+                            if bmx_starts_with(text, "> ") {
+                                if bmx_starts_with(text, "> > ") {
+                                    return Result.Error(bmx_error("BMX-E012", line.offset, "a quote may not nest. A block nests — see the format's §4a.2"));
+                                }
+                                let mutable kids: [Bmx] = [];
+                                let mutable j: Int = i;
+                                while j < len(lines) && bmx_starts_with(bmx_strip_end(lines[j].text), "> ") {
+                                    let inner: String = bmx_strip_end(lines[j].text);
                                     if j > i {
                                         let broke: Int = push(kids, Bmx.Text("\n"));
                                     }
-                                    match bmx_parse_inline(inner, lines[j].offset) {
+                                    match bmx_parse_inline(substring(inner, 2, len(inner) - 2), lines[j].offset + 2) {
                                         Error(e) => { return Result.Error(e); }
                                         Ok(part) => {
                                             let mutable k: Int = 0;
@@ -1143,14 +1073,84 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: I
                                     }
                                     j += 1;
                                 }
+                                let added: Int = push(out, Block.Quote(BmxWords { children: bmx_merge_text(kids), offset: line.offset }));
+                                i = j;
+                            } else {
+                                let ordered_at: Int = bmx_ordered_marker(text);
+                                let unordered: Bool = bmx_starts_with(text, "- ");
+                                if unordered || ordered_at > 0 {
+                                    let mutable items: [BmxItem] = [];
+                                    let mutable j: Int = i;
+                                    let mutable going: Bool = true;
+                                    while j < len(lines) && going {
+                                        let inner: String = bmx_strip_end(lines[j].text);
+                                        let here_ordered: Int = bmx_ordered_marker(inner);
+                                        let here_unordered: Bool = bmx_starts_with(inner, "- ");
+                                        let mutable skip: Int = 0 - 1;
+                                        if unordered && here_unordered { skip = 2; }
+                                        if !unordered && here_ordered > 0 { skip = here_ordered; }
+                                        if skip < 0 {
+                                            going = false;
+                                        } else {
+                                            // **The only place list nesting can be caught**: a continuation
+                                            // line never reaches the top of the block loop, because this loop
+                                            // consumes it. Deeper than the item that opened the list is a
+                                            // nest; the same column or shallower is another item.
+                                            if lines[j].indent > line.indent {
+                                                return Result.Error(bmx_no_nesting(lines[j].offset, "list",
+                                                        "Put the `- ` in the same column as the item above it, or make it a block"));
+                                            }
+                                            match bmx_parse_inline(substring(inner, skip, len(inner) - skip), lines[j].offset + skip) {
+                                                Error(e) => { return Result.Error(e); }
+                                                Ok(kids) => {
+                                                    let added: Int = push(items, BmxItem { children: kids, offset: lines[j].offset });
+                                                }
+                                            }
+                                            j += 1;
+                                        }
+                                    }
+                                    let added: Int = push(out, Block.List(BmxList { ordered: !unordered, items: items, offset: line.offset }));
+                                    i = j;
+                                } else {
+                                    // A paragraph: consecutive non-blank lines that begin no other
+                                    // block, joined with a single newline.
+                                    let mutable kids: [Bmx] = [];
+                                    let mutable j: Int = i;
+                                    let mutable going: Bool = true;
+                                    while j < len(lines) && going {
+                                        let inner: String = bmx_strip_end(lines[j].text);
+                                        let starts_block: Bool = bmx_is_blank(inner)
+                                                || bmx_marker_end(inner) > 0 || len(bmx_closer_name(inner)) > 0
+                                                || bmx_is_old_fence(inner)
+                                                || bmx_starts_with(inner, "# ") || bmx_starts_with(inner, "#")
+                                                || bmx_starts_with(inner, "```") || bmx_starts_with(inner, "> ")
+                                                || bmx_starts_with(inner, "- ") || bmx_ordered_marker(inner) > 0;
+                                        if j > i && starts_block {
+                                            going = false;
+                                        } else {
+                                            if j > i {
+                                                let broke: Int = push(kids, Bmx.Text("\n"));
+                                            }
+                                            match bmx_parse_inline(inner, lines[j].offset) {
+                                                Error(e) => { return Result.Error(e); }
+                                                Ok(part) => {
+                                                    let mutable k: Int = 0;
+                                                    while k < len(part) {
+                                                        let one: Int = push(kids, part[k]);
+                                                        k += 1;
+                                                    }
+                                                }
+                                            }
+                                            j += 1;
+                                        }
+                                    }
+                                    let added: Int = push(out, Block.Paragraph(BmxWords { children: bmx_merge_text(kids), offset: line.offset }));
+                                    i = j;
+                                }
                             }
-                            let added: Int = push(out, Block.Paragraph(BmxWords { children: bmx_merge_text(kids), offset: line.offset }));
-                            i = j;
                         }
                     }
                 }
-            }
-            }
             }
         }
     }
@@ -1170,52 +1170,52 @@ function bmx_inline_json(nodes: [Bmx]) -> Json {
         match nodes[i] {
             Text(value) => {
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("text")),
-                    json_field("value", json_text(value)),
+                            json_field("type", json_text("text")),
+                            json_field("value", json_text(value)),
                 ]));
             }
             Emphasis(wrap) => {
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("emphasis")),
-                    json_field("children", bmx_inline_json(wrap.children)),
-                    json_field("offset", json_int(wrap.offset)),
+                            json_field("type", json_text("emphasis")),
+                            json_field("children", bmx_inline_json(wrap.children)),
+                            json_field("offset", json_int(wrap.offset)),
                 ]));
             }
             Strong(wrap) => {
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("strong")),
-                    json_field("children", bmx_inline_json(wrap.children)),
-                    json_field("offset", json_int(wrap.offset)),
+                            json_field("type", json_text("strong")),
+                            json_field("children", bmx_inline_json(wrap.children)),
+                            json_field("offset", json_int(wrap.offset)),
                 ]));
             }
             CodeSpan(value) => {
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("code_span")),
-                    json_field("value", json_text(value)),
+                            json_field("type", json_text("code_span")),
+                            json_field("value", json_text(value)),
                 ]));
             }
             Link(link) => {
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("link")),
-                    json_field("target", json_text(link.target)),
-                    json_field("children", bmx_inline_json(link.children)),
-                    json_field("offset", json_int(link.offset)),
+                            json_field("type", json_text("link")),
+                            json_field("target", json_text(link.target)),
+                            json_field("children", bmx_inline_json(link.children)),
+                            json_field("offset", json_int(link.offset)),
                 ]));
             }
             Slot(slot) => {
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("slot")),
-                    json_field("expression", json_text(slot.expression)),
-                    json_field("offset", json_int(slot.offset)),
+                            json_field("type", json_text("slot")),
+                            json_field("expression", json_text(slot.expression)),
+                            json_field("offset", json_int(slot.offset)),
                 ]));
             }
             InlineBlock(call) => {
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("inline_block")),
-                    json_field("name", json_text(call.name)),
-                    json_field("head", json_text(call.head)),
-                    json_field("offset", json_int(call.offset)),
-                    json_field("head_offset", json_int(call.head_offset)),
+                            json_field("type", json_text("inline_block")),
+                            json_field("name", json_text(call.name)),
+                            json_field("head", json_text(call.head)),
+                            json_field("offset", json_int(call.offset)),
+                            json_field("head_offset", json_int(call.head_offset)),
                 ]));
             }
         }
@@ -1232,24 +1232,24 @@ function bmx_json_children(blocks: [Block]) -> Json {
         match blocks[i] {
             Heading(heading) => {
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("heading")),
-                    json_field("level", json_int(heading.level)),
-                    json_field("children", bmx_inline_json(heading.children)),
-                    json_field("offset", json_int(heading.offset)),
+                            json_field("type", json_text("heading")),
+                            json_field("level", json_int(heading.level)),
+                            json_field("children", bmx_inline_json(heading.children)),
+                            json_field("offset", json_int(heading.offset)),
                 ]));
             }
             Paragraph(words) => {
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("paragraph")),
-                    json_field("children", bmx_inline_json(words.children)),
-                    json_field("offset", json_int(words.offset)),
+                            json_field("type", json_text("paragraph")),
+                            json_field("children", bmx_inline_json(words.children)),
+                            json_field("offset", json_int(words.offset)),
                 ]));
             }
             Quote(words) => {
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("quote")),
-                    json_field("children", bmx_inline_json(words.children)),
-                    json_field("offset", json_int(words.offset)),
+                            json_field("type", json_text("quote")),
+                            json_field("children", bmx_inline_json(words.children)),
+                            json_field("offset", json_int(words.offset)),
                 ]));
             }
             List(list) => {
@@ -1257,36 +1257,36 @@ function bmx_json_children(blocks: [Block]) -> Json {
                 let mutable k: Int = 0;
                 while k < len(list.items) {
                     let one: Int = push(items, json_object([
-                        json_field("type", json_text("item")),
-                        json_field("children", bmx_inline_json(list.items[k].children)),
-                        json_field("offset", json_int(list.items[k].offset)),
+                                json_field("type", json_text("item")),
+                                json_field("children", bmx_inline_json(list.items[k].children)),
+                                json_field("offset", json_int(list.items[k].offset)),
                     ]));
                     k += 1;
                 }
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("list")),
-                    json_field("ordered", json_truth(list.ordered)),
-                    json_field("items", json_list(items)),
-                    json_field("offset", json_int(list.offset)),
+                            json_field("type", json_text("list")),
+                            json_field("ordered", json_truth(list.ordered)),
+                            json_field("items", json_list(items)),
+                            json_field("offset", json_int(list.offset)),
                 ]));
             }
             Code(code) => {
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("code")),
-                    json_field("info", json_text(code.info)),
-                    json_field("value", json_text(code.value)),
-                    json_field("offset", json_int(code.offset)),
+                            json_field("type", json_text("code")),
+                            json_field("info", json_text(code.info)),
+                            json_field("value", json_text(code.value)),
+                            json_field("offset", json_int(code.offset)),
                 ]));
             }
             Fenced(fenced) => {
                 let added: Int = push(out, json_object([
-                    json_field("type", json_text("block")),
-                    json_field("name", json_text(fenced.name)),
-                    json_field("head", json_text(fenced.head)),
-                    json_field("one_line", json_truth(fenced.one_line)),
-                    json_field("offset", json_int(fenced.offset)),
-                    json_field("head_offset", json_int(fenced.head_offset)),
-                    json_field("children", bmx_json_children(fenced.children)),
+                            json_field("type", json_text("block")),
+                            json_field("name", json_text(fenced.name)),
+                            json_field("head", json_text(fenced.head)),
+                            json_field("one_line", json_truth(fenced.one_line)),
+                            json_field("offset", json_int(fenced.offset)),
+                            json_field("head_offset", json_int(fenced.head_offset)),
+                            json_field("children", bmx_json_children(fenced.children)),
                 ]));
             }
         }
@@ -1297,8 +1297,8 @@ function bmx_json_children(blocks: [Block]) -> Json {
 
 public function bmx_json(blocks: [Block]) -> Json {
     return json_object([
-        json_field("type", json_text("document")),
-        json_field("children", bmx_json_children(blocks)),
+            json_field("type", json_text("document")),
+            json_field("children", bmx_json_children(blocks)),
     ]);
 }
 
@@ -1394,7 +1394,7 @@ function bmx_inline_html(nodes: [Bmx], bindings: [Binding]) -> Result<[Html], St
             Link(link) => {
                 if !bmx_target_allowed(link.target) {
                     return Result.Error(bmx_error("BMX-R001", link.offset,
-                        "refused a link target whose scheme is not http, https or mailto: " + link.target));
+                            "refused a link target whose scheme is not http, https or mailto: " + link.target));
                 }
                 match bmx_inline_html(link.children, bindings) {
                     Error(e) => { return Result.Error(e); }
@@ -1407,7 +1407,7 @@ function bmx_inline_html(nodes: [Bmx], bindings: [Binding]) -> Result<[Html], St
                 match bmx_lookup(bindings, slot.expression) {
                     None => {
                         return Result.Error(bmx_error("BMX-R002", slot.offset,
-                            "no binding for slot `" + slot.expression + "`"));
+                                "no binding for slot `" + slot.expression + "`"));
                     }
                     Some(value) => {
                         // `html_text`, never `html_raw`: a slot's value is escaped on render,
@@ -1421,8 +1421,8 @@ function bmx_inline_html(nodes: [Bmx], bindings: [Binding]) -> Result<[Html], St
             // because their whole value is the compiler checking the call.
             InlineBlock(call) => {
                 return Result.Error(bmx_error("BMX-R003", call.offset,
-                    "this renderer declares no blocks, and `" + call.name
-                    + "` is one. Compile the document instead."));
+                                "this renderer declares no blocks, and `" + call.name
+                        + "` is one. Compile the document instead."));
             }
         }
         i += 1;
@@ -1475,8 +1475,8 @@ public function bmx_html(blocks: [Block], bindings: [Binding]) -> Result<Html, S
             }
             Fenced(fenced) => {
                 return Result.Error(bmx_error("BMX-R003", fenced.offset,
-                    "this renderer declares no blocks, and `" + fenced.name
-                    + "` is one. Compile the document instead."));
+                                "this renderer declares no blocks, and `" + fenced.name
+                        + "` is one. Compile the document instead."));
             }
             Code(code) => {
                 // The info string becomes a class the way every highlighter expects, and it is
@@ -1583,7 +1583,7 @@ public function bmx_emit_inline(nodes: [Bmx]) -> Result<String, String> {
                     Error(e) => { return Result.Error(e); }
                     Ok(kids) => {
                         out = out + "html_element(\"a\", [html_attr(\"href\", "
-                            + bmx_burxt_string(link.target) + ")], " + kids + ")";
+                                + bmx_burxt_string(link.target) + ")], " + kids + ")";
                     }
                 }
             }
@@ -1647,7 +1647,7 @@ public function bmx_emit_one(block: Block) -> Result<String, String> {
                     attrs = "[html_attr(\"class\", \"language-" + code.info + "\")]";
                 }
                 out = out + "html_element(\"pre\", [], [html_element(\"code\", " + attrs
-                    + ", [html_text(" + bmx_burxt_string(code.value) + ")])])";
+                        + ", [html_text(" + bmx_burxt_string(code.value) + ")])])";
             }
             // A fence is a STATEMENT — `for` and `if` bind names — so `bmx_emit_stmts` handles
             // it and never calls this with one. Burxt makes every variant explicit, which turns
@@ -1700,7 +1700,7 @@ public function bmx_emit_stmts(blocks: [Block], target: String, tag: String, ind
                         Ok(body) => {
                             out = out + indent + "let mutable " + inner + ": [Html] = [];\n" + body;
                             out = out + indent + "let " + label + ": Int = push(" + target + ", "
-                                + fenced.name + "(" + bmx_burxt_string(fenced.head) + ", " + inner + "));\n";
+                                    + fenced.name + "(" + bmx_burxt_string(fenced.head) + ", " + inner + "));\n";
                         }
                     }
                 }
