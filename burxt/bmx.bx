@@ -1295,7 +1295,7 @@ function bmx_json_children(blocks: [Block]) -> Json {
     return json_list(out);
 }
 
-function bmx_json(blocks: [Block]) -> Json {
+public function bmx_json(blocks: [Block]) -> Json {
     return json_object([
         json_field("type", json_text("document")),
         json_field("children", bmx_json_children(blocks)),
@@ -1321,9 +1321,11 @@ function bmx_json(blocks: [Block]) -> Json {
 //     amount of character escaping addresses, because the danger is the scheme and not the
 //     bytes. `ESCAPING.md` makes this the host's duty and the conformance suite asserts it.
 
-class Binding { name: String, value: String }
+// `public` because `bmx_bind` returns one and `bmx_to_html` takes a list of them: a function a host
+// can call whose argument type it cannot name is not a surface.
+public class Binding { name: String, value: String }
 
-pure function bmx_bind(name: String, value: String) -> Binding {
+public pure function bmx_bind(name: String, value: String) -> Binding {
     return Binding { name: name, value: value };
 }
 
@@ -1432,7 +1434,7 @@ pure function bmx_heading_tag(level: Int) -> String {
     return "h" + to_string(level);
 }
 
-function bmx_html(blocks: [Block], bindings: [Binding]) -> Result<Html, String> {
+public function bmx_html(blocks: [Block], bindings: [Binding]) -> Result<Html, String> {
     let mutable out: [Html] = [];
     let mutable i: Int = 0;
     while i < len(blocks) {
@@ -1494,7 +1496,7 @@ function bmx_html(blocks: [Block], bindings: [Binding]) -> Result<Html, String> 
 }
 
 // Source in, page out. The whole path, for the caller who does not need the tree.
-function bmx_to_html(source: String, bindings: [Binding]) -> Result<String, String> {
+public function bmx_to_html(source: String, bindings: [Binding]) -> Result<String, String> {
     match bmx_parse(source) {
         Error(e) => { return Result.Error(e); }
         Ok(blocks) => {
@@ -1799,7 +1801,7 @@ function bmx_without_props(blocks: [Block]) -> [Block] {
 // `parameters` is written verbatim into the signature (`"order: Order"`) and `requires` is one
 // clause per entry. Both come from the caller because the FORMAT does not carry them — see the
 // note above about front matter.
-function bmx_emit_burxt(blocks: [Block], source_name: String, name: String, parameters: String, clauses: [String]) -> Result<String, String> {
+public function bmx_emit_burxt(blocks: [Block], source_name: String, name: String, parameters: String, clauses: [String]) -> Result<String, String> {
     // The document's own `props` block wins over the caller's argument, because a component that
     // declares its interface is the one thing that lets another document invoke it.
     let declared: String = bmx_props(blocks);

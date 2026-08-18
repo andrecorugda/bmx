@@ -98,6 +98,8 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   run "the two renderers produce the same page" bash -c '
     burxt build tools/render.bx -o /tmp/check-render && python3 tests/renders.py /tmp/check-render'
   run "a document becomes a view the compiler checks" python3 burxt/test.py
+  run "every documented name is reachable, and every public name is documented" bash -c '
+    python3 tests/surface.py && python3 tests/surface.py --prove-it'
 else
   printf '  \033[33mskip\033[0m  the Burxt half needs `burxt` on PATH and BURXT_LIB set — see docs/install.md\n'
 fi

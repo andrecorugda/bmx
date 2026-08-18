@@ -122,8 +122,8 @@ If you are building on Burxt specifically, this is what exists today. Signatures
 ### Parsing
 
 ```burxt
-function bmx_parse(source: String) -> Result<[Block], String>
-function bmx_json(blocks: [Block]) -> Json
+public function bmx_parse(source: String) -> Result<[Block], String>
+public function bmx_json(blocks: [Block]) -> Json
 ```
 
 `Block` is `Heading` · `Paragraph` · `Quote` · `List` · `Code`; inline `Bmx` is `Text` ·
@@ -132,21 +132,54 @@ function bmx_json(blocks: [Block]) -> Json
 ### Rendering — level 1
 
 ```burxt
-pure function bmx_bind(name: String, value: String) -> Binding
-function bmx_html(blocks: [Block], bindings: [Binding]) -> Result<Html, String>
-function bmx_to_html(source: String, bindings: [Binding]) -> Result<String, String>
+public pure function bmx_bind(name: String, value: String) -> Binding
+public function bmx_html(blocks: [Block], bindings: [Binding]) -> Result<Html, String>
+public function bmx_to_html(source: String, bindings: [Binding]) -> Result<String, String>
 ```
+
+### Diagnostics
+
+```burxt
+public function bmx_check(source: String) -> Option<BmxDiagnostic>
+public pure function bmx_where(source: String, offset: Int) -> BmxWhere
+```
+
+`bmx_check` answers the first problem in a document, or `None`. `bmx_where` turns a byte offset into a
+`BmxWhere { line, column }` — **column counts characters, not bytes**, so a line containing `å` reports 17
+rather than 18. Every refusal carries an offset; this is how a host turns one into a position an editor can
+put a squiggle on.
 
 ### Generating — level 2
 
 ```burxt
-function bmx_emit_burxt(blocks: [Block], source_name: String, name: String,
-                        parameters: String, clauses: [String]) -> Result<String, String>
+public function bmx_emit_burxt(blocks: [Block], source_name: String, name: String,
+                               parameters: String, clauses: [String]) -> Result<String, String>
 ```
 
 Turns a document into a `pure function … -> Html` whose slots are ordinary expressions. **The
 signature comes from the caller, not from the document** — BMX has no front matter, and a
 generator inventing one would be adding to the format from the host side.
+
+**And the pieces it is built from, for a host that wants a different envelope:**
+
+```burxt
+public function bmx_emit_stmts(blocks: [Block], target: String, tag: String,
+                               indent: String) -> Result<String, String>
+public function bmx_emit_one(block: Block) -> Result<String, String>
+public function bmx_emit_inline(nodes: [Bmx]) -> Result<String, String>
+public pure function bmx_strip_end(text: String) -> String
+```
+
+`bmx_emit_burxt` writes a whole function; these write the statements, one block, and one run of inline
+content. A framework that generates its own component shape — a class, a lifecycle, a different return
+type — wants `bmx_emit_stmts` and its own wrapper rather than the whole-function form.
+
+**These six were reachable and depended on before they were written down**, which is the more dangerous
+half of an undocumented surface. star-burxt calls all six; nothing in this repository does outside
+`burxt/bmx.bx` itself. So the compatibility promise in [`VERSIONING.md`](VERSIONING.md) covered half of
+the surface a consumer was actually using, and any of them could have changed in a patch. Documented is
+what makes a name promised: `tests/surface.py` now fails if a `public` name is not on this page, and if a
+name on this page is not reachable from another package.
 
 ### The output tree
 

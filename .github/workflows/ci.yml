@@ -255,6 +255,15 @@ jobs:
       # A package is not usable because its own tests pass — star-burxt's suite was green through a
       # gap that made every symbol unreachable, because its only consumer lived inside the package.
       # So: a program OUTSIDE this repository, reaching BMX the way anyone else would.
+      # **Six documented calls, five unreachable — and six public names in no documentation.** The
+      # boundary is the PACKAGE, so no test inside this tree can see it: a non-`public` function called
+      # from another FILE compiles happily. The step below tested one name, and it was the one that
+      # worked. This builds a dependent package for every name, both directions.
+      - name: Every documented name is reachable, and every public name is documented
+        run: |
+          python3 tests/surface.py
+          python3 tests/surface.py --prove-it
+
       - name: Somebody else's program can reach `bmx_parse`
         run: |
           set -eux
