@@ -68,17 +68,27 @@
   .t-keyword, .t-fence, .t-slot-mark, .t-heading, .t-strong { font-weight: 700; }
 }
 
-/* ---- an editor-style panel: a numbered gutter and indent guides -------------------------------------
+/* ---- an editor-style panel: a numbered gutter ------------------------------------------------------
  *
- * Andre asked for both on both sites — *"indention line a bit visible like you see who are same level
- * right?"* — and star-burxt built it first and sent the technique with the parts it had to measure. This
- * is that, with its palette.
+ * **This had indent guides for one day and Andre removed them after looking at them.** *"The snippet text
+ * editor is messy, remove the indentation lines so bad — just follow what you have on burxt landing page
+ * showcase that kind of editor."* They were not broken: every level sat at its own column, exactly as an
+ * editor draws them. **The setting was wrong, not the rendering.** An editor's guides sit in a window you
+ * are working IN, with one file open; a documentation page is twenty panels you are reading PAST, and
+ * there they compete with the code for attention. Nobody predicted it and no test could have — see
+ * `git show` on this file for what was deleted, which was correct code in the wrong place.
+ *
+ * What is left is the part he asked for and the part that survived contact: the numbered gutter.
  *
  * **The load-bearing choice is `inline-block`, not `block`.** A block-level line swallows the newline
  * between it and the next, and what a reader copies then depends on how a browser rejoins block
  * boundaries. Left between two inline-blocks, the `\n` is still text — so the clipboard is exactly the
- * document, which is the same rule the display-indent follows. **Newlines are text, indentation is
- * padding, a line number is neither**: `content: counter(cl)` cannot be selected or copied at all.
+ * document. **A newline is text, an indent is text, a line number is neither**: `content: counter(cl)`
+ * cannot be selected or copied at all, so a reader who copies a panel gets the document and no numbers.
+ *
+ * That middle clause used to read *"indentation is padding"*, which was true of the guides and is false
+ * of what is left: the indent on these panels is the document's own leading spaces, surviving painting as
+ * text. **A deletion leaves its description behind** — the same shape as the comment two rules down.
  */
 /* **This applies to every `pre`, and only half of them get numbers — which is deliberate.** Measured:
  * 166 code blocks across the docs, 86 painted (`bmx`, `burxt`) and 80 not (`html`, `sh`, and the bare
@@ -123,34 +133,7 @@
   -webkit-user-select: none;
 }
 
-/* The guides: one repeating rule supplies the period, and `background-size` clips it to this line's own
- * depth, so the rules stop where the code starts instead of striping the whole row. */
-.doc-body pre code [class*=" w"] {
-  background-image: repeating-linear-gradient(to right,
-    var(--guide) 0 1px, transparent 1px var(--guide-step));
-  background-repeat: no-repeat;
-}
-
-/* The step is the language's own — a BMX document indents by two, a Burxt one by four — so a guide is
- * never drawn at a column where that language has no level. `code.js` passes the same number. */
-.doc-body pre > code.language-bmx   { --guide-step: 2ch; }
-.doc-body pre > code.language-burxt { --guide-step: 4ch; }
-
-.doc-body pre code .w1 { background-size: 2ch 100%; }
-.doc-body pre code .w2 { background-size: 4ch 100%; }
-.doc-body pre code .w3 { background-size: 6ch 100%; }
-.doc-body pre code .w4 { background-size: 8ch 100%; }
-.doc-body pre code .w5 { background-size: 10ch 100%; }
-.doc-body pre code .w6 { background-size: 12ch 100%; }
-.doc-body pre code .w7 { background-size: 14ch 100%; }
-.doc-body pre code .w8 { background-size: 16ch 100%; }
-
-.doc-body pre > code.language-burxt.language-burxt .w1 { background-size: 4ch 100%; }
-.doc-body pre > code.language-burxt.language-burxt .w2 { background-size: 8ch 100%; }
-.doc-body pre > code.language-burxt.language-burxt .w3 { background-size: 12ch 100%; }
-.doc-body pre > code.language-burxt.language-burxt .w4 { background-size: 16ch 100%; }
-
-:root { --gutter: #9aa1ad; --guide: #c3cad6; }
+:root { --gutter: #9aa1ad; }
 @media (prefers-color-scheme: dark) {
-  :root { --gutter: #6b7280; --guide: #3a4250; }
+  :root { --gutter: #6b7280; }
 }

@@ -13,6 +13,11 @@
 //   - and an EMPTY inline-block baselines from its bottom edge, so fixing the height made that row 27px
 //     against everyone else's 21. Neither is visible in a screenshot; both are visible in the GAPS.
 //
+// **This file used to check a depth class per line, for indent guides that lived one day.** Andre removed
+// them after looking at them — correct code in the wrong setting — and the three depth checks went with
+// the feature rather than staying to certify machinery no page renders. A test kept past its subject is
+// how a repository grows a floor under something nobody wants.
+//
 // The height and baseline are CSS and asserted in the browser rather than here. What this file holds is
 // the structure: one box per line, and **the document survives being painted** — because `inline-block`
 // with the newline outside the box is what keeps a panel from being a trap for anyone who copies from it.
@@ -29,8 +34,19 @@ let source = readFileSync(join(ROOT, "docs", "assets", "code.js"), "utf8");
 if (prove) {
   // The control: a painter that drops the last line. Star's defect in its purest form — the panel still
   // looks like a panel, and every number in it is still correct, and one line is simply gone.
-  source = source.replace("return painted.split('\\n').map((html) => {",
-                          "return painted.split('\\n').slice(0, -1).map((html) => {");
+  //
+  // **This patch had to be repointed when the depth pass was deleted, and it announced that itself.** The
+  // old target was the opening line of a multi-line `map`; the body is one line now, `.replace` matched
+  // nothing, and the run said `THE CONTROL DID NOT FAIL`. Which is the whole reason a control is a
+  // separate mode rather than a comment: **a negative control that silently stops matching is a test
+  // suite quietly losing a check**, and this one is anchored on the shortest fragment that still names
+  // the operation rather than on the shape of the surrounding code.
+  const target = "painted.split('\\n').map(";
+  if (!source.includes(target)) {
+    console.log(`the control cannot find \`${target}\` in code.js, so it is patching nothing`);
+    process.exit(1);
+  }
+  source = source.replace(target, "painted.split('\\n').slice(0, -1).map(");
 }
 
 let failures = 0;
@@ -61,8 +77,9 @@ const strip = (html) => html
   .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
   .replace(/&#39;/g, "'").replace(/&amp;/g, "&");
 
-// A document with the things that broke it for star: nesting, a blank line inside the nesting, a
-// one-liner, and a line at depth zero after all of it.
+// The hardest input for the boxing: nesting, a blank line inside it, a one-liner, and a line back at the
+// left margin. It was chosen for the guides and kept for the blank line, which is still the row where a
+// per-line wrapper goes wrong — an empty string between two newlines is easy to drop and easy to merge.
 const BMX = `:section: class=card
   # Today
   :for: task in model.tasks
@@ -99,14 +116,6 @@ for (const [language, doc] of [["bmx", BMX], ["burxt", BURXT]]) {
   // The newline must sit BETWEEN two boxes, not inside one — that is what `inline-block` buys.
   check("the newline is outside the box", !painted.includes("\n</span>"));
 }
-
-console.log("depth");
-const painted = paint("bmx", BMX);
-const classes = painted.split("\n").map((b) => (b.match(/class="cl([^"]*)"/) || [, ""])[1].trim());
-check("depth follows the indent", classes.slice(0, 4).join(",") === ",w1,w1,w2", classes.join("|"));
-// **A blank line carries the level above it**, or the guide column breaks wherever a document breathes.
-check("a blank line carries the depth above it", classes[4] === "w2", classes.join("|"));
-check("and the level comes back down at the end", classes.at(-1) === "", classes.join("|"));
 
 console.log();
 if (prove) {
