@@ -64,7 +64,7 @@ LOCKUP = "docs/assets/bmx-lockup.svg"
 #     variant means, and the only thing that distinguishes these two files
 #   - **the word must be readable on the bar** — 3:1, the threshold for large graphics rather than 4.5:1
 #     for body text, because these letters render at 22px
-BAR_LOCKUP = "docs/assets/burxt-lockup.png"
+BAR_LOCKUP = "docs/assets/burxt-lockup-light.png"
 BAR_BACKGROUND = (255, 255, 255)     # `.bar { background: var(--paper) }`, and 0.72 white over it
 BRAND = (0xE8, 0x50, 0x2A)           # the letters and the `b`, legible on either bar
 GLYPH_WIDTH = 380                    # the tile occupies the first 380 of 1311 columns
