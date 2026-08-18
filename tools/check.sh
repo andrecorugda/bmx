@@ -13,7 +13,7 @@
 # the same commit; the two drifting is the only way this file becomes worse than no file. `tools/README`
 # says the same thing about screenshots and for the same reason.
 
-set -u
+set -u -o pipefail
 cd "$(dirname "$0")/.."
 
 pass=0
@@ -71,6 +71,8 @@ echo
 echo "the documentation"
 run "every example is indented the way the format says" bash -c '
   python3 tools/fmt.py --check docs/*.md docs/guide/*.md README.md editors/vscode/README.md'
+run "every version the documentation states agrees with SPEC.md" bash -c '
+  python3 tests/version.py && python3 tests/version.py --prove-it'
 run "every doc page closes its raw tag" bash -c '
   bad=0
   for f in docs/*.md docs/guide/*.md; do

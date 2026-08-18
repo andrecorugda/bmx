@@ -135,6 +135,14 @@ jobs:
       - name: Every example is indented the way the format says
         run: python3 tools/fmt.py --check docs/*.md docs/guide/*.md README.md editors/vscode/README.md
 
+      # **Three status claims were stale at once, one of them nine releases behind** — and a stale
+      # NOT-DONE is found by nobody, because a reader who is told a feature is absent believes it and
+      # leaves. The version lives in `SPEC.md`'s title; this checks every page against it.
+      - name: Every version the documentation states agrees with SPEC.md
+        run: |
+          python3 tests/version.py
+          python3 tests/version.py --prove-it
+
       - name: Every doc page closes its raw tag
         run: |
           bad=0

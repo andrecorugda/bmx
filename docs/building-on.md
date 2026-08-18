@@ -175,10 +175,21 @@ touches nothing.
 Stated plainly because a document that lets you infer capabilities you do not have is worse than
 one that says nothing.
 
-**What DOES exist**, as of 0.2, and did not when this page was first written: components with
-declared props, repetition, conditionals, nesting, classes and ids on a block, event bindings
-captured as head text, and inline blocks. All of it through **one construct** — see
-[Writing a document](syntax.html#blocks).
+**What DOES exist**, as of 0.11, and did not when this page was first written: components with
+declared props, repetition, conditionals, nesting, classes and ids on a block, event bindings captured as
+head text, and inline blocks — all through **one construct**, see
+[Writing a document](syntax.html#blocks) — plus, since this list was last honest at 0.2:
+
+- **a byte `offset` on every node**, so a host can report a position in the document the author opened
+- **named closers**, `:!name:`, checked against the opener (`BMX-E035`)
+- **insignificant indentation**, so nesting can be seen without meaning anything
+- **a delimited head**, `:name: -> [ … ] body`, which lets a block carry a body on one line — and that
+  body is *inline content*, parsed and escaped by BMX, not a string a host has to interpret
+- **`one_line` on a block node**, so a host can tell those two forms apart
+
+**This list was nine releases stale, and that is the failure this page warns about in its own first
+sentence.** A capability list frozen in the past does not merely age: it turns a reader away from a
+feature that exists, and nobody re-tests what they have been told is absent.
 
 What does not:
 

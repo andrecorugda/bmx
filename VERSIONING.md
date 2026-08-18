@@ -392,3 +392,35 @@ name before it becomes a class, so a document cannot inject an attribute through
 `js`. It is the one place a DOCUMENT's own bytes reach an attribute, which makes it the same hazard class
 as a link target, so it lives beside them in `tests/output.py` — renamed from `targets.py`, because a
 file whose name describes half of what it does is the stale-pointer defect this release is about.
+
+## 0.11.2: the stale claim that was a status, not a rule
+
+star-burxt found a chapter saying *"you cannot put a button inside a `for` yet"* about a feature that
+works, and named the asymmetry: **a stale DONE gets found the first time somebody tries the thing; a
+stale NOT-DONE is found by nobody**, because a reader who is told a feature is absent believes it and
+leaves.
+
+The same sweep here found three status claims stale at once, and the third is the one that matters:
+
+- `README.md` said the format was **0.4**
+- `docs/promise.md` said **0.2**
+- `docs/building-on.md` listed *"what DOES exist, as of 0.2"* — a capability list frozen before offsets,
+  named closers, insignificant indentation and delimited heads existed. **A framework author reading that
+  page would not have known a one-line block can carry a body**, which is exactly the readers-turned-away
+  failure, in the document whose own first sentence warns about it.
+
+Fixing three sentences is not the work. `tests/version.py` is: the version lives in **one** place, the
+title of `SPEC.md`, and every status claim in the documentation is checked against it. Its control adds a
+claim naming a version that is not current and requires the check to fail.
+
+**Why it greps phrasings rather than keeping a list of files:** a registry of known sites cannot see a
+claim added somewhere new. Historical references — *"0.6 nested by fence length"*, *"until 0.5.1"* — are
+worded differently on purpose and must keep working, so the one thing a person still has to maintain is
+the list of *shapes* a status claim can take. That is written at the top of the file.
+
+**And the fourth face of a lying measurement, which is star's and belongs with the other three:** not a
+pattern that matched nothing, not an equality that matched, not an assertion that could not fail, but **a
+runner that could not report one.** They had been reading `python3 test.py | tail -1`, which reports
+whether `tail` succeeded; three failures sat visible and unread. `tools/check.sh` was already sound — it
+captures each command's own status — but it now sets `pipefail` as well, because the next inline pipe
+somebody adds to it should not be the one that lies.
