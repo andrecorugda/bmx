@@ -39,10 +39,18 @@ CLAIMS = [
     re.compile(r"^## What (\d+\.\d+) (?:deliberately )?does not have", re.M),
     re.compile(r"^\*\*(\d+\.\d+)\. Two implementations", re.M),
     re.compile(r"which (\d+\.\d+) does not have"),
+    re.compile(r"^BMX (\d+\.\d+) — a format of", re.M),      # the site footer, hard-coded
+    re.compile(r"^bmx_version: \"(\d+\.\d+)\"", re.M),        # and the variable that replaced it
 ]
 
 PAGES = ["README.md", "docs/promise.md", "docs/building-on.md", "docs/install.md",
-         "docs/syntax.md", "docs/errors.md", "SPEC.md"]
+         "docs/syntax.md", "docs/errors.md", "SPEC.md",
+         # **The footer said "BMX 0.2" on every page of the site, six minors stale.** It was invisible
+         # here twice over: this list held only `.md` files, and `BMX 0.2 —` matches none of the shapes
+         # above. The version is `site.bmx_version` now, checked below — and the layout is scanned so a
+         # hard-coded one added later is caught. **The most-viewed claim on the site was the last one
+         # checked, because a template is not a document.**
+         "docs/_layouts/default.html", "docs/_config.yml"]
 
 
 def current():

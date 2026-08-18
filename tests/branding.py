@@ -43,6 +43,44 @@ TOLERANCE = 4            # 48px rounds coarsely: one row is 2%
 
 LOCKUP = "docs/assets/bmx-lockup.svg"
 
+# **The navbar's other mark, and the check that exists because copying a peer's choice would have shipped
+# an invisible one.** Upstream names these by INK colour, not by background: `burxt-lockup-light.png` has
+# #FFFFFF letters and `-dark` has #232320. The bar is `var(--paper)` — white — so the light variant scores
+# **1.00:1** and the wordmark reduces to its orange `b`. Their own live bar does exactly that.
+#
+# The orange `b` passes on any background, which is why the failure looks like a design choice rather than
+# a mistake: something IS visible. So the test ignores the brand colour and asks about the letters.
+BAR_LOCKUP = "docs/assets/burxt-lockup.png"
+BAR_BACKGROUND = (255, 255, 255)     # `.bar { background: var(--paper) }`, and 0.72 white over it
+BRAND = (0xE8, 0x50, 0x2A)           # the `b`, which is legible either way and must not be counted
+MIN_CONTRAST = 4.5
+
+
+def luminance(rgb):
+    def channel(v):
+        v /= 255
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, bl = (channel(c) for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl
+
+
+def contrast(a, b):
+    la, lb = luminance(a), luminance(b)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def letter_colour(rows, w):
+    """The most common opaque colour that is not the brand orange: the letters."""
+    seen = {}
+    for r in rows:
+        for x in range(0, w * 4, 4):
+            if r[x + 3] > 128:
+                px = (r[x], r[x + 1], r[x + 2])
+                if max(abs(px[i] - BRAND[i]) for i in range(3)) > 40:
+                    seen[px] = seen.get(px, 0) + 1
+    return max(seen, key=seen.get) if seen else None
+
 
 def decode(data):
     """Width, height, colour type, and the un-filtered RGBA rows of a PNG."""
@@ -130,6 +168,26 @@ def main():
                   f"{round(h * (100 - TARGET_INK) / 200)}")
         else:
             print(f"  ok    {path} {w}x{h}, ink {pct}% of height")
+
+    # **The bar's Burxt lockup has to be readable ON the bar.**
+    w, h, ctype, rows = decode((ROOT / BAR_LOCKUP).read_bytes())
+    if prove:
+        # The control is the variant upstream actually ships in its own bar: white letters, white bar.
+        rows = [bytes([255, 255, 255, 255] * w) for _ in range(h)]
+    letters = letter_colour(rows, w) if rows else None
+    if letters is None:
+        failures += 1
+        print(f"  FAIL  {BAR_LOCKUP} has no letters distinct from the brand orange to measure")
+    else:
+        ratio = contrast(letters, BAR_BACKGROUND)
+        if ratio < MIN_CONTRAST:
+            failures += 1
+            print(f"  FAIL  {BAR_LOCKUP}'s letters are #{letters[0]:02X}{letters[1]:02X}{letters[2]:02X} "
+                  f"on a white bar — {ratio:.2f}:1, below {MIN_CONTRAST}:1. The orange `b` still shows, "
+                  f"so this looks like a design choice rather than an unreadable wordmark")
+        else:
+            print(f"  ok    {BAR_LOCKUP}'s letters read on the bar "
+                  f"(#{letters[0]:02X}{letters[1]:02X}{letters[2]:02X}, {ratio:.1f}:1)")
 
     svg = (ROOT / LOCKUP).read_text()
     # **Their warning, and the caveat that makes it checkable.** The transparent wordmark *does* contain a

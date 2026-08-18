@@ -55,7 +55,18 @@
          only in the sidebar, so someone who reads the topbar concluded the page did not exist. -->
     <a href="{{ site.baseurl }}/install.html"     class="{% if page.title == 'Getting BMX' %}here{% endif %}">Install</a>
     <a href="https://github.com/andrecorugda/bmx">GitHub</a>
-    <a class="burxt" href="https://burxt-lang.org">Burxt</a>
+    <!-- **The Burxt link is the lockup, not the word.** Andre, comparing the three bars: *"on bmx and
+         star there is a burxt nav at the right side, we need to replace it with burxt wordmark with icon
+         like you have on burxt navbar."* Taken from the burxt repo, already 100% ink, so nothing to crop.
+         `alt` is the word it replaces, so a reader without images loses nothing.
+
+         **This is upstream's `burxt-lockup-DARK.png`, and their own bar uses `-light`.** The names are
+         by INK colour, not by background: `-light` is #FFFFFF letters, `-dark` is #232320. `.bar` is
+         `var(--paper)` — white, or rgba(255,255,255,0.72) under a backdrop filter — so the light variant
+         is **1.00:1 contrast**: the letters vanish and only the orange `b` renders. Measured on their
+         live stylesheet before copying their choice, which is the only reason this bar has words in it.
+         Reported to them; on a white bar this variant is 16.8:1. -->
+    <a class="burxt" href="https://burxt-lang.org"><img src="{{ site.baseurl }}/assets/burxt-lockup.png" alt="Burxt" height="22"></a>
   </span>
 </nav>
 
@@ -144,7 +155,7 @@
 
 <footer>
   <p>
-    BMX 0.2 — a format of the <a href="https://burxt-lang.org">Burxt</a> project.
+    BMX {{ site.bmx_version }} — a format of the <a href="https://burxt-lang.org">Burxt</a> project.
     <a href="https://github.com/andrecorugda/bmx">Open source</a>, MIT or Apache-2.0.
   </p>
 </footer>

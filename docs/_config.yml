@@ -12,6 +12,12 @@ baseurl: ""
 # wordmark, because a broken <img> is worse than no <img> and a 404'd favicon is worse than none.
 has_branding: true
 
+# **The footer said "BMX 0.2" on every page of the site for six minors.** `tests/version.py` could not
+# see it twice over: it reads `.md` files, and the shape `BMX 0.2 —` is not one of the phrasings it knows.
+# So the version is a variable here, checked against `SPEC.md`'s title like every other status claim —
+# and the layout is now scanned too, so a hard-coded one added later is caught rather than inherited.
+bmx_version: "0.12"
+
 markdown: kramdown
 kramdown:
   input: GFM
