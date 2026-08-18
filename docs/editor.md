@@ -21,6 +21,35 @@ Three things, and you can have the first two in under a minute:
 
 ## VS Code
 
+{% endraw %}
+<!-- **What the icon looks like where it is used.** Andre asked for this and star-burxt built the same
+     figure on their page the same hour, so the two agree by coordination rather than by accident: three
+     extensions in one tree, at 16px, from each repo's own copies of the three assets.
+
+     **16px is the whole point.** VS Code gives an explorer row a 22px line and a 16px icon box, and the
+     complaint that started this work was that an icon *"looks like it is really sticking to the edge making
+     it no space on the file tree line"*. A figure at 48px cannot show that problem or its fix.
+
+     **The icons are real, the rows are drawn**, and the caption says so — this site's `figure.shot` means a
+     real screenshot of real output, and a hand-built tree is not one. What IS checkable is which file VS
+     Code loads, so the caption names it. -->
+<figure class="tree-shot">
+  <div class="tree">
+    <div class="row"><img src="{{ site.baseurl }}/assets/bx-file-icon-48.png" alt="" width="16" height="16"><span>main.bx</span></div>
+    <div class="row is-open"><img src="{{ site.baseurl }}/assets/bmx-file-icon-128.png" alt="" width="16" height="16"><span>shop.bmx</span></div>
+    <div class="row"><img src="{{ site.baseurl }}/assets/sbmx-file-icon-128.png" alt="" width="16" height="16"><span>Card.sbmx</span></div>
+    <div class="row"><img src="{{ site.baseurl }}/assets/bmx-file-icon-128.png" alt="" width="16" height="16"><span>receipt.bmx</span></div>
+  </div>
+  <figcaption>
+    A `.bmx` file in the explorer, beside its two siblings. The extension registers the icon itself —
+    <code>contributes.languages[0].icon</code> points VS Code at <code>file-icon.png</code> for both
+    themes — so this is the file your editor loads, at the 16px box a row gives it. The rows around the
+    icons are drawn here; only the icons are the shipped assets.
+  </figcaption>
+</figure>
+{% raw %}
+
+
 Download `bmx.vsix` from the
 [repository](https://github.com/andrecorugda/bmx/tree/main/editors/vscode) and install it:
 

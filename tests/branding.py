@@ -43,6 +43,36 @@ TOLERANCE = 4            # 48px rounds coarsely: one row is 2%
 
 LOCKUP = "docs/assets/bmx-lockup.svg"
 
+# **The tab mark is a different job from the file icon, and measuring proved it.** Andre's rule for a file
+# tree — *at 16px a shape carries the identity and letters cannot* — sent me to the `.bmx` document icon for
+# the favicon. Rendered at 16px on Chrome's own tab greys it is faint on light and nearly gone on dark, and
+# the number says why:
+#
+#     icon                extent   coverage   WEIGHT
+#     .bx    (burxt)        71%       24%      11.1
+#     .sbmx  (star)         70%       31%      11.0
+#     .bmx   (this repo)    70%       35%       6.8      <- more canvas, 38% less ink
+#
+# **The family standard controlled the margin and nothing controlled the weight.** All three pass 70%±4,
+# and mine covers MORE of its canvas while delivering less ink, because it is a tinted document outline
+# where the other two are solid orange shapes. Extent decides whether an icon crowds its row; weight
+# decides whether it survives being 16 pixels. The same species of error as sizing a wordmark by its box:
+# **the quantity everyone agreed to measure was not the quantity that decides the outcome.**
+#
+# So the tab mark is the `b` glyph knocked out of a filled tile — the treatment star's own `star-[b]`
+# already uses, so it is family vocabulary rather than something invented here — and it is the one option
+# that is both legible at 16px and not mistakable for Burxt's tab, which is a bare `b` that star ships
+# byte-identically. Three tabs open should not be three identical marks, for the same reason three rows of
+# a file tree should not be.
+TAB_MARK = "docs/assets/favicon.ico"
+TAB_SIZES = (16, 32, 48, 64)
+MIN_TAB_WEIGHT = 25.0      # a filled tile measures ~43; a bare glyph ~11, which is what vanishes on a tab
+
+# The file icons' weight, asserted as a floor rather than a parity. Parity would fail today: the honest
+# state is that `.bmx` is the pale one and the fix belongs in the asset, not in this file. The floor stops
+# it getting paler while that is open.
+MIN_FILE_WEIGHT = 6.0
+
 # **The navbar's other mark — and this check's first version got the verdict BACKWARDS.**
 #
 # It looked for "the most common opaque colour that is not the brand orange" and called that the letters.
@@ -157,6 +187,22 @@ def dominant(rows, w, x0, x1):
     return max(seen, key=seen.get) if seen else None
 
 
+def weight(rows, w, h):
+    """How much ink a reader receives: coverage times distance from white, per canvas pixel.
+
+    **Not extent.** Extent is where the ink stops, which is the margin rule. This is how much of it there
+    is, which is what decides whether 16 pixels carry a shape.
+    """
+    total = 0.0
+    for r in rows:
+        for x in range(w):
+            o = x * 4
+            a = r[o + 3] / 255
+            if a > 0:
+                total += a * (255 - round(sum(r[o:o + 3]) / 3)) / 255
+    return round(100 * total / (w * h), 1)
+
+
 def main():
     prove = "--prove-it" in sys.argv
     failures = 0
@@ -183,7 +229,13 @@ def main():
                   f"— at {h}px that is {round(h * (100 - pct) / 200)} clear pixels instead of "
                   f"{round(h * (100 - TARGET_INK) / 200)}")
         else:
-            print(f"  ok    {path} {w}x{h}, ink {pct}% of height")
+            wt = weight(rows, w, h)
+            if wt < MIN_FILE_WEIGHT:
+                failures += 1
+                print(f"  FAIL  {path} has ink weight {wt}, below the floor of {MIN_FILE_WEIGHT} — it has "
+                      f"got paler, and the family's other two measure ~11")
+            else:
+                print(f"  ok    {path} {w}x{h}, ink {pct}% of height, weight {wt}")
 
     # **The bar's Burxt lockup: the tile vanishes, the word reads.**
     w, h, ctype, rows = decode((ROOT / BAR_LOCKUP).read_bytes())
@@ -216,6 +268,33 @@ def main():
         else:
             print(f"  ok    {BAR_LOCKUP}'s word reads on the bar "
                   f"(#{word[0]:02X}{word[1]:02X}{word[2]:02X}, {ratio:.1f}:1)")
+
+    # **The tab mark: every size present, and heavy enough to survive being 16 pixels.**
+    ico = (ROOT / TAB_MARK).read_bytes()
+    count = struct.unpack("<HHH", ico[:6])[2]
+    sizes, first = [], None
+    for i in range(count):
+        o = 6 + i * 16
+        iw, ih, _, _, _, _, size, off = struct.unpack("<BBBBHHII", ico[o:o + 16])
+        sizes.append(iw or 256)
+        if (iw or 256) == 16:
+            first = ico[off:off + size]
+    missing = [n for n in TAB_SIZES if n not in sizes]
+    if missing:
+        failures += 1
+        print(f"  FAIL  {TAB_MARK} has no {missing} entry, so a browser picks the wrong one and rescales")
+    elif first is None:
+        failures += 1
+        print(f"  FAIL  {TAB_MARK} has no 16px entry to measure")
+    else:
+        tw, th, tct, trows = decode(first)
+        wt = 5.0 if prove else weight(trows, tw, th)
+        if wt < MIN_TAB_WEIGHT:
+            failures += 1
+            print(f"  FAIL  {TAB_MARK}'s 16px mark has ink weight {wt}, below {MIN_TAB_WEIGHT} — a tinted "
+                  f"outline at 16px is faint on a light tab strip and gone on a dark one")
+        else:
+            print(f"  ok    {TAB_MARK} carries {len(sizes)} sizes and its 16px mark has weight {wt}")
 
     svg = (ROOT / LOCKUP).read_text()
     # **Their warning, and the caveat that makes it checkable.** The transparent wordmark *does* contain a
