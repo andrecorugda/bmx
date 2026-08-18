@@ -43,43 +43,33 @@ TOLERANCE = 4            # 48px rounds coarsely: one row is 2%
 
 LOCKUP = "docs/assets/bmx-lockup.svg"
 
-# **The navbar's other mark, and the check that exists because copying a peer's choice would have shipped
-# an invisible one.** Upstream names these by INK colour, not by background: `burxt-lockup-light.png` has
-# #FFFFFF letters and `-dark` has #232320. The bar is `var(--paper)` — white — so the light variant scores
-# **1.00:1** and the wordmark reduces to its orange `b`. Their own live bar does exactly that.
+# **The navbar's other mark — and this check's first version got the verdict BACKWARDS.**
 #
-# The orange `b` passes on any background, which is why the failure looks like a design choice rather than
-# a mistake: something IS visible. So the test ignores the brand colour and asks about the letters.
+# It looked for "the most common opaque colour that is not the brand orange" and called that the letters.
+# That colour is the **tile behind the `b`**, and separating the two regions is the whole finding:
+#
+#     the b glyph (x < 380)   `-light` #FFFFFF 81%   `-dark` #232320 79%   + #E8502A 16% both
+#     the word    (x >= 380)  #E8502A 100% in BOTH
+#
+# So the word is orange either way, and the variants differ in the tile — `-light` carries a white tile for
+# a light bar, `-dark` a near-black one for a dark bar. The names are about the BAR, not the ink. My check
+# therefore scored `-dark`'s black plate against a white bar at **15.8:1 and passed it**, which is how a
+# lockup with a black box behind it reached production, and it would have **failed the correct file at
+# 1.00:1**. A guard that is wrong in both directions with a control that fires is worse than no guard:
+# the control certified the inversion.
+#
+# The two real properties, separately:
+#
+#   - **the tile must disappear into the bar** — near-equal colour, which is what choosing the right
+#     variant means, and the only thing that distinguishes these two files
+#   - **the word must be readable on the bar** — 3:1, the threshold for large graphics rather than 4.5:1
+#     for body text, because these letters render at 22px
 BAR_LOCKUP = "docs/assets/burxt-lockup.png"
 BAR_BACKGROUND = (255, 255, 255)     # `.bar { background: var(--paper) }`, and 0.72 white over it
-BRAND = (0xE8, 0x50, 0x2A)           # the `b`, which is legible either way and must not be counted
-MIN_CONTRAST = 4.5
-
-
-def luminance(rgb):
-    def channel(v):
-        v /= 255
-        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
-    r, g, bl = (channel(c) for c in rgb)
-    return 0.2126 * r + 0.7152 * g + 0.0722 * bl
-
-
-def contrast(a, b):
-    la, lb = luminance(a), luminance(b)
-    hi, lo = max(la, lb), min(la, lb)
-    return (hi + 0.05) / (lo + 0.05)
-
-
-def letter_colour(rows, w):
-    """The most common opaque colour that is not the brand orange: the letters."""
-    seen = {}
-    for r in rows:
-        for x in range(0, w * 4, 4):
-            if r[x + 3] > 128:
-                px = (r[x], r[x + 1], r[x + 2])
-                if max(abs(px[i] - BRAND[i]) for i in range(3)) > 40:
-                    seen[px] = seen.get(px, 0) + 1
-    return max(seen, key=seen.get) if seen else None
+BRAND = (0xE8, 0x50, 0x2A)           # the letters and the `b`, legible on either bar
+GLYPH_WIDTH = 380                    # the tile occupies the first 380 of 1311 columns
+MIN_WORD_CONTRAST = 3.0              # large graphics
+MAX_TILE_DIFF = 24                   # per channel, for "the tile is the bar"
 
 
 def decode(data):
@@ -141,6 +131,32 @@ def ink_percent(rows, h):
     return 0 if top is None else round(100 * (bot - top + 1) / h)
 
 
+def luminance(rgb):
+    def channel(v):
+        v /= 255
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, bl = (channel(c) for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl
+
+
+def contrast(a, b):
+    la, lb = luminance(a), luminance(b)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def dominant(rows, w, x0, x1):
+    """The most common opaque colour in a column range."""
+    seen = {}
+    for r in rows:
+        for x in range(x0, min(x1, w)):
+            o = x * 4
+            if r[o + 3] > 128:
+                px = (r[o], r[o + 1], r[o + 2])
+                seen[px] = seen.get(px, 0) + 1
+    return max(seen, key=seen.get) if seen else None
+
+
 def main():
     prove = "--prove-it" in sys.argv
     failures = 0
@@ -169,25 +185,37 @@ def main():
         else:
             print(f"  ok    {path} {w}x{h}, ink {pct}% of height")
 
-    # **The bar's Burxt lockup has to be readable ON the bar.**
+    # **The bar's Burxt lockup: the tile vanishes, the word reads.**
     w, h, ctype, rows = decode((ROOT / BAR_LOCKUP).read_bytes())
     if prove:
-        # The control is the variant upstream actually ships in its own bar: white letters, white bar.
-        rows = [bytes([255, 255, 255, 255] * w) for _ in range(h)]
-    letters = letter_colour(rows, w) if rows else None
-    if letters is None:
+        # The control is the file I actually shipped: the dark-bar variant, on a light bar.
+        rows = [bytes(([0x23, 0x23, 0x20, 255] * min(GLYPH_WIDTH, w))
+                      + ([0xE8, 0x50, 0x2A, 255] * max(0, w - GLYPH_WIDTH))) for _ in range(h)]
+
+    tile = dominant(rows, w, 0, GLYPH_WIDTH)
+    word = dominant(rows, w, GLYPH_WIDTH, w)
+    if tile is None or word is None:
         failures += 1
-        print(f"  FAIL  {BAR_LOCKUP} has no letters distinct from the brand orange to measure")
+        print(f"  FAIL  {BAR_LOCKUP} has no ink in one of its two regions to measure")
     else:
-        ratio = contrast(letters, BAR_BACKGROUND)
-        if ratio < MIN_CONTRAST:
+        drift = max(abs(tile[i] - BAR_BACKGROUND[i]) for i in range(3))
+        if drift > MAX_TILE_DIFF:
             failures += 1
-            print(f"  FAIL  {BAR_LOCKUP}'s letters are #{letters[0]:02X}{letters[1]:02X}{letters[2]:02X} "
-                  f"on a white bar — {ratio:.2f}:1, below {MIN_CONTRAST}:1. The orange `b` still shows, "
-                  f"so this looks like a design choice rather than an unreadable wordmark")
+            print(f"  FAIL  {BAR_LOCKUP}'s tile is #{tile[0]:02X}{tile[1]:02X}{tile[2]:02X} on a white bar "
+                  f"— off by {drift} per channel, so it renders as a box behind the mark. This is the "
+                  f"dark-bar variant; upstream ships one per bar and the names are about the BAR")
         else:
-            print(f"  ok    {BAR_LOCKUP}'s letters read on the bar "
-                  f"(#{letters[0]:02X}{letters[1]:02X}{letters[2]:02X}, {ratio:.1f}:1)")
+            print(f"  ok    {BAR_LOCKUP}'s tile disappears into the bar "
+                  f"(#{tile[0]:02X}{tile[1]:02X}{tile[2]:02X})")
+
+        ratio = contrast(word, BAR_BACKGROUND)
+        if ratio < MIN_WORD_CONTRAST:
+            failures += 1
+            print(f"  FAIL  {BAR_LOCKUP}'s word is #{word[0]:02X}{word[1]:02X}{word[2]:02X} on a white bar "
+                  f"— {ratio:.2f}:1, below {MIN_WORD_CONTRAST}:1 for a graphic this size")
+        else:
+            print(f"  ok    {BAR_LOCKUP}'s word reads on the bar "
+                  f"(#{word[0]:02X}{word[1]:02X}{word[2]:02X}, {ratio:.1f}:1)")
 
     svg = (ROOT / LOCKUP).read_text()
     # **Their warning, and the caveat that makes it checkable.** The transparent wordmark *does* contain a

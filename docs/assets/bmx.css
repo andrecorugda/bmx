@@ -272,3 +272,27 @@
 #sc-all:checked  ~ .all-note { display: block; }
 
 @media (prefers-reduced-motion: reduce) { .showcase .bmx > * { transition: none; } }
+
+/* ---- the wordmark's height, which is NOT the shared 22px -------------------------------------------
+ *
+ * Andre: *"follow the size of burxt navbar icon to the bmx and starb navbar icons, it means the burxt is
+ * the correct size."* `site.css` gives `.bar .mark img` 22px, and at 22px `[b]mx` reads visibly larger
+ * than the Burxt lockup beside it. **Chosen by rendering the real bar at 22, 18, 16 and 14.2 and looking
+ * at the four side by side** — 16px is where the two marks read as the same size.
+ *
+ * **And it is deliberately NOT the number the arithmetic gave.** Two properties agree on 14.2px: the
+ * shared `b` glyph renders 14.18px in the Burxt lockup, and the word's x-height parity works out at
+ * 14.35px. At 14.2px `[b]mx` reads SMALLER, because `burxt` is set bold and `mx` is weight 500 — equal
+ * letter heights at unequal stroke weight do not look equal. **The eye integrates ink, not height**, so
+ * the arithmetic was measuring the wrong quantity and the render settled it.
+ *
+ * Which makes this a per-project exception I previously argued against — *a constant that needs one is
+ * usually an asset that needs cropping.* That was true then and the crop happened. What is left is a real
+ * difference between the two marks: `burxt` is five bold letters with ascenders, `[b]mx` is two letters at
+ * x-height. **No shared constant can make two different words look the same size.**
+ *
+ * 14.5px under 768px keeps the 16:22 ratio against `site.css`'s 20px there. */
+.bar .mark img { height: 16px; }
+@media (max-width: 768px) {
+  .bar .mark img { height: 14.5px; }
+}
