@@ -536,8 +536,12 @@ And the reproducibility is asserted as a property of the archive, not by packing
 version of that check packed twice in a row and passed on the non-reproducible packer**, because a zip
 stores timestamps at two-second granularity and back-to-back runs share a bucket. A three-second sleep
 exposed it. A test that can only fail when it happens to straddle a boundary is a test that reports
-success — the fifth face of a lying measurement, after a pattern that matched nothing, an equality that
-matched, an assertion that could not fail, and a runner that could not report one.
+success — another face of the lying measurement, alongside a pattern that matched nothing, an equality
+that matched, an assertion that could not fail, a runner that could not report one, and the success the
+defect itself produces. **Deliberately not numbered:** the count is kept in one place across two
+repositories, and this sentence first said "the fifth" when the tally was already six — a headline a
+reader trusts, corrected somewhere they have not reached, which is the disease one level up from the
+thing it is about.
 
 **The language server had the identical defect**, found by grepping for the version string I had just
 removed: it answered `initialize` with `0.1.0` while producing 0.12 diagnostics, and its own test asserted

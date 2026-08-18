@@ -34,8 +34,8 @@ That fix removes the friction. This file removes the option:
 - **And the reproducibility is asserted as a property, not by packing twice.** The first version of that
   check packed twice in a row and PASSED on the non-reproducible packer, because a zip stores timestamps
   at two-second granularity and back-to-back runs share a bucket. A three-second sleep exposed it. **A
-  test that can only fail when it happens to straddle a boundary is a test that reports success** — see
-  [[measurement-instruments-that-cannot-fail]]. One fixed stamp per entry cannot pass by accident.
+  test that can only fail when it happens to straddle a boundary is a test that reports success.** One
+  fixed stamp per entry cannot pass by accident.
 - **Every filename the documentation tells someone to install must exist.** This is the check that
   matters for the fix itself: the whole point of a stable name is that six documents keep pointing at a
   real file, and the way to lose that is to rename it again.
