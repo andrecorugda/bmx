@@ -281,6 +281,44 @@ function parseLines(rows, offsetOf, textOf) {
   return mergeText(kids)
 }
 
+// Where a delimited head ends: the first `]` that is not inside a quoted value or a slot.
+//
+// **The first version took the first `]` at all, and called that an escape hatch.** It was not one — it
+// was a SILENT truncation, which is the defect class this format exists to remove, shipped inside a
+// feature an hour old. `-> [title="a]b"] hi` became head `title="a` with body `b"] hi`, and
+// `-> [class={{ tags[0] }}] hi` — indexing in a head, which any host will write — became head
+// `class={{ tags[0`. Neither refused. An escape hatch nobody is told about is a trap.
+//
+// So the scanner knows exactly two things about head content, and nothing else: **a `"` run protects
+// what is inside it, and a `{{ … }}` run does too.** That is not parsing the head's structure — it is
+// what any bracket matcher has to know to find its own partner. The commas, the `name=value`, the
+// expression grammar all remain the host's, exactly as before.
+//
+// An unterminated `"` or `{{` therefore reaches end of line with no unprotected `]`, which answers
+// `BMX-E037` — loud, and pointing at the line that is actually wrong.
+function headEnd(text, from) {
+  let i = from
+  let quoted = false
+  let slot = false
+  while (i < text.length) {
+    if (slot) {
+      if (text[i] === '}' && text[i + 1] === '}') { slot = false; i += 2; continue }
+    } else if (quoted) {
+      if (text[i] === '"') quoted = false
+    } else if (text[i] === '{' && text[i + 1] === '{') {
+      slot = true
+      i += 2
+      continue
+    } else if (text[i] === '"') {
+      quoted = true
+    } else if (text[i] === ']') {
+      return i
+    }
+    i++
+  }
+  return -1
+}
+
 // ---- blocks -----------------------------------------------------------------
 
 // **A block opens with `:name:` and closes with `:!name:`, and nesting is by NAME.** 0.6 nested by
@@ -418,14 +456,11 @@ function parseBlocks(rows, from, open, openRow) {
       const opens = /^[ \t]*->[ \t]*\[/.exec(rest)
       if (opens) {
         const from = opens[0].length
-        const close = rest.indexOf(']', from)
+        const close = headEnd(rest, from)
         if (close < 0) {
           throw new BmxError('BMX-E037', row.offset,
             `a delimited head needs its \`]\`: \`:${name}: -> [ … ]\``)
         }
-        // **The head ends at the FIRST `]`, and that is the escape hatch rather than a defect.** A host
-        // needing a `]` inside a value writes the undelimited form, which takes the whole line and has
-        // no delimiter to collide with. No escape syntax added, and zero real heads contain a bracket.
         bracketed = { head: rest.slice(from, close), after: rest.slice(close + 1), at: from }
         rest = bracketed.head
       }

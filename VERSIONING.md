@@ -287,3 +287,25 @@ measurable reasons: `=>` is the host's match arm, so `:case: Post(id) => [x]` wo
 `[` collides with `[text](url)`, so a body beginning with a link would be ambiguous. `->` is the host's
 return arrow — 556 occurrences in its standard library against 135 for `=>` — so it is the glyph a reader
 already parses fluently, and its direction reads correctly: name, then what is attached.
+
+## 0.9.1 is a patch that changes what a document means, and saying why is the point
+
+0.9.1 makes a delimited head end at the first `]` **outside a quoted value or a slot**. 0.9.0 took the
+first `]` at all, so `-> [title="a]b"] hi` parsed as head `title="a` with body `b"] hi` — silently.
+
+**By the letter of the rule at the top of this file, that is a major**: a document that parsed one way
+parses another. The mechanical test says minor (fixtures added, none modified), and the honest question —
+*what document valid today changes meaning* — has a real answer.
+
+It is called a patch anyway, and the reasoning is the part worth keeping rather than the number:
+
+- **The old behaviour was a defect, not a contract.** It produced a head the author did not write and a
+  body containing the wreckage of one. Nothing could have depended on it deliberately.
+- **The window was one hour.** 0.9.0 was tagged, the one consumer asked whether a `]` inside a quoted
+  value was still the first `]`, and said they had built nothing on the answer. So the set of documents
+  whose meaning changes is empty, and known to be empty rather than assumed.
+
+**The general rule this adds:** the mechanical test answers *did the suite change*, and the honest
+question answers *could a document change*. Neither answers *did anyone have time to rely on it*, and
+for a defect found inside its own release, that third question is the one that decides. Write the
+reasoning down rather than the number, because the number will look wrong to whoever reads the diff.

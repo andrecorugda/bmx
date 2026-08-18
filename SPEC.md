@@ -296,9 +296,20 @@ Any **markdown** in here.
   - **BMX parses nothing inside the brackets.** It learns one bracket pair as a delimiter; the commas,
     the `name=value`, all of it stays the host's, exactly as an undelimited head does. Ids and classes
     are still counted (§4a.3) because those two the format has always had an opinion about.
-  - **The head ends at the first `]`**, and that is the escape hatch rather than a defect: a host
-    needing a `]` inside a value writes the undelimited form, which takes the whole line and has no
-    delimiter to collide with. `BMX-E037` if the `]` never arrives.
+  - **The head ends at the first `]` that is not inside a `"…"` value or a `{{ … }}` slot**, so
+    `-> [title="a]b"]` and `-> [class={{ tags[0] }}]` both hold the bracket they were written with. The
+    scanner knows those two runs and nothing else about head content — that is what any bracket matcher
+    must know to find its own partner, not a claim about the head's structure. An unterminated `"` or
+    `{{` therefore reaches end of line with no unprotected `]`, which is `BMX-E037`.
+
+    *0.9.0 took the first `]` at all and called that an escape hatch. It was a silent truncation:
+    `-> [title="a]b"] hi` parsed as head `title="a` with body `b"] hi`, refusing nothing. An escape
+    hatch nobody is told about is a trap, and this one was inside a feature an hour old.*
+  - **A head is one line, delimited or not.** `-> [` that reaches end of line without its `]` is
+    `BMX-E037` rather than a head continuing below: a head is captured with a byte offset and handed to
+    the host, so a two-line head would mean handing over a value the source does not contain
+    contiguously. A block whose *configuration* is too long for a line is a block whose configuration
+    wants to be a body — which is what the three-line form is for.
   - **Body text after the `]` requires the line to close.** `:b: -> [x] body` with the closer on a
     later line is `BMX-E038`, refused rather than merged — otherwise the body has two sources, this
     line and the lines below, and a reader cannot tell which won.
