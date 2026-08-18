@@ -7,15 +7,27 @@
 <meta name="description" content="{{ page.description | default: site.description }}">
 <meta name="theme-color" content="#ffffff">
 
-<!-- The stylesheet is burxt-lang.org's, copied rather than reimplemented, so the two sites are the
+<!-- **Every local stylesheet and script carries the build time, and that is a bug fix.** Three times in one
+     day Andre looked at this site and saw an older version of it than the one deployed: a lockup whose PNG
+     bytes I had swapped under the same URL, and twice a landing mark rendering at its intrinsic 96px
+     because the rule sizing it to 40px was still cached. Each time the server was serving the right thing
+     and the browser was not asking. **A deploy that can be half-seen is a deploy that produces false bug
+     reports** — and answering one costs more than the query string does, because the first thing it
+     invalidates is my own measurement of the live page.
+
+     `site.time` changes on every build, so a stylesheet edit is never invisible. The cost is that a
+     returning visitor re-downloads ~40KB after each deploy, which is the right trade for a docs site that
+     deploys a few times a day.
+
+     The stylesheet is burxt-lang.org's, copied rather than reimplemented, so the two sites are the
      same site. Unused rules (the version picker, the search panel, the mascot) cost nothing and
      keep the diff against upstream readable when it is updated. -->
-<link rel="stylesheet" href="{{ site.baseurl }}/assets/site.css">
-<link rel="stylesheet" href="{{ site.baseurl }}/assets/bmx.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/site.css?v={{ site.time | date: "%s" }}">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/bmx.css?v={{ site.time | date: "%s" }}">
 <!-- Token colours for `burxt` and `bmx` blocks. Rouge knows neither language, so without this
      pair every snippet of the language this site teaches is grey next to somebody else's in
      colour. `code.css` + `code.js` are portable to the other two sites as a unit. -->
-<link rel="stylesheet" href="{{ site.baseurl }}/assets/code.css">
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/code.css?v={{ site.time | date: "%s" }}">
 {%- if site.has_branding %}
 <link rel="icon" href="{{ site.baseurl }}/assets/favicon.ico">
 <link rel="apple-touch-icon" href="{{ site.baseurl }}/assets/bmx-favicon-180.png">
@@ -167,7 +179,7 @@
 
 <div class="scrim" data-close hidden></div>
 
-<script src="{{ site.baseurl }}/assets/site.js" defer></script>
-<script src="{{ site.baseurl }}/assets/code.js" defer></script>
+<script src="{{ site.baseurl }}/assets/site.js?v={{ site.time | date: "%s" }}" defer></script>
+<script src="{{ site.baseurl }}/assets/code.js?v={{ site.time | date: "%s" }}" defer></script>
 </body>
 </html>
