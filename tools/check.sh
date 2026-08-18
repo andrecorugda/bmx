@@ -90,6 +90,9 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   run "it compiles" bash -c 'burxt build burxt/examples/parse.bx -o /tmp/check-parse'
   run "it passes the format's own suite" python3 tests/harness.py /tmp/check-parse
   run "the two implementations agree with each other" python3 tests/agree.py 'node reference/bmx.js' /tmp/check-parse
+  run "every link target renders or refuses as the escaping contract requires" bash -c '
+    burxt build tools/render.bx -o /tmp/check-render 2>/dev/null &&
+    python3 tests/targets.py "node reference/bmx.js --render" /tmp/check-render'
   run "the two renderers produce the same page" bash -c '
     burxt build tools/render.bx -o /tmp/check-render && python3 tests/renders.py /tmp/check-render'
   run "a document becomes a view the compiler checks" python3 burxt/test.py

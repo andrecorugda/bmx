@@ -234,10 +234,25 @@ function parseInline(text, base) {
         throw new BmxError('BMX-E004', base + i,
           "unterminated link target: its parentheses do not balance, so there is no `)` that ends it")
       }
+      const target = text.slice(shut + 2, end)
+      // **A slot in a target was emitted as LITERAL TEXT**, so `[Home]({{ url }})` produced
+      // `href="{{ url }}"` — a broken link, rendered, with nothing said. star-burxt's search key found
+      // it: *a scanner whose failure mode produces something that still parses.* This one parses,
+      // renders, and looks plausible, which is the worst of the three.
+      //
+      // Refused rather than supported, and the difference is a security surface: substituting a bound
+      // value into a target means the scheme check has to run on the value AFTER substitution, which is
+      // a design decision rather than a bug fix. §7 already carries the same open question for images —
+      // *whether a target is a URL or a host expression* — and this is that question, so it waits for an
+      // answer instead of being settled by an accident.
+      if (target.includes('{{')) {
+        throw new BmxError('BMX-E005', base + i,
+          'a link target is opaque, so a slot in one is not substituted — it would render as the characters `{{ … }}`. Use a block your host declares')
+      }
       flush()
       out.push({
         type: 'link',
-        target: text.slice(shut + 2, end),
+        target,
         children: parseInline(text.slice(i + 1, shut), base + i + 1),
         offset: base + i,
       })
@@ -941,13 +956,24 @@ const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&
 /** The one escaping rule, and there is no way to opt out of it — that is ESCAPING.md. */
 const escape = (s) => s.replace(/[&<>"']/g, (c) => ESCAPES[c])
 
-/** `/path`, or a scheme BMX's renderer allows. A scheme it does not know is refused, not stripped. */
+/** `/path`, or a scheme BMX's renderer allows. A scheme it does not know is refused, not stripped.
+ *
+ * **The comparison folds case, because a URI scheme is case-insensitive** (RFC 3986 §3.1) and refusing
+ * `HTTPS://example.com` refuses a correct URL. That is a false refusal of correct input, which is the
+ * one class a conformance suite cannot hold: nobody writes a case asserting that something they believe
+ * illegal actually works.
+ *
+ * **Folding cannot open a hole, because this is an ALLOW-list.** It can only admit case-variants of the
+ * three schemes named below — which is exactly what the RFC says they are — and `JAVASCRIPT:` folds to
+ * `javascript`, still absent. ASCII-only, so no Unicode case mapping is involved.
+ */
 function targetAllowed(target) {
   const colon = target.indexOf(':')
   const slash = target.indexOf('/')
   if (slash >= 0 && (colon < 0 || slash < colon)) return true
   if (colon < 0) return true
-  return ['http', 'https', 'mailto'].includes(target.slice(0, colon))
+  const scheme = target.slice(0, colon).replace(/[A-Z]/g, (c) => c.toLowerCase())
+  return ['http', 'https', 'mailto'].includes(scheme)
 }
 
 function renderInline(nodes, bindings) {
@@ -1050,13 +1076,20 @@ export function render(source, bindings = {}) {
 
 if (process.argv[1] && process.argv[1].endsWith('bmx.js')) {
   const { readFileSync } = await import('node:fs')
-  const path = process.argv[2]
+  // `--render` because the escaping contract is about OUTPUT, and until 0.11 this file could only be
+  // asked for an AST from a shell. `tests/targets.py` needs both implementations to answer the same
+  // question — does this target render or refuse — and a test that can only interrogate one of them
+  // proves half of the thing that matters most.
+  const args = process.argv.slice(2)
+  const wantsRender = args.includes('--render')
+  const path = args.find((a) => !a.startsWith('--'))
   if (!path) {
-    console.error('usage: node reference/bmx.js <document.bmx>')
+    console.error('usage: node reference/bmx.js [--render] <document.bmx>')
     process.exit(2)
   }
   try {
-    console.log(JSON.stringify(parse(readFileSync(path, 'utf8'))))
+    const source = readFileSync(path, 'utf8')
+    console.log(wantsRender ? render(source) : JSON.stringify(parse(source)))
   } catch (e) {
     if (e instanceof BmxError) {
       console.error(e.message)

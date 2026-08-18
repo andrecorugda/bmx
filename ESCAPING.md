@@ -48,8 +48,14 @@ renderer emits it as the structure it is:
 A target is not text. `[click](javascript:steal())` is a working attack in HTML that no amount of
 character escaping addresses, because the danger is the *scheme*, not the bytes.
 
-**A host MUST refuse a target whose scheme it does not allow**, and the conformance suite tests
-this. The allowed set is the host's — an HTML renderer will want `http`, `https`, `mailto` and
+**A host MUST refuse a target whose scheme it does not allow**, and
+[`tests/targets.py`](tests/targets.py) tests it — sixteen targets, per renderer, each asserted to render
+or to refuse.
+
+**A scheme comparison MUST fold case.** RFC 3986 §3.1 says scheme names are case-insensitive, so
+refusing `HTTPS://example.com` refuses a correct URL. Folding cannot weaken the check, because the
+allowed set is an **allow**-list: it admits only case-variants of the schemes already named, and
+`JAVASCRIPT:` folds to `javascript`, which is still absent. The allowed set is the host's — an HTML renderer will want `http`, `https`, `mailto` and
 relative targets; a terminal renderer may want none. What is not permitted is emitting an
 arbitrary scheme unexamined.
 
@@ -71,5 +77,16 @@ So an implementation claiming conformance must additionally show:
 3. a refusal of a link target with a scheme outside the allowed set.
 
 Three tests. They are the ones that matter, and an implementation that passes the AST suite and
-skips these has proved the easy half. In Burxt they are
-`tests/pass/bmx_library.bx` and its neighbours.
+skips these has proved the easy half.
+
+Here they are [`tests/targets.py`](tests/targets.py) for the third and [`burxt/test.py`](burxt/test.py)
+for the first two. **Both of those sentences were wrong until 0.11**, and the way they were wrong is
+worth keeping:
+
+- *"the conformance suite tests this"* was an assertion. `tests/renders.py` was the nearest thing, and it
+  compares the two renderers and treats **both refusing as agreement** — so if both had stopped refusing
+  `javascript:`, it would still have passed. Agreement is a check on drift, never on correctness, and
+  this is the one place where being wrong is an attack rather than a typo.
+- the pointer was to `tests/pass/bmx_library.bx` **in the Burxt repository**, a path that went away with
+  the `lib/` migration. A normative document naming a file that does not exist is worse than naming
+  none: a reader who goes looking concludes they have the wrong checkout.

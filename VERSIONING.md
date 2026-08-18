@@ -336,3 +336,31 @@ nine escape defects that were one recursion, five separator checks that were one
 consuming loops that needed one refusal. star-burxt found three more instances of this same defect in its
 own scanners on the same day, which is the strongest evidence that the sentence — *a delimiter rule has
 to know what protects a delimiter* — is worth more than any of the six fixes.
+
+## 0.11 came from a peer's search key, not from a suite
+
+star-burxt offered a better way to hunt this class than "look at delimiters": **look for a scanner whose
+failure mode produces something that still parses.** Applied to the places in BMX that key had not been
+pointed at, it found two things a suite could not:
+
+- **`HTTPS://example.com` was refused.** A URI scheme is case-insensitive (RFC 3986 §3.1), so that is a
+  correct URL and BMX rejected it — a *false refusal of correct input*, which is the one class a
+  conformance suite structurally cannot contain, because nobody writes a case asserting that something
+  they believe illegal actually works. A widening, therefore a minor.
+- **`[Home]({{ url }})` rendered `href="{{ url }}"`.** A broken link, on a page, silently. Refused now
+  (`BMX-E005`), which makes a valid document an error — a major.
+
+So the release is both at once, and it is one tag rather than two because the consumer sweeps once.
+
+**And the third finding was in this repository's own claims rather than its code.** `ESCAPING.md` said
+*"the conformance suite tests this"* about the scheme refusal, and pointed at
+`tests/pass/bmx_library.bx` in the Burxt repository — a path that went away with the `lib/` migration.
+Nothing tested it: `renders.py` compares the two renderers and treats **both refusing as agreement**, so
+if both had stopped refusing `javascript:` it would still have passed. `tests/targets.py` asserts the
+outcome per renderer now, sixteen targets, and its control is a renderer that renders nothing, which must
+fail all sixteen.
+
+The lesson is not new but the location is: **the security-critical half of the contract was held by a
+sentence, and the sentence named a file that did not exist.** A normative document pointing at a missing
+test is worse than one pointing at none, because a reader who goes looking concludes they have the wrong
+checkout.

@@ -58,6 +58,21 @@ BMX-E004 at 4: unterminated link target
 
 Also fires when a `[text]` is not followed by `(`.
 
+### `BMX-E005` — a slot in a link target
+
+```bmx
+[Home]({{ url }})
+```
+
+A target is **opaque** — BMX captures it and hands it to your host without looking inside — so a slot in
+one is not substituted. Until 0.11 this rendered `href="{{ url }}"`: a broken link, on a page, with
+nothing said.
+
+**Refused rather than supported, and that is a real decision rather than a limitation.** Substituting a
+bound value into a target means the scheme check has to run on the value *after* substitution, which is
+the security-critical path. A dynamic URL today is a block your host declares, where the host owns both
+the substitution and the check.
+
 ### `BMX-E010` — a tab in significant whitespace
 
 A tab is four columns, or eight, or one, depending on who is looking. A format that promises one
@@ -75,7 +90,7 @@ BMX-E011 at 0: a heading needs exactly one space after its #
 Also: seven or more `#`, and an empty heading. **It is not read as a paragraph beginning with
 `#`** — that reading is how a typo'd heading silently becomes body text.
 
-### `BMX-E012` — list or quote nesting, which 0.10 does not have
+### `BMX-E012` — list or quote nesting, which 0.11 does not have
 
 ```
 - one

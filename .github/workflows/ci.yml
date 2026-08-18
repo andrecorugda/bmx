@@ -225,6 +225,12 @@ jobs:
       # The question the suite cannot ask: do two implementations reach the same answer where
       # nothing was written down? That is where a specification's ambiguities live, and it is how
       # the one in SPEC.md §4a.2 was found.
+      # **The third thing `ESCAPING.md` requires, which nothing tested until 0.11.** `renders.py` treats
+      # both renderers refusing as agreement, so if both stopped refusing `javascript:` it would still
+      # pass. This asserts the outcome per renderer.
+      - name: Every link target renders or refuses as the escaping contract requires
+        run: python3 tests/targets.py "node reference/bmx.js --render" /tmp/bmxrender
+
       - name: The two implementations agree with each other
         run: python3 tests/agree.py 'node reference/bmx.js' /tmp/bmx-parse
 

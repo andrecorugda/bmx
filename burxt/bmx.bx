@@ -462,6 +462,16 @@ pure function bmx_parse_inline(text: String, base: Int) -> Result<[Bmx], String>
                                 return Result.Error(bmx_error("BMX-E004", base + i,
                                     "unterminated link target: its parentheses do not balance, so there is no `)` that ends it"));
                             }
+                            // **A slot in a target was emitted as LITERAL TEXT**, so `[Home]({{ url }})`
+                            // produced `href="{{ url }}"` — a broken link, rendered, with nothing said.
+                            // Refused rather than supported: substituting a bound value into a target
+                            // means the scheme check must run AFTER substitution, which is a design
+                            // decision. §7 carries the same open question for images.
+                            let target_text: String = substring(text, shut + 2, end - (shut + 2));
+                            if string_find(target_text, "\{\{") >= 0 {
+                                return Result.Error(bmx_error("BMX-E005", base + i,
+                                    "a link target is opaque, so a slot in one is not substituted — it would render as the characters `\{\{ … \}\}`. Use a block your host declares"));
+                            }
                             if len(buffer) > 0 {
                                 let flushed: Int = push(out, Bmx.Text(buffer));
                                 buffer = "";
@@ -1299,7 +1309,14 @@ pure function bmx_target_allowed(target: String) -> Bool {
         let b: Int = byte_at(target, i);
         if b == 47 { return true; }
         if b == 58 {
-            let scheme: String = substring(target, 0, i);
+            // **Folded, because a URI scheme is case-insensitive** (RFC 3986 §3.1): refusing
+            // `HTTPS://example.com` refuses a correct URL, which is a false refusal of correct input —
+            // the one class a conformance suite cannot hold, since nobody writes a case asserting that
+            // something they believe illegal actually works.
+            //
+            // Folding cannot open a hole because this is an ALLOW-list: it admits only case-variants of
+            // the three schemes below, and `JAVASCRIPT:` folds to `javascript`, still absent. ASCII-only.
+            let scheme: String = string_to_lower_ascii(substring(target, 0, i));
             if scheme == "http" { return true; }
             if scheme == "https" { return true; }
             if scheme == "mailto" { return true; }
