@@ -19,12 +19,35 @@ is the one that costs everybody.
 
 ## The rule that makes this checkable
 
-> **A change is a major if and only if a case in [`tests/`](tests/) had to be edited rather than
-> added.**
+> **An edited case in [`tests/cases/`](tests/cases) proves a major. Nothing proves a minor.**
 
-Not "if it feels breaking". The suite is the artifact, so the diff of the suite is the version
-decision, and it is mechanical: `git diff --stat tests/` with modified files is a major, with
-only added files is a minor.
+The first half is mechanical and still is: `git diff --stat tests/cases` with a modified file means a
+document's expected output moved, so a document's meaning moved, so it is a major — no judgement
+involved. Reach for that first, because it settles most releases without an argument.
+
+**The second half is the part this document originally got wrong**, and it said the opposite: *a change
+is a major if and only if a case had to be edited*. That "only if" is false in three ways, each found by
+a release that broke it, each written up below:
+
+| when the mechanical answer is wrong | which release found it |
+|---|---|
+| **added cases cannot acquit** — a change can break a document no fixture contains | 0.7, the one-line block |
+| **`tests/errors/` is not `tests/cases/`** — a *deleted* refusal is a widening, so a minor | 0.8, the narrowed `BMX-E012` |
+| **a defect found inside its own release** has no window for anyone to depend on it | 0.9.1, the truncated head |
+
+So the question the rule cannot answer for you, and which has to be asked by hand every time:
+
+> **What document is valid today whose meaning this changes?**
+
+If the answer is not "none", the fixture for it is missing and belongs in the same commit. If the answer
+is "none, and I know that rather than assume it", say how you know — 0.9.1 says *the only consumer asked
+about the behaviour instead of building on it*, which is evidence rather than optimism.
+
+**Why the rule is stated with its exceptions rather than above them.** It was not, until 2026-08-18: the
+absolute version stood at the top with four corrections appended below it, so a reader who read the top
+got a rule that was false four times over. The Burxt session named the shape while correcting their own
+notes — **a correction appended below a wrong sentence leaves the wrong sentence for whoever reads the
+top, and reading the top is what people do.**
 
 This is deliberately the same idea as `burxt review` — a promise diffed rather than asserted —
 applied to a format instead of a signature. A format whose compatibility claim is a human's
