@@ -235,6 +235,18 @@ becomes anything at all — which is what keeps a format with no runtime from ac
 - **A body after the `]` needs the line to close** — `BMX-E038` otherwise, because the body would
   have two sources and no reader could tell which won.
 
+**Put nothing after the `]` and the body goes below, as usual:**
+
+```bmx
+:button: -> [on:click=save(id), .featured, #plans]
+  Save
+:!button:
+```
+
+Which is the same block as the one-line version above — the delimiter says where the *head* stops, and
+whether the body shares the line is separately your choice. Use it when the head is long enough that the
+line would wrap, or when the body is more than a few words.
+
 `->` and not `=>`: both are Burxt tokens, and `=>` is the match arm, so `:case: Post(id) => [x]` would
 read as one. A bare `[` cannot work either — `[text](url)` is a link, so a body beginning with one
 would be ambiguous.

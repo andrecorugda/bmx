@@ -210,6 +210,18 @@ check(
   ["punctuation.definition.block.end.bmx"],
 );
 
+// A delimited head with NOTHING after the `]` — the body goes below, and the block still closes.
+check(
+  "a delimited head with no inline body still holds a head",
+  ':button: -> [class=x]\n  Save\n:!button:\n', 0, "class=x",
+  ["meta.block.head.bmx"],
+);
+check(
+  "and its body below is block content",
+  ':button: -> [class=x]\n  Save\n:!button:\n', 1, "Save",
+  ["meta.block.bmx"],
+);
+
 // ---- nesting by name ----
 check(
   "a block inside a block",
