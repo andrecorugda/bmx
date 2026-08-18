@@ -14,6 +14,22 @@ rule that is too BROAD is invisible to the suite by construction — the suite o
 author expected to be legal. This check does not need anyone to expect anything: it takes documents that
 already parse, applies a transform the spec says is meaning-preserving, and asks whether they still do.
 
+**And the third property, which is the one this check was missing.** *42 documents keep their structure
+through the formatter* is also exactly what a formatter that did nothing at all would produce — a success
+that the defect it looks for would also produce. So the count of documents the formatter actually CHANGED
+is reported and required to be non-zero, and the untouched ones are named separately, because they prove
+nothing: a document the formatter left alone cannot have been broken by it.
+
+The Burxt session put the general form better than I would, having found a SIGSEGV whose first memory
+measurement came back flat — the storage was being freed while still in use, so the reading that looked
+like good news *was* the bug: **a wrong answer that looks like good news deserves more scrutiny than a
+bad one.**
+
+*Its control is not `--prove-it` — that one mangles the formatter's output, which is a different
+assertion. This one was exercised by replacing `tools/fmt.py` with a script that exits immediately: the
+check then reports `0 documents were REINDENTED` and fails, which is what it must do. Said here because
+an assertion whose control was run once and not written down is an assertion nobody can trust twice.*
+
 **Two properties it asserts, and the second is the one that is easy to get wrong:**
 
 - *Every document that parsed still parses.* This is what fired in 0.7.
@@ -60,7 +76,7 @@ def main():
     command = rest[0] if rest else "node reference/bmx.js"
 
     scratch = pathlib.Path(subprocess.run(["mktemp", "-d"], capture_output=True, text=True).stdout.strip())
-    checked = refused = moved = skipped = 0
+    checked = refused = moved = skipped = touched = 0
     failures = []
 
     for source in sorted((ROOT / "tests" / "cases").glob("*.bmx")):
@@ -70,8 +86,11 @@ def main():
             continue
 
         copy = scratch / source.name
-        copy.write_text(source.read_text())
+        before_text = source.read_text()
+        copy.write_text(before_text)
         subprocess.run(["python3", str(FMT), str(copy)], capture_output=True, text=True)
+        if copy.read_text() != before_text:
+            touched += 1
 
         if prove:
             # **The control exercises BOTH assertions**, because a control that only reaches one of them
@@ -112,7 +131,8 @@ def main():
 
     for f in failures:
         print(f"  FAIL  {f}")
-    print(f"\n{checked} documents keep their structure through the formatter"
+    print(f"\n{touched} documents were REINDENTED and kept their structure; "
+          f"{checked - touched} the formatter left alone, which proves nothing about it"
           f"{f', {refused} stopped parsing, {moved} changed shape' if failures else ''}"
           f"{f', {skipped} do not parse to begin with' if skipped else ''}")
 
@@ -122,6 +142,10 @@ def main():
             print("the control failed as it must — the check has a subject that varies")
             return 0
         print("THE CONTROL DID NOT FAIL, so this check cannot see anything")
+        return 1
+    # **A formatter that did nothing would pass every assertion above.** This is the one that notices.
+    if not prove and touched == 0:
+        print("no document was reindented at all, so the round-trip compared each file with itself")
         return 1
     return 1 if failures else 0
 
