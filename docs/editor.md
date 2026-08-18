@@ -41,7 +41,11 @@ Three things, and you can have the first two in under a minute:
     <div class="row"><img src="{{ site.baseurl }}/assets/bmx-file-icon-128.png" alt="" width="16" height="16"><span>receipt.bmx</span></div>
   </div>
   <figcaption>
-    A `.bmx` file in the explorer, beside its two siblings. The extension registers the icon itself —
+    <!-- `<code>`, not backticks: kramdown does not process markdown inside a raw HTML block, so a
+         backtick here renders as a backtick. It did, and it took a screenshot of the deployed page to
+         see it — the same lesson as everything else today, one layer down. -->
+    A <code>.bmx</code> file in the explorer, beside its two siblings. The extension registers the icon
+    itself —
     <code>contributes.languages[0].icon</code> points VS Code at <code>file-icon.png</code> for both
     themes — so this is the file your editor loads, at the 16px box a row gives it. The rows around the
     icons are drawn here; only the icons are the shipped assets.
