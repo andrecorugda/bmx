@@ -25,9 +25,13 @@ the grep is for the verbs — *checked*, *refused*, *cannot*, *tested* — then 
 anything would notice if it stopped being true.
 """
 
+import pathlib
 import shlex
 import subprocess
 import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from probe import speaks  # noqa: E402
 
 # (target, must render?) — the reason each one is here matters more than the list.
 TARGETS = [
@@ -91,6 +95,9 @@ def main():
     if not renderers:
         print("usage: output.py <renderer> [<renderer> …]")
         return 1
+
+    for renderer in renderers:
+        speaks(renderer, "page")
 
     failures = 0
     for renderer in renderers:

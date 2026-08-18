@@ -25,6 +25,9 @@ import shlex
 import subprocess
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from probe import speaks  # noqa: E402
+
 HERE = pathlib.Path(__file__).parent
 ROOT = HERE.parent
 
@@ -54,6 +57,7 @@ try {
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
+    speaks(sys.argv[1], "page")
     burxt = shlex.split(sys.argv[1])
 
     import json

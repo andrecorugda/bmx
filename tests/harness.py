@@ -18,6 +18,9 @@ import shlex
 import subprocess
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from probe import speaks  # noqa: E402
+
 HERE = pathlib.Path(__file__).parent
 
 
@@ -29,6 +32,9 @@ def main():
     if len(sys.argv) != 2:
         sys.exit(__doc__)
     command = sys.argv[1]
+    # Ask whether this is a BMX reader at all, before blaming 87 documents for one wrong
+    # argument — see `probe.py` for the run that made this necessary.
+    speaks(command, "ast")
     failures = []
     total = 0
 

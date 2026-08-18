@@ -28,6 +28,9 @@ import shlex
 import subprocess
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from probe import speaks  # noqa: E402
+
 HERE = pathlib.Path(__file__).parent
 
 
@@ -46,6 +49,8 @@ def main():
     if len(sys.argv) not in (3, 4):
         sys.exit(__doc__)
     a, b = sys.argv[1], sys.argv[2]
+    speaks(a, "ast")
+    speaks(b, "ast")
     roots = [pathlib.Path(sys.argv[3])] if len(sys.argv) == 4 else [HERE / "cases", HERE / "errors"]
 
     documents = sorted(p for root in roots for p in root.glob("*.bmx"))

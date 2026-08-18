@@ -49,6 +49,9 @@ import shlex
 import subprocess
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from probe import speaks  # noqa: E402
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FMT = ROOT / "tools" / "fmt.py"
 
@@ -74,6 +77,7 @@ def main():
     prove = "--prove-it" in args
     rest = [a for a in args if not a.startswith("--")]
     command = rest[0] if rest else "node reference/bmx.js"
+    speaks(command, "ast")
 
     scratch = pathlib.Path(subprocess.run(["mktemp", "-d"], capture_output=True, text=True).stdout.strip())
     checked = refused = moved = skipped = touched = 0
