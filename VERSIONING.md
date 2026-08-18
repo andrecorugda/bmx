@@ -447,3 +447,41 @@ runner that could not report one.** They had been reading `python3 test.py | tai
 whether `tail` succeeded; three failures sat visible and unread. `tools/check.sh` was already sound — it
 captures each command's own status — but it now sets `pipefail` as well, because the next inline pipe
 somebody adds to it should not be the one that lies.
+
+## 0.12: the format gains a comment, because it had one and it was visible
+
+star-burxt, answering Andre's question about what would make it stable, measured this end to end:
+
+    <!-- TODO: ask a designer about this -->
+    Hello
+
+    rendered:  <p>&lt;!-- TODO: ask a designer about this --&gt;\nHello</p>
+
+**A developer's private note, delivered to the reader.** Accepted rather than refused, which is the
+silent-wrong-answer class this format exists to remove — sitting in the one construct every author of
+every markup format reaches for. They hit it on their own tooling before going looking, and patched
+around it by stripping a header; **an author cannot patch around it.**
+
+A major: `<!-- x -->` was a paragraph and is now nothing, and `Total: 5 <!-- x -->` was text and is now
+`BMX-E007`.
+
+**Why `<!-- -->` and not a new sigil.** Markdown has no comment either, so this is what an author already
+types in every dialect — and it is the one HTML spelling with **no output**, so claiming it is not the raw
+HTML passthrough §7 refuses. A `:comment:` block could not have done the job at all: a level-1 renderer
+refuses a block it does not declare (`BMX-R003`), so a host-declared comment would make a `.bmx` and a
+host's document accept different inputs, which is the split the boundary exists to prevent.
+
+**Why a comment is a whole line.** Closing half of this would have been worse than closing none:
+`Total: {{ x }} <!-- fix this -->` would still ship the note. `BMX-E007` refuses a mid-line marker and
+names the alternative — a code span, `` `<!-- x -->` ``, which shows the characters literally.
+
+**And the first version of that refusal broke the alternative it names.** Checking the whole string on
+entry to the inline parser refused `` `<!-- x -->` `` too: a fix for a silent wrong answer introducing a
+false refusal of correct input, in minutes, because the check ran before the scan could reach the
+construct that protects its content. Moved to the point where a `<` becomes ordinary text — which is
+where star-burxt's own comma fix had to go, and where every scanner fix this week has ended up.
+
+**Also declined and recorded rather than left open:** a dynamic block name, `:{{ tag }}:`. star-burxt
+asked and then argued against its own request — a name arriving at runtime means the content model is
+unknown until it runs, so a host cannot tell an author that a `<p>` may not hold a `<div>`. `BMX-E030`
+stays, and §7 says why so nobody re-raises it.

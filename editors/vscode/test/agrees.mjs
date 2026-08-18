@@ -61,6 +61,9 @@ const SCOPE_TO_CLASS = [
   ["punctuation.section.embedded", "slot-mark"],
   ["punctuation.definition.inline-block.bmx", "slot-mark"],
   ["punctuation.definition.raw.bmx", "raw"],
+  // A new construct in 0.12, and the one legitimate reason to add a row: both tools call it a
+  // comment. Adding a row to silence a DISAGREEMENT is what this table must never be used for.
+  ["comment.block.bmx", "comment"],
   // **Before the `markup.*` entries, and that ordering is the whole of a real question.** A
   // heading's `#` carries BOTH `markup.heading.bmx` and `punctuation.definition.heading.bmx`, so
   // which class wins is a decision rather than a lookup. Punctuation wins because it is the more
@@ -250,10 +253,11 @@ console.log(`${skipped} skipped as deliberately-invalid documents, where neither
 // deliberately broken, because teaching what a refusal looks like is half of what the guide is for.
 // If it rises, either somebody added a broken example or the format moved under the documentation, and
 // both want a person to look.
-const DELIBERATELY_BROKEN = 9;   // 6 in the guide, plus `BMX-E005`, `BMX-E037` and `BMX-E038` on the
-                                 // errors page. It has risen three times in two days and each rise was a
-                                 // new refusal being documented, which is the ceiling working: every one
-                                 // made me confirm the docs had not simply fallen behind the format.
+const DELIBERATELY_BROKEN = 11;  // 6 in the guide, plus `BMX-E005`, `BMX-E006`, `BMX-E007`, `BMX-E037`
+                                 // and `BMX-E038` on the errors page. It has risen four times in two days
+                                 // and every rise was a new refusal being documented, which is the
+                                 // ceiling working as designed: each one made me confirm the docs had not
+                                 // simply fallen behind the format instead.
 if (skipped > DELIBERATELY_BROKEN) {
   console.error(`\n${skipped} documents did not parse, and only ${DELIBERATELY_BROKEN} are meant to.`);
   console.error('Either a new broken example needs counting here, or the docs have fallen behind the format.');

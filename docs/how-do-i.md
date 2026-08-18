@@ -158,6 +158,20 @@ Two rules worth knowing, and both are refusals rather than surprises:
 - **A body needs the line to close.** `:b: -> [x] body` with `:!b:` further down is refused: the body
   would have two sources and no reader could tell which won.
 
+## …leave a note that does not appear on the page
+
+```bmx
+<!-- ask a designer whether this row should be sortable -->
+Totals
+```
+
+Nothing between `<!--` and `-->` reaches the page, and it may span as many lines as you like.
+
+**One rule: a comment is a whole line.** `Total: 5 <!-- fix this -->` is refused, and that refusal is the
+point — before 0.12 the format had no comment at all, so a note written mid-sentence was **delivered to
+the reader as visible text**. Put the marker at the start of its own line, or use a code span to show the
+characters literally: `` `<!-- x -->` ``.
+
 ## …react to a click
 
 ```bmx

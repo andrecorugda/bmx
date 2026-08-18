@@ -73,6 +73,33 @@ bound value into a target means the scheme check has to run on the value *after*
 the security-critical path. A dynamic URL today is a block your host declares, where the host owns both
 the substitution and the check.
 
+### `BMX-E006` — a comment with no `-->`
+
+```bmx
+<!-- never closed
+Hello
+```
+
+A comment may span lines, so it needs its `-->`. Never closed implicitly at end of document, for the same
+reason a code fence is not: the alternative is a document that silently swallows everything after a typo.
+
+### `BMX-E007` — `<!--` in inline content
+
+```bmx
+Total: 5 <!-- fix this -->
+```
+
+```
+BMX-E007 at 9: a comment is a whole line — move `<!--` to the start of its own line, or put it in a code span to show it literally
+```
+
+**A comment is a whole line, and this refusal is why that is safe.** Allowing it mid-line would leave the
+hazard the comment construct exists to remove: `Total: {{ x }} <!-- fix this -->` would ship the note to
+the reader, which is what happened to every comment before 0.12.
+
+To show the characters rather than mean them, use a code span — `` `<!-- x -->` ``. That works, and it is
+tested, because the first version of this refusal broke it.
+
 ### `BMX-E010` — a tab in significant whitespace
 
 A tab is four columns, or eight, or one, depending on who is looking. A format that promises one
@@ -90,7 +117,7 @@ BMX-E011 at 0: a heading needs exactly one space after its #
 Also: seven or more `#`, and an empty heading. **It is not read as a paragraph beginning with
 `#`** — that reading is how a typo'd heading silently becomes body text.
 
-### `BMX-E012` — list or quote nesting, which 0.11 does not have
+### `BMX-E012` — list or quote nesting, which 0.12 does not have
 
 ```
 - one

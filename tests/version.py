@@ -86,8 +86,16 @@ def main():
     if not checked:
         print("\nno status claim matched at all, which means the patterns have stopped seeing them")
         return 1
+    # **This printed the success line unconditionally, above a `return 1`.** So a reader piping the
+    # output — or reading the last line, which is what a summary is for — saw *every version agrees*
+    # while the verdict was failure. That is the fourth face of a lying measurement (a runner whose
+    # summary contradicts its own exit code), inside the check written the same day to catch stale
+    # claims. The success sentence is now earned rather than printed.
+    if stale:
+        print(f"\n{len(stale)} status claim{'' if len(stale) == 1 else 's'} disagree with SPEC.md")
+        return 1
     print("\nevery version the documentation states agrees with SPEC.md")
-    return 0 if not stale else 1
+    return 0
 
 
 if __name__ == "__main__":

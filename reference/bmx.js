@@ -121,6 +121,24 @@ function isName(text) {
 // lines. The spec already requires every inline construct to close on its own line, so there is
 // nothing to parse across.
 
+// **A comment is a whole line, and a mid-line `<!--` is refused rather than left as text.**
+//
+// Closing half the leak would have been worse than closing none: `Total: {{ x }} <!-- fix this -->`
+// would still have shipped the note. The refusal is here rather than in the block loop because this is
+// the one function every piece of inline content passes through — a paragraph's continuation lines, a
+// heading, a list item, a quote — and a code fence's content does not, which is correct, since content
+// there is verbatim by §2.4. A head does not either, and that is also correct: a head is the host's.
+//
+// The alternative was an inline comment construct. Rejected: a comment that can hide half a sentence
+// makes the output unpredictable from a glance at the source, and this format is read by reviewers.
+function refuseMidLineComment(text, base) {
+  const at = text.indexOf('<!--')
+  if (at >= 0) {
+    throw new BmxError('BMX-E007', base + at,
+      'a comment is a whole line — move `<!--` to the start of its own line, or escape the `<`')
+  }
+}
+
 function parseInline(text, base) {
   const out = []
   let buffer = ''
@@ -260,6 +278,18 @@ function parseInline(text, base) {
       continue
     }
 
+    // **The mid-line comment refusal belongs HERE, where a `<` becomes ordinary text.**
+    //
+    // My first version checked the whole string on entry, and that falsely refused
+    // `` `<!-- x -->` `` — a code span, which is the documented way to write literal markup. A fix for
+    // a silent wrong answer introducing a false refusal of correct input, within minutes, because the
+    // check ran before the scan could reach the construct that protects its content. The scanner has
+    // already consumed code spans, links and slots by the time a character arrives here, so this sees
+    // only text that would really have been emitted.
+    if (c === '<' && text.startsWith('<!--', i)) {
+      throw new BmxError('BMX-E007', base + i,
+        'a comment is a whole line — move `<!--` to the start of its own line, or put it in a code span to show it literally')
+    }
     buffer += c
     i++
   }
@@ -476,6 +506,28 @@ function parseBlocks(rows, from, open, openRow) {
     //   list rule's reason did not transfer.
     // - **A list nests when a marker is DEEPER than the list already open** — `- one` / `  - two`.
     //   A marker with no list open starts one, whatever column it is in.
+
+    // ---- a comment: `<!-- … -->`, emitting nothing ----
+    //
+    // **A document must be able to carry a line the renderer does not emit**, and until 0.12 it could
+    // not: `<!-- TODO: ask a designer -->` rendered as escaped visible text, so a developer's private
+    // note reached the user. Accepted, wrong, and silent — the class this format exists to remove,
+    // sitting in the one construct every author of every markup format reaches for.
+    //
+    // **Spelled the way markdown spells it, which is the whole argument.** Markdown has no comment
+    // either, so `<!-- -->` is what authors already type in every dialect — and BMX is not gaining raw
+    // HTML by claiming the one HTML spelling that has no output. `:comment:` could not do the job: a
+    // block is refused by a level-1 renderer (`BMX-R003`), so a host-declared comment would make a
+    // `.bmx` and a host's document accept different inputs, which is the split the boundary prevents.
+    if (text.startsWith('<!--')) {
+      let j = i
+      while (j < rows.length && !stripEnd(rows[j].text).includes('-->')) j++
+      if (j >= rows.length) {
+        throw new BmxError('BMX-E006', row.offset, 'unterminated comment: no `-->`')
+      }
+      i = j + 1
+      continue
+    }
 
     // **A 0.6 document is refused by name rather than rendered as text.** This is the one diagnostic
     // in 0.7 that most people will meet, so it says what to run.

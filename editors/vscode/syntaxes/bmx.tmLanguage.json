@@ -27,6 +27,9 @@
       "include": "#fenced-code"
     },
     {
+      "include": "#comment"
+    },
+    {
       "include": "#one-liner"
     },
     {
@@ -447,6 +450,12 @@
           "name": "punctuation.definition.block.end.bmx"
         }
       }
+    },
+    "comment": {
+      "//": "`<!-- \u2026 -->`, which may span lines. Placed before everything except a code fence, because a comment's content is not markup and colouring a slot inside one would claim it is live.",
+      "name": "comment.block.bmx",
+      "begin": "^\\s*<!--",
+      "end": "-->"
     }
   }
 }

@@ -175,7 +175,7 @@ touches nothing.
 Stated plainly because a document that lets you infer capabilities you do not have is worse than
 one that says nothing.
 
-**What DOES exist**, as of 0.11, and did not when this page was first written: components with
+**What DOES exist**, as of 0.12, and did not when this page was first written: components with
 declared props, repetition, conditionals, nesting, classes and ids on a block, event bindings captured as
 head text, and inline blocks — all through **one construct**, see
 [Writing a document](syntax.html#blocks) — plus, since this list was last honest at 0.2:

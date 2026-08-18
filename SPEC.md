@@ -1,4 +1,4 @@
-# BMX 0.11 — the grammar
+# BMX 0.12 — the grammar
 
 **BMX is markdown with one unambiguous reading and a typed hole in it.**
 
@@ -127,7 +127,7 @@ exactly one space after the marker. Consecutive item lines form one list. A blan
 - An ordered list's numbers are **content, not instructions**: a renderer emits them as written.
   A list numbered `1. 1. 1.` renders as `1. 1. 1.`, because a format that silently renumbers is
   a format whose output does not match its source.
-- A list item's content is inline content. **List nesting is not in 0.11** — a line beginning with
+- A list item's content is inline content. **List nesting is not in 0.12** — a line beginning with
   spaces then `- ` is `BMX-E012`, refused rather than guessed at, and the trigger for adding it
   is a real document that needs it.
 - **The sentence above is narrower than it looks, and two releases read it too widely.** What is refused
@@ -171,9 +171,38 @@ lines of content, then exactly three backticks at the start of a line.
 ```
 
 `> ` at the start of a line, after any leading spaces (§1). Consecutive lines form one quote; the
-content of each is inline content. **No nested quotes in 0.11** — `> > ` is `BMX-E012`. An indented `> `
+content of each is inline content. **No nested quotes in 0.12** — `> > ` is `BMX-E012`. An indented `> `
 is **not** a nest and never was: nesting is spelled with a second `> `, so indentation has no part to
 play and an indented quote is just a quote a formatter moved.
+
+### 2.6 Comment
+
+```
+<!-- a note the reader never sees -->
+```
+
+A line whose first non-space bytes are `<!--` begins a comment. It ends at the line containing `-->`,
+and it **emits nothing**.
+
+- **It may span lines.** Unterminated at end of document is `BMX-E006` — never closed implicitly, for
+  the same reason a code fence is not.
+- **A comment is a whole line.** `<!--` reached anywhere else in inline content is `BMX-E007`, because
+  closing half of this hazard would be worse than closing none: `Total: {{ x }} <!-- fix this -->`
+  would still ship the note. To write the characters literally, use a code span — `` `<!-- x -->` ``.
+- **Its content is not parsed.** A slot inside a comment is not a slot, and no host ever sees it.
+
+**Why this spelling, and why the format has a comment at all.** Until 0.12 it did not, and
+`<!-- TODO: ask a designer -->` **rendered as escaped visible text** — a developer's private note
+delivered to the reader, accepted rather than refused. That is the silent-wrong-answer class this format
+exists to remove, sitting in the one construct every author of every markup format reaches for.
+
+Markdown has no comment either, so `<!-- -->` is what an author already types in every dialect. **BMX is
+not gaining raw HTML by claiming the one HTML spelling that has no output** — §7 still refuses
+passthrough, and a comment is the absence of content rather than an escape hatch into it. A
+`:comment:` block could not have done the job: a level-1 renderer refuses a block it does not declare
+(`BMX-R003`), so a host-declared comment would make a `.bmx` and a host's document accept different
+inputs — the split the boundary exists to prevent. Reported by star-burxt, which hit it on its own
+tooling before looking for it.
 
 ## 3. Inline content
 
@@ -539,9 +568,11 @@ others.
 | `BMX-E002` | unterminated emphasis or strong |
 | `BMX-E003` | unterminated code fence |
 | `BMX-E004` | unterminated link |
+| `BMX-E006` | a comment with no `-->` |
+| `BMX-E007` | `<!--` in inline content — a comment is a whole line |
 | `BMX-E010` | tab in leading whitespace |
 | `BMX-E011` | malformed heading |
-| `BMX-E012` | list or quote nesting, which 0.11 does not have (blocks nest — see §4a.2). A `- ` or `<digits>. ` **deeper than the list already open**, or a `> > `; an indented line is otherwise ordinary (§1) |
+| `BMX-E012` | list or quote nesting, which 0.12 does not have (blocks nest — see §4a.2). A `- ` or `<digits>. ` **deeper than the list already open**, or a `> > `; an indented line is otherwise ordinary (§1) |
 | `BMX-E020` | unterminated code span |
 | `BMX-E021` | invalid escape |
 | `BMX-E022` | empty slot expression |
@@ -560,7 +591,7 @@ A conforming parser **stops at the first error**. Recovery is a later question a
 one — an editor wants every error at once — but recovery that differs between implementations is
 worse than no recovery.
 
-## 7. What 0.11 deliberately does not have
+## 7. What 0.12 deliberately does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons is a list somebody will "fix" at random.
@@ -570,6 +601,7 @@ reasons is a list somebody will "fix" at random.
 | Nested lists and quotes | a real document that needs one. **The AST does NOT already nest** — an earlier version of this row said it did, and it was wrong: an `item`'s children are INLINE nodes, so a nested list has nowhere to go. It needs a field, which makes it a major |
 | Tables | the same; they are the most-requested markdown extension and the least uniform |
 | A **dynamic link target** — `[Home]({{ url }})` | the same decision as images below, and `BMX-E005` refuses it meanwhile rather than emitting the braces as a URL. Supporting it means the scheme check must run on the value AFTER substitution, which is the security surface that makes it a decision rather than a fix |
+| A **dynamic block name** — `:{{ tag }}:` | nothing, and this one is **declined rather than deferred**. star-burxt asked and then argued against its own request: a name that arrives at runtime means the content model is unknown until it runs, so a host cannot tell an author that a `<p>` may not hold a `<div>`. React's `<Tag>` gets away with it by checking nothing, which is the opposite of the reason this format exists. `BMX-E030` stays |
 | Images | a decision about whether a target is a URL or a host expression — probably the latter, which makes it a slot question. A host may declare an `image` block today |
 | Raw HTML passthrough | it would put an unescaped hole in the format, and [`ESCAPING.md`](ESCAPING.md) says why that is the host's `raw` to grant, not the format's |
 | Error recovery | §6 |

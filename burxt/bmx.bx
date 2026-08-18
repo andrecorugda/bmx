@@ -485,6 +485,19 @@ pure function bmx_parse_inline(text: String, base: Int) -> Result<[Bmx], String>
                             }
                             i = end + 1;
                         } else {
+                            // **The mid-line comment refusal belongs HERE, where a `<` becomes ordinary
+                            // text.** Checking the whole string on entry falsely refused
+                            // `` `<!-- x -->` `` — a code span, which is the documented way to write
+                            // literal markup. A fix for a silent wrong answer introducing a false
+                            // refusal of correct input, because the check ran before the scan could
+                            // reach the construct that protects its content. By this point the scanner
+                            // has consumed code spans, links and slots, so this sees only text that
+                            // would really have been emitted.
+                            if b == 60 && i + 3 < n && byte_at(text, i + 1) == 33
+                               && byte_at(text, i + 2) == 45 && byte_at(text, i + 3) == 45 {
+                                return Result.Error(bmx_error("BMX-E007", base + i,
+                                    "a comment is a whole line — move `<!--` to the start of its own line, or put it in a code span to show it literally"));
+                            }
                             buffer = buffer + byte_as_string(b);
                             i += 1;
                         }
@@ -752,6 +765,31 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: I
         if bmx_is_blank(text) {
             i += 1;
         } else {
+            // ---- a comment: `<!-- … -->`, emitting nothing ----
+            //
+            // **A document must be able to carry a line the renderer does not emit**, and until 0.12 it
+            // could not: `<!-- TODO -->` rendered as escaped visible text, so a private note reached the
+            // user. Spelled the way markdown spells it, because markdown has no comment either and this
+            // is what an author already types — and claiming the one HTML spelling that has NO OUTPUT is
+            // not gaining raw HTML. A `:comment:` block could not do the job: level 1 refuses unknown
+            // blocks, so a host-declared comment would make a `.bmx` and a host's document accept
+            // different inputs, which is the split the boundary exists to prevent.
+            if bmx_starts_with(text, "<!--") {
+                let mutable j: Int = i;
+                let mutable closed: Bool = false;
+                while j < len(lines) && !closed {
+                    if string_find(bmx_strip_end(lines[j].text), "-->") >= 0 {
+                        closed = true;
+                    } else {
+                        j += 1;
+                    }
+                }
+                if !closed {
+                    return Result.Error(bmx_error("BMX-E006", line.offset,
+                        "unterminated comment: no `-->`"));
+                }
+                i = j + 1;
+            } else {
             // A tab in leading whitespace. Every dialect gives it a different width, so a format
             // promising one reading cannot accept it — even though the SPACES around it mean
             // nothing, a reader aligning by eye and a parser counting bytes would disagree about
@@ -1111,6 +1149,7 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: I
                         }
                     }
                 }
+            }
             }
             }
         }

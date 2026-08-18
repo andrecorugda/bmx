@@ -6,7 +6,7 @@ title: Writing a document
 {% raw %}
 # Writing a document
 
-Every construct BMX 0.11 has, what it renders to, and the rule that decides it. **Every HTML
+Every construct BMX 0.12 has, what it renders to, and the rule that decides it. **Every HTML
 sample on this page was produced by running a real renderer, not typed by hand.**
 
 If you know markdown you already know most of this. The differences are deliberate and there are
@@ -327,7 +327,7 @@ and a slot: Ada.</p><ul><li>first item</li><li>second item</li></ul>
 
 (Line breaks added here for reading; the renderer emits one line.)
 
-## What 0.11 does not have
+## What 0.12 does not have
 
 Named with the trigger that would earn each one a version, because a list of omissions with no
 reasons invites someone to fix them at random.

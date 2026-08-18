@@ -171,6 +171,7 @@
     const lines = src.split('\n');
     const out = [];
     let fence = null; // the ``` or ~~~ currently open, if any
+    let comment = false; // inside a `<!-- … -->` that has not closed on an earlier line
 
     for (const line of lines) {
       if (fence !== null) {
@@ -179,7 +180,20 @@
         continue;
       }
 
-      let m = /^(\s*)(`{3,}|~{3,})(.*)$/.exec(line);
+      // a comment, which may span lines. Tracked like a fence so its content is not painted as markup.
+      if (comment) {
+        out.push(span('comment', line));
+        if (line.includes('-->')) comment = false;
+        continue;
+      }
+      let m = /^(\s*)(<!--.*)$/.exec(line);
+      if (m) {
+        out.push(m[1] + span('comment', m[2]));
+        if (!line.includes('-->')) comment = true;
+        continue;
+      }
+
+      m = /^(\s*)(`{3,}|~{3,})(.*)$/.exec(line);
       if (m) {
         fence = m[2];
         out.push(m[1] + span('raw', m[2]) + span('info', m[3]));
