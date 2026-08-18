@@ -80,9 +80,19 @@
  * document, which is the same rule the display-indent follows. **Newlines are text, indentation is
  * padding, a line number is neither**: `content: counter(cl)` cannot be selected or copied at all.
  */
+/* **This applies to every `pre`, and only half of them get numbers — which is deliberate.** Measured:
+ * 166 code blocks across the docs, 86 painted (`bmx`, `burxt`) and 80 not (`html`, `sh`, and the bare
+ * blocks holding a refusal), of which **38 sit directly beside a painted one.** The dominant shape on
+ * these pages is a `bmx` document followed by the HTML it produces, so scoping this inset to painted
+ * blocks would step the output's left edge 3.6em left of the input's, in a stacked pair a reader is
+ * comparing line by line. The inset stays; the numbers are what varies, and the asymmetry says which
+ * panel is source and which is output.
+ *
+ * The comment here used to read "room for the gutter", which was true of 86 blocks and silent about 80.
+ */
 .doc-body pre {
   counter-reset: cl;
-  padding-left: 3.6em;            /* room for the gutter, which is drawn outside each line's box */
+  padding-left: 3.6em;
 }
 
 .doc-body pre code .cl {
