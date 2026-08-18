@@ -216,6 +216,29 @@ A head may carry them, and this is the one part of a head BMX has an opinion abo
 **A block emits nothing by itself.** The host decides what `card` renders and whether `on:click`
 becomes anything at all — which is what keeps a format with no runtime from acquiring one.
 
+### A head on one line with a body
+
+`-> [ … ]` says where the head stops, so the rest of the line is the body:
+
+```bmx
+:button: -> [on:click=save(id), .featured, #plans] Save :!button:
+```
+
+- **The head is the bytes between `[` and the first `]`** that is not inside a `"…"` value or a
+  `{{ … }}` slot — so `-> [title="a]b"]` and `-> [class={{ tags[0] }}]` hold the bracket they were
+  written with. `BMX-E037` if that `]` never arrives.
+- **Everything after the `]` is body**, and on a one-liner it is *inline content* — so `**bold**` is
+  emphasis and a slot is a slot, both escaped by BMX. That is the difference from a host attribute
+  carrying the same text, which is a string the format never looks inside.
+- **The delimiter is optional.** Without it there is no body: `:span: class=text hello :!span:` puts
+  `hello` in the head, because the format cannot tell where your attributes stopped.
+- **A body after the `]` needs the line to close** — `BMX-E038` otherwise, because the body would
+  have two sources and no reader could tell which won.
+
+`->` and not `=>`: both are Burxt tokens, and `=>` is the match arm, so `:case: Post(id) => [x]` would
+read as one. A bare `[` cannot work either — `[text](url)` is a link, so a body beginning with one
+would be ambiguous.
+
 ### Declaring what a document needs
 
 A `props` block gives a document its own signature, so another document can call it:
