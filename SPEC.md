@@ -416,8 +416,16 @@ The same construct in a sentence:
 Press ::key[Ctrl+S]:: to save, or ::icon[trash]:: to discard.
 ```
 
-`::`, a name, `[`, an opaque head, `]`, `::`. The head may not contain an unescaped `]`, and the
-whole thing must close on its line — `BMX-E034` otherwise.
+`::`, a name, `[`, an opaque head, `]::`. **The head ends at the first `]::`**, so a `]` inside it is
+ordinary — `::key[a]b]::` has the head `a]b` — and the whole thing must close on its line, `BMX-E034`
+otherwise.
+
+*Until 0.11.1 this said the head "may not contain an unescaped `]`", and both halves were false: a `]`
+not followed by `::` has always been accepted, and `]` is not in the escapable set at all (`BMX-E021`
+lists it as ` \`` `, `*`, `[`, `{` and `\`). A normative sentence describing a rule that does not exist
+is the same defect as a test asserting nothing, and it was found by grepping this document for its own
+verbs rather than by reading the parser — star-burxt's method, and the tenth family we have traded:
+**a claim in prose is a specification nobody runs.***
 
 **An inline block is not a slot, and the difference is the guarantee.** A slot's value is escaped,
 always (see [`ESCAPING.md`](ESCAPING.md)). An inline block is a call to something the host

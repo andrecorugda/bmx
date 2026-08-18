@@ -49,7 +49,7 @@ A target is not text. `[click](javascript:steal())` is a working attack in HTML 
 character escaping addresses, because the danger is the *scheme*, not the bytes.
 
 **A host MUST refuse a target whose scheme it does not allow**, and
-[`tests/targets.py`](tests/targets.py) tests it — sixteen targets, per renderer, each asserted to render
+[`tests/output.py`](tests/output.py) tests it — sixteen targets, per renderer, each asserted to render
 or to refuse.
 
 **A scheme comparison MUST fold case.** RFC 3986 §3.1 says scheme names are case-insensitive, so
@@ -79,8 +79,9 @@ So an implementation claiming conformance must additionally show:
 Three tests. They are the ones that matter, and an implementation that passes the AST suite and
 skips these has proved the easy half.
 
-Here they are [`tests/targets.py`](tests/targets.py) for the third and [`burxt/test.py`](burxt/test.py)
-for the first two. **Both of those sentences were wrong until 0.11**, and the way they were wrong is
+Here they are [`tests/output.py`](tests/output.py) for the second and third — it also pins the one place
+a DOCUMENT's own bytes reach an attribute, a code fence's info string — and
+[`burxt/test.py`](burxt/test.py) for the first. **Both of those sentences were wrong until 0.11**, and the way they were wrong is
 worth keeping:
 
 - *"the conformance suite tests this"* was an assertion. `tests/renders.py` was the nearest thing, and it

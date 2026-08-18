@@ -356,7 +356,7 @@ So the release is both at once, and it is one tag rather than two because the co
 *"the conformance suite tests this"* about the scheme refusal, and pointed at
 `tests/pass/bmx_library.bx` in the Burxt repository — a path that went away with the `lib/` migration.
 Nothing tested it: `renders.py` compares the two renderers and treats **both refusing as agreement**, so
-if both had stopped refusing `javascript:` it would still have passed. `tests/targets.py` asserts the
+if both had stopped refusing `javascript:` it would still have passed. `tests/output.py` asserts the
 outcome per renderer now, sixteen targets, and its control is a renderer that renders nothing, which must
 fail all sixteen.
 
@@ -364,3 +364,31 @@ The lesson is not new but the location is: **the security-critical half of the c
 sentence, and the sentence named a file that did not exist.** A normative document pointing at a missing
 test is worse than one pointing at none, because a reader who goes looking concludes they have the wrong
 checkout.
+
+## 0.11.1 is a patch, and the finding came from grepping prose for verbs
+
+star-burxt named the family after 0.11: **a claim in prose is a specification nobody runs.** The grep is
+not for a token, it is for the *verbs* — *checked*, *refused*, *cannot*, *the tests* — and then asking of
+each claim whether anything would notice if it stopped being true. Pointed at this repository's own
+normative documents it found two, and one of them was a defect in the code rather than in the prose.
+
+**`SPEC.md` §4a.4 said an inline block's head "may not contain an unescaped `]`", and both halves were
+false.** A `]` not followed by `::` has always been accepted — `::key[a]b]::` has the head `a]b` — and `]`
+is not in the escapable set at all, so "unescaped" described a mechanism that does not exist. The real
+rule is that the head ends at the first `]::`, which is a better rule and is now what the document says.
+
+**And chasing that sentence found a false refusal.** `::key[Ctrl+S]:: saves` — an inline block at the
+start of a line — was refused as a block with an empty name, because 0.7's malformed-opener pattern used
+`*` where it needed `+` and therefore matched `::`. **The reference implementation only:** `bmx.bx`
+excludes `::` explicitly, so the two implementations disagreed and `tests/agree.py` never saw it, because
+the one fixture beginning with `::` has it inside a code fence.
+
+That is why this is a **patch and not a widening**: SPEC §4a.4 puts no line-position restriction on an
+inline block, so the format never changed — one implementation was non-conforming and now is not.
+
+**The second prose claim was true and untested.** `docs/styling.md` says *"the info string is checked as a
+name before it becomes a class, so a document cannot inject an attribute through it"*. It is true —
+`x" onload="steal()` produces no class at all. Nothing asserted it, and every fixture used `burxt` or
+`js`. It is the one place a DOCUMENT's own bytes reach an attribute, which makes it the same hazard class
+as a link target, so it lives beside them in `tests/output.py` — renamed from `targets.py`, because a
+file whose name describes half of what it does is the stale-pointer defect this release is about.

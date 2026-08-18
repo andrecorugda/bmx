@@ -413,7 +413,14 @@ const ONELINER = /^(.*?)[ \t]*:!([A-Za-z][A-Za-z0-9_-]*):[ \t]*$/
 const OLD_FENCE = /^:{3,}/
 // A line that reaches for an opener and misses. Without this, `:9lives:` is a paragraph beginning with
 // a colon rather than a refusal — silence in the one place the format promises noise.
-const MALFORMED = /^:([^:\s]*):/
+//
+// **`+` rather than `*`, because `*` matched `::`** — so a line BEGINNING with an inline block,
+// `::key[Ctrl+S]:: saves`, was refused as a block with an empty name. A false refusal of correct input,
+// in the reference implementation only: `bmx.bx` excludes `::` explicitly, so the two disagreed and
+// `tests/agree.py` never saw it, because the one fixture starting with `::` has it inside a code fence.
+// SPEC §4a.4 puts no line-position restriction on an inline block, so this file was the non-conforming
+// one — which is why 0.11.1 is a patch rather than a widening: the format did not change.
+const MALFORMED = /^:([^:\s]+):/
 
 export function parse(source) {
   const rows = lines(source)
@@ -1077,7 +1084,7 @@ export function render(source, bindings = {}) {
 if (process.argv[1] && process.argv[1].endsWith('bmx.js')) {
   const { readFileSync } = await import('node:fs')
   // `--render` because the escaping contract is about OUTPUT, and until 0.11 this file could only be
-  // asked for an AST from a shell. `tests/targets.py` needs both implementations to answer the same
+  // asked for an AST from a shell. `tests/output.py` needs both implementations to answer the same
   // question — does this target render or refuse — and a test that can only interrogate one of them
   // proves half of the thing that matters most.
   const args = process.argv.slice(2)
