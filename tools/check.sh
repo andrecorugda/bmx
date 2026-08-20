@@ -74,6 +74,8 @@ run "the parser imports where there is no Node" bash -c '
   node tests/embeds.mjs && node tests/embeds.mjs --prove-it'
 run "every file that is not Burxt says why it is not" bash -c '
   python3 tests/languages.py && python3 tests/languages.py --prove-it'
+run "no runner advertises a control it does not read" bash -c '
+  python3 tests/controls.py && python3 tests/controls.py --prove-it'
 
 echo
 echo "the editor surface"

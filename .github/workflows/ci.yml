@@ -149,6 +149,16 @@ jobs:
           python3 tests/languages.py
           python3 tests/languages.py --prove-it
 
+      # **A control that cannot fail reports success forever**, and it is the one thing the steps around it
+      # cannot see: they would notice a control that crashes, and doing nothing looks exactly like passing.
+      # The star-burxt session found one in their tree — a runner whose header advertised `--prove-it` while
+      # the flag was a hardcoded `false`. It ran, printed its success line, exited 0, and had never been
+      # watched fail. Nine of their ten were live; that is the ratio that makes this worth a step.
+      - name: No runner advertises a control it does not read
+        run: |
+          python3 tests/controls.py
+          python3 tests/controls.py --prove-it
+
       # **Every failure mode of a language server is a silence.** A wrong Content-Length, a frame
       # split across two chunks, a request answered with nothing — the editor does not error, it just
       # stops showing diagnostics, and the author concludes the extension is broken. So the framing is
