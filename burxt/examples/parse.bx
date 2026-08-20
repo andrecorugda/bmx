@@ -9,13 +9,24 @@
 // A documented command that cannot work, in the usage block of a program whose entire interface is
 // its argument — surviving because CI never ran this line. It builds to `-o` and runs the binary,
 // which is the form below and the only one that works.//
-// **Dated, and re-test it when the pin moves.** Burxt has a fix that forwards everything after a bare
-// `--` to the program, so this line's original form will eventually be the right one. It is **not in
-// published 1.5.0**, which is what `ci.yml` pins and what this was checked against — the `--` still
-// reaches `cc` and the build still fails. Reported as *"works now"* by its author, from a tree that has
-// it; taking that at face value would have documented a command that fails for every user of the
-// release. **A claim about another repository is a claim to verify**, which is the same lesson as
-// inferring a tool's behaviour from the name of its command.
+// **The date resolved: `burxt run … -- args` works, from published 1.6.0.** Verified against the
+// downloaded asset, digest checked, on 2026-08-21:
+//
+//     burxt run burxt/examples/parse.bx -- tests/cases/001-paragraph.bmx   ->  the AST
+//     burxt run burxt/examples/parse.bx -lnosuchlib                        ->  still reaches cc, still fails
+//
+// The second line matters as much as the first: a forwarding rule that swallowed link arguments would be
+// worse than the bug it fixed. Both directions hold.
+//
+// **The documented form below does not change, and that is the point of a floor.** `docs/install.md`
+// states Burxt 1.3.0, and `burxt run … --` fails on 1.3.0, 1.4.0 and 1.5.0. A usage line has to work for
+// the version a reader is told is enough, not for the newest one — so build-then-run stays, and the
+// `run --` form is available to anyone on 1.6.0 or later.
+//
+// The history is kept because it is the lesson rather than the fact. This line carried the `run --` form
+// from the day it was written, when nothing could run it; it was then reported to me as fixed while the
+// fix existed only in its author's tree; **and only a download could tell those two states apart.** Its
+// author declined to make the claim the second time and asked me to run it instead.
 //
 // Prints the AST as JSON on success, or the error's code and message on stderr with a non-zero
 // exit. That is the whole interface the format's conformance suite needs from an

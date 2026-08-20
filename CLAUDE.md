@@ -273,11 +273,16 @@ Three layers of the same error, each one believed to be the ground: the installe
 `dist/` tarball, then the published asset. **Only the third is what CI downloads**, and only a checksum
 tells them apart — `burxt --version` prints the same string for all of them.
 
-**Raising the pin has a second job: re-test the dated claims.** `burxt/examples/parse.bx` and
-`burxt/conformance.bx` both state that `burxt run` cannot pass a program an argument — true of published
-1.5.0, measured, and Burxt has an unreleased fix that forwards after a bare `--`. A constraint that will
-lift wants a date on it rather than removal, because documenting the fixed form early breaks every reader
-on the current release. Grep for `Dated` before bumping `BURXT`.
+**Raising the pin has a second job: re-test the dated claims.** Grep for `Dated` before bumping `BURXT`.
+The habit has already paid once: both `.bx` files stated that `burxt run` cannot pass a program an
+argument, which was true of published 1.5.0 and is false from 1.6.0 — verified against the downloaded
+asset rather than on its author's word, after an earlier report of the same fix turned out to exist only
+in their tree.
+
+**And the resolution did not change the documented command, which is the part worth copying.** The floor
+in `docs/install.md` is 1.3.0, and `run --` fails on everything before 1.6.0 — so a usage line has to work
+for the version a reader is told is enough, not for the newest one. A capability arriving is not
+permission to document it.
 
 `git grep -l "function <name>(" v1.5.0 -- lib` in `~/burxt` answers the narrower question — whether a
 symbol exists in the release — without a build, **and that shortcut is sound for a measured reason rather
