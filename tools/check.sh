@@ -90,7 +90,18 @@ else
 fi
 run "the editor behaves the way the format reads" node editors/vscode/test/config.mjs
 run "the language server says what it should, in the right coordinates" node editors/lsp/test/protocol.mjs
+# **The staged parser is deleted before it is staged, and that is not belt-and-braces.** `preview.js`
+# imports `editors/vscode/reference/bmx.mjs`, which is gitignored, and it **passes against a stale one** —
+# measured: staged a copy of the parser from four days earlier and it exited 0. So the `cp` below is the
+# only thing making the tested parser the current one, and a leftover satisfies the check just as well.
+# There was one: a `bmx.js` in that directory dated four days back, an orphan of an older staging scheme,
+# invisible because the directory is ignored.
+#
+# The Burxt session's rule, after a `.vsix` that `cp -r` had carried into a scratch copy let a packer test
+# pass while the packer wrote into the real tree: **delete what you are about to assert the creation of,
+# before you assert it.** A single `rm -rf` turns luck into a check.
 run "the preview does what the button promises" bash -c '
+  rm -rf editors/vscode/reference &&
   mkdir -p editors/vscode/reference &&
   cp reference/bmx.js editors/vscode/reference/bmx.mjs &&
   node editors/vscode/test/preview.js'
