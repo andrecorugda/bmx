@@ -196,6 +196,14 @@ Three of the reasons are properties of BMX being a *format*, and they are not ne
 by a JS engine; `docs/assets/code.js` runs in a reader's browser) and `vendored` is a byte copy from
 burxt-lang.org that must not be edited at all.
 
+**Two questions sort every entry here, and the second is the one that gets skipped.** *Which job runs
+this, and is that job allowed to need Burxt* — and then *is the capability actually absent, or did I stop
+checking*. The first forbids things a release cannot unforbid: `editors/vscode/pack.py` and
+`tests/branding.py` are reachable from the conformance job, so a zip module or a PNG decoder in Burxt
+changes nothing about them. The second is how `docs/assets/code.js` sat in `platform` claiming a browser
+needs JavaScript, months after Burxt reached a browser through wasm. The Burxt session, who sharpened this
+from the question into its two halves, found their own instance the same day.
+
 **`gap` is the only category that should ever shrink**, and it is named rather than defended:
 `tests/surface.py` **already requires the Burxt toolchain**, so it has no standalone defence and is
 the real remaining gap — as did `burxt/test.py`, now `burxt/guarantees.bx`; `editors/lsp/bmx-lsp.mjs` could be Burxt but would cost the

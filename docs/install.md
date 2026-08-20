@@ -105,8 +105,11 @@ be kept in step by hand.
 > **CI here builds against 1.4.0, and that is not the floor.** The pin is what this project tests
 > against; the floor is what your host needs. They moved apart when 1.4.0 shipped `burxt fmt`, which
 > this repository uses to check its own indentation — a tool, not a language feature. The formatted
-> implementation still compiles on 1.3.0 and passed the whole suite there — all 92 cases as it stood at
-> BMX 0.12 — measured rather than assumed.
+> implementation still compiles on 1.3.0 and passes the whole suite there — 92 cases, and both of this
+> repository's own Burxt runners build and pass on it too. **Measured against the published 1.3.0 asset,
+> downloaded and checked against that release's `SHA256SUMS`** — because a version string does not identify
+> a compiler, and for one tag on the machine this was written on there were three different binaries all
+> reporting the same version.
 > **A pin quoted as a requirement tells every host to upgrade for a reason that is not theirs.**
 
 ### The two command-line tools
