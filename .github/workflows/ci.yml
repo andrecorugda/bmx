@@ -19,10 +19,22 @@ jobs:
   conformance:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # **`@v5` because `@v4` runs on Node 20, which GitHub has deprecated.** Today's runs are forced
+      # onto Node 24 with a warning; the warning becomes a failure when the shim is dropped, on
+      # somebody else's schedule. Raised deliberately, in its own commit, the way the `BURXT` pin is.
+      #
+      # **v5 rather than the newest, which is v7.** v5, v6 and v7 all target node24, so the whole
+      # deprecation is cleared by the smallest step — and each further major carries changes nobody here
+      # has read. Two things v5 actually changes, both checked rather than assumed: `checkout` requires
+      # runner v2.327.1 or newer, which GitHub-hosted runners are long past; and `setup-node` turns
+      # caching on automatically when `package.json` declares a `packageManager`. This repository has no
+      # root `package.json` at all, so that cannot fire — and it is switched off explicitly anyway,
+      # because *cannot fire today* is a property of the tree rather than of the workflow.
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '20'
+          package-manager-cache: false
       - name: The reference implementation passes the suite
         run: python3 tests/harness.py "node reference/bmx.js"
 
@@ -259,7 +271,7 @@ jobs:
   burxt-implementation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install the Burxt this release of BMX supports
         env:
