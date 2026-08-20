@@ -43,6 +43,18 @@ That fix removes the friction. This file removes the option:
   `initialize` with `0.1.0` while producing 0.12 diagnostics, and its own test asserted the *name* — the
   half that never changes. Read from source rather than over the wire, which is the weaker of the two and
   enough for the failure that actually happens: nobody bumps it.
+- **And the install PATH, which is the same promise one step out.** A page naming a `.vsix` that is not in
+  the tree is checked above; a page naming an extensions *directory* that does not exist on the reader's
+  machine is the same defect and was not. `~/.vscode/extensions` is wrong in every remote window — VS Code
+  Server loads extensions from the remote host — and **the machine BMX is developed on has no such
+  directory.** The star-burxt session lost Andre a day to exactly this sentence in star's docs: three
+  finished grammars, packed correctly, never installed, no error to search for because a `cp` into a path
+  whose parent exists succeeds silently. `code --install-extension` is the instruction that removes the
+  class, because it resolves the directory and prints which machine it used.
+
+  So: every page that tells somebody to install must name `code --install-extension`, and a page naming a
+  raw extensions directory must name the remote one beside it. **This is a lint on prose, which is the only
+  kind of check available** — CI has no VS Code, so the instruction cannot be executed, only kept honest.
 """
 
 import json
@@ -160,6 +172,30 @@ def main():
           f"every .vsix the documentation names exists ({', '.join(sorted(named))})",
           f"the documentation tells someone to install {', '.join(missing)}, which is not in the tree")
 
+    # The path half of the same promise. A directory is not a file, so the check above cannot see it.
+    LOCAL, REMOTE = "~/.vscode/extensions", "~/.vscode-server/extensions"
+    bare, teaches = [], []
+    for page in PAGES:
+        body = (ROOT / page).read_text()
+        if prove and page == "editors/README.md":
+            # The control is the defect as it was written: the local directory, alone, in an instruction.
+            body = body.replace(REMOTE, "~/.vscode/extensions-CONTROL")
+        if "install-extension" in body:
+            teaches.append(page)
+        # A page may mention the local directory freely — it must not be the ONLY one it names, because a
+        # reader in a remote window follows it into a directory nothing reads.
+        if LOCAL in body and REMOTE not in body:
+            bare.append(page)
+    check(not bare,
+          f"no page sends a reader to {LOCAL} without naming {REMOTE} beside it",
+          f"{', '.join(bare)} names {LOCAL} alone, which is a directory nothing reads in a remote window")
+    check(teaches,
+          f"the install instruction every page leads with is `code --install-extension` "
+          f"({len(teaches)} page{'' if len(teaches) == 1 else 's'})",
+          "no page names `code --install-extension`, so every reader is left resolving the "
+          "extensions directory themselves")
+
+
     # A leftover from the old scheme is a second answer to "which one do I install".
     stale = sorted(p.name for p in (ROOT / "editors" / "vscode").glob("bmx-*.vsix"))
     check(not stale, "no versioned .vsix is left over from the old naming",
@@ -168,8 +204,8 @@ def main():
     print()
     if prove:
         if failures:
-            print("the control failed as it must — an unbumped version, a stale artefact and a "
-                  "documented filename that does not exist are all caught")
+            print("the control failed as it must — an unbumped version, a stale artefact, a documented "
+                  "filename that does not exist and an install path nothing reads are all caught")
             return 0
         print("THE CONTROL DID NOT FAIL, so this check cannot see the defect it exists for")
         return 1

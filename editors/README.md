@@ -195,9 +195,26 @@ Build it yourself from a checkout — no npm, no `vsce`, no toolchain:
 python3 editors/vscode/pack.py
 ```
 
-A symlink works too (`ln -s "$PWD/editors/vscode" ~/.vscode/extensions/bmx`) and is fine while you
-are editing the grammar, but an installed extension is registered, versioned and uninstallable
-through the normal UI.
+A symlink works too and is fine while you are editing the grammar, but an installed extension is
+registered, versioned and uninstallable through the normal UI. **Ask your editor where its extensions
+live rather than assuming**, because there are two answers:
+
+```sh
+ln -s "$PWD/editors/vscode" ~/.vscode/extensions/bmx          # a local editor window
+ln -s "$PWD/editors/vscode" ~/.vscode-server/extensions/bmx   # VS Code Server: WSL, SSH, a container
+```
+
+**This line named only the first, and on the machine BMX is developed on that directory does not
+exist.** A remote window loads extensions from the *remote* host, so the local path is not merely a
+different spelling — it is a directory nothing reads. `code --install-extension` above is the
+instruction to prefer for exactly this reason: it resolves the directory itself and prints which
+machine it used (`Installing extensions on WSL: Ubuntu…`), which is the one line that tells you the
+install went where you are.
+
+The star-burxt session lost Andre a day to the same sentence: three finished grammars, packed
+correctly, that were never installed because the documented folder was one nothing reads on his
+machine — and a `cp` into a path with an existing parent succeeds silently, so there was no error to
+search for.
 
 Helix and Neovim configurations are in their directories, each a few lines.
 
