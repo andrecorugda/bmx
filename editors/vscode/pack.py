@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Package the extension as a .vsix, with no toolchain.
 
-    python3 editors/vscode/pack.py            # writes bmx-<version>.vsix here
+    python3 editors/vscode/pack.py            # writes bmx.vsix here
     code --install-extension editors/vscode/bmx.vsix
 
 Adapted from Burxt's packer, which is the same three-part archive and the same

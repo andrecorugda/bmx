@@ -67,6 +67,7 @@ import zipfile
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PKG = ROOT / "editors" / "vscode" / "package.json"
 VSIX = ROOT / "editors" / "vscode" / "bmx.vsix"
+PACK = ROOT / "editors" / "vscode" / "pack.py"
 
 # Where somebody is told to install it. A promise to install a file is a promise the file is there.
 PAGES = ["docs/editor.md", "docs/install.md", "editors/README.md", "editors/vscode/README.md",
@@ -195,6 +196,28 @@ def main():
           "no page names `code --install-extension`, so every reader is left resolving the "
           "extensions directory themselves")
 
+    # **The packer's own usage line, which promised a filename it stopped writing.** It said
+    # `writes bmx-<version>.vsix here` while the code twelve lines from the end writes `bmx.vsix` — stale
+    # in the one file whose long comment explains why the version was taken OUT of the filename.
+    #
+    # **Two checks missed it for the same reason:** `bmx-<version>.vsix` contains `<` and `>`, which are not
+    # in `[\w.-]`, so the name-scan above never matched the placeholder at all — not before the
+    # install-extension scoping and not after. It was found because the Burxt session objected to that
+    # scoping, naming *a docstring claiming output* as a promise site their broader rule covers and mine
+    # dropped. They were right that the site matters, and right for a better reason than either of us
+    # argued: it was already wrong.
+    #
+    # So the promise is compared to the behaviour rather than to a pattern — the usage line's filename
+    # against the name the packer actually builds. No wording heuristic, and a placeholder cannot slip
+    # through, because a placeholder is not equal to a real name.
+    writes = re.search(r"writes\s+(\S+\.vsix)\s+here", PACK.read_text())
+    builds = f"{json.loads(PKG.read_text())['name']}.vsix"
+    promised_out = writes.group(1) if writes else "(no `writes … here` line)"
+    if prove:
+        promised_out = "bmx-<version>.vsix"
+    check(promised_out == builds,
+          f"the packer's usage line promises {builds}, which is what it writes",
+          f"the packer's usage line promises {promised_out} but it writes {builds}")
 
     # A leftover from the old scheme is a second answer to "which one do I install".
     stale = sorted(p.name for p in (ROOT / "editors" / "vscode").glob("bmx-*.vsix"))
