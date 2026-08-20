@@ -1,6 +1,14 @@
 // burxt/examples/parse.bx — the BMX conformance harness's other half.
 //
-//     burxt run burxt/examples/parse.bx -- document.bmx
+//     burxt build burxt/examples/parse.bx -o bmx-parse && ./bmx-parse document.bmx
+//
+// **Built and run, because `burxt run` cannot pass a program an argument.** This line said
+// `burxt run burxt/examples/parse.bx -- document.bmx` from the day the file was written, and that
+// fails at the linker: `burxt build <file.bx> [link args...]` treats anything after the file as a
+// LINK argument, so `--` reaches `cc` and the build dies with `unrecognized command-line option`.
+// A documented command that cannot work, in the usage block of a program whose entire interface is
+// its argument — surviving because CI never ran this line. It builds to `-o` and runs the binary,
+// which is the form below and the only one that works.
 //
 // Prints the AST as JSON on success, or the error's code and message on stderr with a non-zero
 // exit. That is the whole interface the format's conformance suite needs from an

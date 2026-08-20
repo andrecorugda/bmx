@@ -1,0 +1,192 @@
+// burxt/conformance.bx — the conformance suite, driven by Burxt over the Burxt implementation.
+//
+//     burxt run burxt/conformance.bx                                  # from the repository root
+//     burxt build burxt/conformance.bx -o conf && ./conf <suite-dir>   # or say where the suite is
+//
+// **The second form is built rather than `run`, because `burxt run` cannot pass an argument.**
+// `burxt build <file.bx> [link args...]` reads anything after the file as a link argument, so a
+// `--` reaches `cc` and the build fails. I wrote the `run … -- tests` form here first, copying it
+// from `burxt/examples/parse.bx`, whose usage line had carried exactly that impossible command
+// since it was written — never executed, because CI builds to `-o` and runs the binary.
+//
+// **Why this exists when `tests/harness.py` already runs this implementation.** The rule across these
+// three projects is that if a thing can be written in Burxt it must be, and reaching for another
+// language is a gap report rather than a solution. `harness.py` was not the gap — it takes an arbitrary
+// command, so a stranger implementing BMX in a sixth language can check their work without the Burxt
+// toolchain, and that neutrality is the format's central claim rather than a convenience. It stays
+// exactly what it is.
+//
+// The gap was that **the implementation Burxt users actually get was verified only by a program in
+// another language.** This closes it: `bmx.bx` is now driven over the same fixtures by the language it
+// serves, and the two runners answer the same question from opposite sides. Neither replaces the other
+// — if they ever disagree, one of them has a bug and the suite is the arbiter.
+//
+// It is deliberately NOT part of the specification, for the same reason `harness.py` is not: the
+// fixtures are the specification, and a runner is a few lines around whatever reads them.
+use "bmx.bx";
+use "std/os.bx";
+use "std/files.bx";
+use "std/json.bx";
+use "std/string.bx";
+
+// **Where the suite is, asked rather than assumed.** A default of `tests` only works from the
+// repository root, and a runner that silently reports every case as missing when it is standing in the
+// wrong directory is the defect `tests/probe.py` exists for — 87 failures where the fact was one wrong
+// argument. So a missing directory is diagnosed by name, with the argument that would fix it.
+let mutable root: String = "tests";
+if os_arg_count() > 1 {
+    root = os_arg(1);
+}
+
+let cases_dir: String = root + "/cases";
+let errors_dir: String = root + "/errors";
+
+if !file_is_directory(cases_dir) {
+    print_error("no suite at " + cases_dir + " — run this from the repository root, or pass the");
+    print_error("directory holding `cases/` and `errors/`, which needs the built form:");
+    print_error("  burxt build burxt/conformance.bx -o conf && ./conf <dir>");
+    exit(2);
+}
+
+let mutable total: Int = 0;
+let mutable failures: [String] = [];
+
+// ---- input -> expected AST --------------------------------------------------
+//
+// The fixture is normalised through the SAME printer as our own tree before comparing, so a fixture
+// reindented by a person still passes: what is being compared is the structure, not the bytes. Every
+// fixture happens to be byte-identical to this implementation's output today, and comparing bytes
+// directly would have quietly turned that coincidence into a requirement no other implementation
+// agreed to.
+match file_list_directory(cases_dir) {
+    None => {
+        print_error("cannot list " + cases_dir);
+        exit(2);
+    }
+    Some(entries) => {
+        let mutable i: Int = 0;
+        while i < len(entries) {
+            let name: String = entries[i];
+            if string_ends_with(name, ".bmx") {
+                total = total + 1;
+                let stem: String = substring(name, 0, len(name) - 4);
+                let doc: String = cases_dir + "/" + name;
+                let fixture: String = cases_dir + "/" + stem + ".json";
+                match file_read_maybe(doc) {
+                    None => {
+                        let a: Int = push(failures, name + ": cannot read the document");
+                    }
+                    Some(source) => {
+                        match file_read_maybe(fixture) {
+                            None => {
+                                let b: Int = push(failures, name + ": no .json beside it");
+                            }
+                            Some(expected) => {
+                                match bmx_parse(source) {
+                                    Error(message) => {
+                                        let c: Int = push(failures,
+                                                name + ": expected an AST, got " + message);
+                                    }
+                                    Ok(blocks) => {
+                                        let got: String = json_render(bmx_json(blocks));
+                                        match json_parse(expected) {
+                                            Error(why) => {
+                                                let d: Int = push(failures,
+                                                        name + ": its .json is not JSON: " + why);
+                                            }
+                                            Ok(want_tree) => {
+                                                let want: String = json_render(want_tree);
+                                                if got != want {
+                                                    let e: Int = push(failures, name
+                                                                + "\n  expected " + want
+                                                            + "\n  actual   " + got);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            i = i + 1;
+        }
+    }
+}
+
+// ---- input -> expected error CODE -------------------------------------------
+//
+// The `.error` file holds the code alone. The message after it is each implementation's own words and
+// is not compared — the code is the conformance surface, which is why a refusal here is checked with
+// `string_starts_with` rather than equality.
+match file_list_directory(errors_dir) {
+    None => {
+        print_error("cannot list " + errors_dir);
+        exit(2);
+    }
+    Some(entries) => {
+        let mutable j: Int = 0;
+        while j < len(entries) {
+            let name: String = entries[j];
+            if string_ends_with(name, ".bmx") {
+                total = total + 1;
+                let stem: String = substring(name, 0, len(name) - 4);
+                let doc: String = errors_dir + "/" + name;
+                let fixture: String = errors_dir + "/" + stem + ".error";
+                match file_read_maybe(doc) {
+                    None => {
+                        let a: Int = push(failures, name + ": cannot read the document");
+                    }
+                    Some(source) => {
+                        match file_read_maybe(fixture) {
+                            None => {
+                                let b: Int = push(failures, name + ": no .error beside it");
+                            }
+                            Some(raw) => {
+                                // `string_trim`, not `bmx_strip_end` — the implementation's own
+                                // helper strips trailing SPACES only (§2 of the spec cares about
+                                // spaces, not line endings), so every one of the 35 refusal
+                                // fixtures compared as `BMX-E031\n` against `BMX-E031 at 0: …`
+                                // and all 35 failed on the newline. The AST half passed
+                                // throughout, which is what made it look like a refusal bug.
+                                let code: String = string_trim(raw);
+                                match bmx_parse(source) {
+                                    Ok(blocks) => {
+                                        let c: Int = push(failures,
+                                                name + ": expected " + code + ", but it parsed");
+                                    }
+                                    Error(message) => {
+                                        if !string_starts_with(message, code) {
+                                            let d: Int = push(failures, name + ": expected "
+                                                    + code + ", got " + message);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            j += 1;
+        }
+    }
+}
+
+let mutable k: Int = 0;
+while k < len(failures) {
+    print(failures[k]);
+    k = k + 1;
+}
+print(to_string(total) + " cases, " + to_string(total - len(failures)) + " passed, "
+        + to_string(len(failures)) + " failed");
+
+// A suite that finds nothing passes silently, which is the shape of every ratchet failure worth
+// naming. `ci.yml` asserts the same floor over the same directories from the other side.
+if total == 0 {
+    print_error("no documents found under " + root + " — that is a broken runner, not a green suite");
+    exit(2);
+}
+if len(failures) > 0 {
+    exit(1);
+}

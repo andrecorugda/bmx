@@ -111,7 +111,18 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   echo "the Burxt implementation — needs a released burxt on PATH and BURXT_LIB set"
   run "it compiles" bash -c 'burxt build burxt/examples/parse.bx -o /tmp/check-parse'
   # Needs burxt 1.4.0 or newer, which is the pinned version — `fmt` did not exist before it.
-  run "it is formatted" bash -c 'burxt fmt --check burxt/bmx.bx'
+  # **Both Burxt files, because the check named one.** `conformance.bx` arrived unformatted and this
+  # step would not have said so — the same shape as the scopes that were hand-listed elsewhere today.
+  run "it is formatted" bash -c '
+    burxt fmt --check burxt/bmx.bx burxt/conformance.bx burxt/guarantees.bx'
+  # **The implementation Burxt users get, verified by the language it serves.** `harness.py` above asks
+  run "it is formatted" bash -c '
+    burxt fmt --check burxt/bmx.bx burxt/conformance.bx'
+  # BMX in a sixth language can use without this toolchain. This one closes the gap that the Burxt
+  # implementation was checked only by a program in another language. If the two ever disagree, one of
+  # them has a bug and the fixtures are the arbiter.
+  run "the suite runs on Burxt, over the Burxt implementation" bash -c '
+    burxt build burxt/conformance.bx -o /tmp/check-conformance && /tmp/check-conformance'
   run "it passes the format's own suite" python3 tests/harness.py /tmp/check-parse
   run "the two implementations agree with each other" python3 tests/agree.py 'node reference/bmx.js' /tmp/check-parse
   run "no document can reach the output through a target or an info string" bash -c '

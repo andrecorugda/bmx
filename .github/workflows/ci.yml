@@ -318,7 +318,24 @@ jobs:
       # dependency runs later fails in a way that reads like the tool being broken.
       - name: The Burxt implementation is formatted
         run: |
-          burxt fmt --check burxt/bmx.bx
+          burxt fmt --check burxt/bmx.bx burxt/conformance.bx
+
+      # **The rule across these three projects: if it can be written in Burxt, it must be, and reaching
+      # for another language is a gap report rather than a solution.** `harness.py` was never the gap —
+      # it takes an arbitrary command, so a stranger implementing BMX in a sixth language can check their
+      # work without this toolchain, and that neutrality is the format's central claim. It is untouched.
+      #
+      # The gap was that **the implementation Burxt users actually get was verified only by a program in
+      # another language.** This drives `burxt/bmx.bx` over the same fixtures in Burxt. Two runners, one
+      # question, opposite sides: if they disagree, one has a bug and the fixtures decide.
+      #
+      # Built rather than `burxt run`, because `burxt run` cannot pass a program an argument — anything
+      # after the file is a LINK argument, which is how `parse.bx`'s documented invocation turned out to
+      # have never worked.
+      - name: The suite runs on Burxt, over the Burxt implementation
+        run: |
+          burxt build burxt/conformance.bx -o /tmp/bmx-conformance
+          /tmp/bmx-conformance
 
       - name: The Burxt implementation passes the format's own suite
         run: |
