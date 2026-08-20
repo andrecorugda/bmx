@@ -1,0 +1,28 @@
+# What Burxt reads to know this directory is a package, so `bmx_parse` and the rest of
+# `burxt/bmx.bx` can be reached by name rather than by whatever URL a consumer happened to type.
+# Added when the Burxt session listed bmx first on `docs/packages.md` and measured that it declared
+# nothing — star's build worked anyway, because a package import resolves as a path join under the
+# fetched directory, but nothing named or versioned the package it fetched.
+#
+# **The number here is the FORMAT's, not this implementation's, and that is the whole subtlety.**
+# `VERSIONING.md` says an implementation's version tracks its own exports and is not the format's —
+# a rule this repository's 21 tags do not follow: `burxt-0.12.2` tags a release in which
+# `burxt/bmx.bx` is byte-identical to `burxt-0.12.1` and its 27 `public` names are unchanged. It was
+# an extension and branding release. So the tag prefix says WHICH implementation and the digits say
+# which format. `VERSIONING.md` now says this out loud instead of the reverse.
+#
+# **No tool reads this number today, and the first draft of this comment said one did.** I wrote that
+# `burxt review --semver` would compare an exported surface against it — reasoning from the command's
+# NAME, which sounds like it reads a declared version. The Burxt session corrected it and I verified in
+# their tree: `review.rs` contains zero references to `burxt.package`, the signature is
+# `burxt review --semver <old.bx> <new.bx> [--require patch|minor|major]`, and the claim being checked
+# arrives as that command-line operand, never from a manifest. Recorded because inferring a mechanism
+# from a name is how this comment came to assert a falsehood about somebody else's program.
+#
+# So the comment is for a READER, and for whatever does eventually read a declared version: the digits
+# here are the format's, and nothing about them promises anything about this file's exports.
+#
+# Checked against `SPEC.md`'s title by `tests/version.py`, because a version in a second place is a
+# version that goes stale in one of them.
+name     bmx
+version  0.12.2

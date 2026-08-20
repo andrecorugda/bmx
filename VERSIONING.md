@@ -177,10 +177,35 @@ side effect of making the tests compile.
 The rule above says the package's number is not the format's. That leaves a practical question the
 first consumer asks: **what do I pin?**
 
-Tags here name **an implementation release**, not a format version, and they say which
-implementation:
+**The tag prefix says which implementation; the digits say which FORMAT.** That is not what this
+section said until 2026-08-20, and the old sentence — *"tags here name an implementation release, not a
+format version"* — was contradicted by the tag list above it:
 
     burxt-0.1.0        the Burxt implementation, `burxt/bmx.bx`, first release
+    burxt-0.12.2       …and the format at 0.12.2, in a release that did not touch that file
+
+**Measured, when the Burxt session asked for a `burxt.package` and proposed `version 0.12.2` for it.**
+`git diff burxt-0.12.1 burxt-0.12.2 -- burxt/bmx.bx` is empty, and both tags carry the same 27 `public`
+names: 0.12.2 was an extension-and-branding release. So a tag moved that, under the rule as written,
+had no reason to — and 21 tags do the same thing, tracking the section headings in this file rather
+than that file's exports.
+
+**The rule was corrected to match the tags rather than the tags to the rule, and that is a judgement
+worth stating.** Twenty-one tags and a consumer's pin already depend on the digits being the format's;
+a sentence is cheaper to fix than a namespace that deep, and the alternative gives *"what do I pin"*
+two answers. What is genuinely lost is the thing the next paragraph describes — a number that moves
+when the API moves. **So `burxt.package` says in a comment that its digits are the format's**, because
+a number whose meaning is not written down is one somebody will act on.
+
+**And a correction to this paragraph's first draft, because it named a mechanism that does not exist.**
+It said `burxt review --semver` would feel the loss — that pointed at a manifest, it would compare an
+exported surface against a number tracking something else. That was inferred from the command's *name*.
+Verified in Burxt's tree after its author corrected me: `review.rs` has no reference to `burxt.package`,
+the signature is `burxt review --semver <old.bx> <new.bx> [--require patch|minor|major]`, and the claim
+under test arrives as that operand rather than from any declared version. **The hazard is real in
+general and was not live** — worth keeping in this file, which exists to record where its own rules
+turned out to be wrong, and this is the first entry where the wrong thing was a fact about another
+project rather than a rule about this one.
 
 So a Burxt consumer writes:
 
@@ -194,10 +219,13 @@ tags should not have to know which of the two they are looking at.
 It also leaves room without renaming anything: if `reference/bmx.js` is ever published as a package,
 it takes `js-…` and nothing has to move.
 
-**What the implementation's own number tracks** is its API: the functions and types it exports, and
-the AST a consumer can `match` on. It moves when that surface moves, which — per the section above —
-can happen on a format change that was only a minor, and can fail to happen across a format change
-that touched nothing it exports.
+**What an implementation's own number WOULD track**, if this repository gave it one, is its API: the
+functions and types it exports, and the AST a consumer can `match` on. It would move when that surface
+moves, which — per the section above — can happen on a format change that was only a minor, and can
+fail to happen across a format change that touched nothing it exports. **`burxt/bmx.bx` does not have
+such a number today**, and the paragraph above is the honest reason: it shares the format's. The
+distinction the section above draws is real and still binds anyone *packaging* BMX elsewhere — it is
+this repository that declined to pay for it, not the argument that failed.
 
 ## Error codes
 

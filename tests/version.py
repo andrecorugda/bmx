@@ -136,6 +136,27 @@ def main():
     print(f"  SPEC.md says the format is {want}")
 
     stale, checked = [], 0
+
+    # The manifest, before the prose: a consumer FETCHES it, so it travels further than any page here.
+    # **Not "a consumer's tool reads it", which is what this comment said first.** I had asserted that
+    # `burxt review --semver` reads a declared version; verified in Burxt's tree, it does not — two source
+    # paths and a `--require` operand, no manifest anywhere in `review.rs`. Inferred from the command's
+    # name. The check is still worth having for the reason below, which does not need a tool to exist.
+    # **Appended to `stale` rather than printed on its own**, because printing a FAIL that does not reach
+    # the exit code is the lying-summary defect recorded at the bottom of this very file. Written that way
+    # first, in the file carrying the comment about it.
+    declared = manifest_version()
+    if prove and declared is not None:
+        declared = "0.1"
+    if declared is None:
+        print(f"  --    no {MANIFEST}, so nothing declares a package version")
+    elif declared == want:
+        checked += 1
+        print(f"  ok    {MANIFEST} declares {declared}, which is SPEC.md's")
+    else:
+        checked += 1
+        stale.append(f"{MANIFEST} declares {declared}, SPEC.md says {want} — "
+                     f"a consumer fetches this file, so it is the claim with the widest reach")
     for page in PAGES:
         text = (ROOT / page).read_text()
         if prove and page == "README.md":
