@@ -265,6 +265,12 @@ Three layers of the same error, each one believed to be the ground: the installe
 `dist/` tarball, then the published asset. **Only the third is what CI downloads**, and only a checksum
 tells them apart — `burxt --version` prints the same string for all of them.
 
+**Raising the pin has a second job: re-test the dated claims.** `burxt/examples/parse.bx` and
+`burxt/conformance.bx` both state that `burxt run` cannot pass a program an argument — true of published
+1.5.0, measured, and Burxt has an unreleased fix that forwards after a bare `--`. A constraint that will
+lift wants a date on it rather than removal, because documenting the fixed form early breaks every reader
+on the current release. Grep for `Dated` before bumping `BURXT`.
+
 `git grep -l "function <name>(" v1.5.0 -- lib` in `~/burxt` answers the narrower question — whether a
 symbol exists in the release — without a build, **and that shortcut is sound for a measured reason rather
 than an assumed one: all 29 `lib/*.bx` in the published 1.5.0 asset are byte-identical to `v1.5.0:lib/`.**

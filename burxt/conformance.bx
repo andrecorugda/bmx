@@ -9,6 +9,9 @@
 // from `burxt/examples/parse.bx`, whose usage line had carried exactly that impossible command
 // since it was written — never executed, because CI builds to `-o` and runs the binary.
 //
+// **Dated: a fix forwarding after `--` exists in Burxt and is not in published 1.5.0**, the version
+// `ci.yml` pins and this was checked against. Re-test both files' usage lines when the pin moves.
+//
 // **Why this exists when `tests/harness.py` already runs this implementation.** The rule across these
 // three projects is that if a thing can be written in Burxt it must be, and reaching for another
 // language is a gap report rather than a solution. `harness.py` was not the gap — it takes an arbitrary
