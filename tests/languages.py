@@ -40,6 +40,24 @@ one exists* is stronger.
 `gap`         **Could be Burxt and is not.** Named rather than defended. This is the number the rule
               is about, and it is the only category that should ever shrink.
 
+**This total is not comparable to the other repositories', and that has to be said here or a reader will
+compare it anyway.** star-burxt reached `gap` zero; BMX cannot and should not. The difference is
+structural rather than a difference in effort: **`ci.yml`'s conformance job may not need a Burxt
+toolchain**, by a design decision older than this check — the format must be testable without its first
+host installed — and star has no equivalent job, so it has no equivalent constraint. That single property
+makes `reference`, `neutral` and `standalone` **permanent** non-Burxt code here — a release cannot unforbid
+them and no amount of work should remove them.
+
+**The subtotal is printed rather than written here.** The first draft of this paragraph stated it as
+3,871 lines; it was 3,911, and the arithmetic was mine rather than measured. A number in a docstring is a
+claim with no runner behind it, which is the defect this repository spends its checks converting.
+
+So the honest reading of these numbers is: `gap` is the debt, and the rest is the architecture. A
+different repository's zero and this one's remainder are not measuring the same thing. The star-burxt
+session put it better than I did — *"your standalone property generates permanent non-Burxt code and star
+has no equivalent, so BMX's remainder is not debt"* — and asked that it be written where the number is
+printed rather than left to inference.
+
 **The marker must be a DECLARATION, not a mention** — beginning a comment line, inside the file's
 first 20 lines, with its reason free to follow on the same line. `tests/version.py` learned that the hard way the same day: its opt-out marker was matched
 anywhere in a file, so `CLAUDE.md` opted itself out of the version gate by *describing* how opting out
@@ -129,6 +147,12 @@ def main():
     for reason in REASONS + ("vendored",):
         if reason in tally:
             print(f"    {tally[reason]:>5}  {reason}")
+
+    # Printed, not asserted, for the reason in the docstring: `gap` is the debt and the rest is the
+    # architecture, so the two want reading differently rather than summing.
+    permanent = sum(tally.get(r, 0) for r in ("reference", "neutral", "standalone"))
+    print(f"  of that, {permanent} lines are permanent — reference, neutral and standalone cannot be")
+    print(f"  Burxt while the conformance job may not need a Burxt toolchain (see ci.yml's first line)")
 
     # **The gap total is printed rather than capped.** A threshold here would be a number somebody
     # raises when it is inconvenient, and the rule is not "keep it under N" — it is "know what it is".
