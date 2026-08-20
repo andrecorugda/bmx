@@ -176,9 +176,10 @@ format's real limits are (BMX has no attribute syntax — that, not navigation b
 another language is a gap report rather than a solution.** BMX is the furthest of the three from it by
 raw count — measure with `python3 tests/languages.py` — and it has the strongest defence, which is why
 every non-Burxt file **states its reason in its own first 20 lines** (`not-burxt: <reason>`) and the
-check fails on a file that states none. A count without reasons reads worse than the truth: an outside
-audit read 8,125 lines by counting the gitignored copy of `reference/bmx.js` that `pack.py` stages,
-which is the same 1,171 lines twice.
+check fails on a file that states none. A count without reasons reads worse than the truth: on 2026-08-20
+an outside audit read 8,125 lines by counting the gitignored copy of `reference/bmx.js` that `pack.py`
+stages — the same file twice. **Run `python3 tests/languages.py` for today's numbers rather than reading
+one here**; this file has been wrong about them once, and the gitignored rules file beside it twice.
 
 Three of the reasons are properties of BMX being a *format*, and they are not negotiable:
 
@@ -226,8 +227,8 @@ needed one capability the fixture runner did not: `os_capture_status`, which kee
 apart, so a refusal asserted to *start with* `BMX-G001` cannot be prefixed by whatever the generator
 printed first. `burxt run burxt/guarantees.bx`.
 
-The remaining gap of that shape is **`tests/surface.py` (154 lines)**, which needs a third capability
-again: it writes a dependent package into a temp directory and builds it, to prove every documented
+The remaining gap of that shape is **`tests/surface.py`** — the ledger prints its size, deliberately not
+repeated here — which needs a third capability again: it writes a dependent package into a temp directory and builds it, to prove every documented
 name is reachable from *outside* this package. `editors/lsp/bmx-lsp.mjs` is a decision rather than a task
 — it would cost the documented promise that Helix and Neovim need *only Node*.
 
