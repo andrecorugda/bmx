@@ -1,3 +1,4 @@
+# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
 """The reference parser's runtime floor, read out of the documentation and checked against the source.
 
     python3 tests/portability.py

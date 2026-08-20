@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# not-burxt: neutral — takes an arbitrary implementation command — in Burxt, nobody without the toolchain could run it
 """Two renderers, one page — do they agree?
 
 `tests/harness.py` asks whether an implementation parses to the right tree. This asks the level-1

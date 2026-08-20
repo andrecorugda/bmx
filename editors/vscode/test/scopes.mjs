@@ -1,3 +1,4 @@
+// not-burxt: platform — the artefact under test, or its runtime, is JavaScript and nothing else can be
 // Tokenise real documents with the real engine and assert the scopes.
 //
 // **A grammar is a program and an untested one is a guess.** A bad regex in a TextMate grammar does

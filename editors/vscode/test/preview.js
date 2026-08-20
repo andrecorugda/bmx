@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// not-burxt: platform — the artefact under test, or its runtime, is JavaScript and nothing else can be
 // Drive extension.js against a stub `vscode`, because VS Code cannot be scripted here.
 //
 // **The failure modes of a preview all look fine on inspection**: a command registered under the

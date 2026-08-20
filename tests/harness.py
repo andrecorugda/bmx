@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# not-burxt: neutral — takes an arbitrary implementation command — in Burxt, nobody without the toolchain could run it
 """Run the BMX conformance suite against any implementation.
 
     python3 tests/harness.py '<command>'

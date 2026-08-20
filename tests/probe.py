@@ -1,3 +1,4 @@
+# not-burxt: neutral — takes an arbitrary implementation command — in Burxt, nobody without the toolchain could run it
 """Ask a command whether it is the tool this suite expects, before running the suite against it.
 
     from probe import speaks

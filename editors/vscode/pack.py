@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
 """Package the extension as a .vsix, with no toolchain.
 
     python3 editors/vscode/pack.py            # writes bmx.vsix here

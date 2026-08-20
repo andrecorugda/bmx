@@ -1,3 +1,4 @@
+# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
 """Every place the documentation states what version BMX is, checked against `SPEC.md`.
 
     python3 tests/version.py

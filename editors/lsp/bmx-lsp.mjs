@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// not-burxt: gap — COULD be Burxt — see tests/languages.py
 // A language server for BMX. Diagnostics only, over stdio, no dependencies.
 //
 //   bmx-lsp.mjs            # speaks LSP on stdin/stdout

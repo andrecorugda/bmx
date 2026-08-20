@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# not-burxt: neutral — takes an arbitrary implementation command — in Burxt, nobody without the toolchain could run it
 """Check that two BMX implementations agree — on documents nobody wrote a case for.
 
     python3 tests/agree.py '<command A>' '<command B>' [directory]

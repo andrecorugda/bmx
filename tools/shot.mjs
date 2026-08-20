@@ -1,3 +1,4 @@
+// not-burxt: gap — COULD be Burxt — see tests/languages.py
 import puppeteer from '/home/andre/.npm/_npx/7d92d9a2d2ccc630/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js';
 const jobs = process.argv.slice(2);
 const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });

@@ -1,3 +1,4 @@
+// not-burxt: platform — the artefact under test, or its runtime, is JavaScript and nothing else can be
 // What the code panels on the site must be true of: a number for every line, and a document you can copy.
 //
 //     node editors/vscode/test/panel.mjs

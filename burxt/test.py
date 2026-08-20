@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# not-burxt: gap — COULD be Burxt — see tests/languages.py
 """Level 2: a document becomes a view the COMPILER checks.
 
 This is the reason the format was worth defining, and it is the one thing a level-1

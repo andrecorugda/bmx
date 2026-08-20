@@ -1,3 +1,4 @@
+// not-burxt: platform — the artefact under test, or its runtime, is JavaScript and nothing else can be
 // The site's highlighter and the editor's grammar must classify the same characters the same way.
 //
 // **This is the check that makes a claim true rather than hopeful.** `docs/assets/code.js` colours

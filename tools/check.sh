@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
 #
 # Everything CI runs, locally, in one command.
 #
@@ -49,6 +50,8 @@ run "the invitation on the site is a command that works" bash -c '
   python3 tests/invitation.py && python3 tests/invitation.py --prove-it'
 run "the parser imports where there is no Node" bash -c '
   node tests/embeds.mjs && node tests/embeds.mjs --prove-it'
+run "every file that is not Burxt says why it is not" bash -c '
+  python3 tests/languages.py && python3 tests/languages.py --prove-it'
 
 echo
 echo "the editor surface"

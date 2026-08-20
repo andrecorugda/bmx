@@ -1,3 +1,8 @@
+// not-burxt: gap — reclassified from `platform`, because Burxt reaches a browser through wasm now
+// This paints code blocks on the documentation site, and the `platform` defence was that a browser runs
+// JavaScript. That was true when written and is not any more: star-burxt's playground compiles Burxt to
+// one wasm module and lets no JavaScript decide anything, which turns this from a forced choice into a
+// gap with a cost. Reclassified on Andre's directive rather than left labelled and flagged.
 // Colour `burxt` and `bmx` code blocks on a Jekyll site.
 //
 // **Why this exists rather than a Rouge lexer.** Rouge is Jekyll's highlighter and it knows neither

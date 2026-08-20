@@ -123,6 +123,20 @@ jobs:
           node tests/embeds.mjs
           node tests/embeds.mjs --prove-it
 
+      # **Andre's rule for all three projects: if it can be written in Burxt, it must be, and reaching
+      # for another language is a gap report rather than a solution.** BMX is the furthest of the three
+      # from it by raw count and has the strongest defence — most of this job is Python and Node *because*
+      # of the sentence at the top of this file, that the format must be testable without its first host
+      # installed. A count without reasons reads worse than the truth, so every non-Burxt file states one
+      # and this fails on a file that states none.
+      #
+      # It caps nothing. The `gap` total is printed, because a threshold is a number somebody raises when
+      # it is inconvenient, and the rule is not "keep it under N" — it is "know what it is".
+      - name: Every file that is not Burxt says why it is not
+        run: |
+          python3 tests/languages.py
+          python3 tests/languages.py --prove-it
+
       # **Every failure mode of a language server is a silence.** A wrong Content-Length, a frame
       # split across two chunks, a request answered with nothing — the editor does not error, it just
       # stops showing diagnostics, and the author concludes the extension is broken. So the framing is

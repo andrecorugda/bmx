@@ -1,3 +1,4 @@
+# not-burxt: neutral — takes an arbitrary implementation command — in Burxt, nobody without the toolchain could run it
 """What a document must not be able to make the output do — the part of `ESCAPING.md` nothing tested.
 
     python3 tests/output.py "node reference/bmx.js --render" ./bmxrender

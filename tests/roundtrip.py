@@ -1,3 +1,4 @@
+# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
 """Indent every document in the suite, reparse it, and assert the structure did not move.
 
     python3 tests/roundtrip.py "node reference/bmx.js"

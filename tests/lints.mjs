@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// not-burxt: platform — the artefact under test, or its runtime, is JavaScript and nothing else can be
 // The linter's rules, and — more importantly — what they must NOT fire on.
 //
 // **A lint that fires on correct code is worse than no lint**, because the fix is to switch the

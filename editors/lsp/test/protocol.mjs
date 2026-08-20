@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// not-burxt: platform — the artefact under test, or its runtime, is JavaScript and nothing else can be
 // Drive the language server with real LSP frames.
 //
 // **Every failure mode of a server is a silence.** A wrong Content-Length, a frame split across two

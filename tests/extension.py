@@ -1,3 +1,4 @@
+# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
 """Every version an editor artefact declares, checked against the format it paints.
 
     python3 tests/extension.py

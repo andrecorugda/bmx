@@ -1,4 +1,5 @@
 // bmx.js — the BMX 0.1 reference parser. Zero dependencies.
+// not-burxt: reference — the format's claim is that ANY language can implement it; a reference in the host would make that untestable
 //
 //   import { parse, BmxError } from './bmx.js'
 //   node reference/bmx.js document.bmx        # prints the AST as JSON

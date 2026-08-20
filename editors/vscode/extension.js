@@ -1,3 +1,4 @@
+// not-burxt: platform — the artefact under test, or its runtime, is JavaScript and nothing else can be
 // The BMX preview: a `.bmx` document, rendered, beside the document.
 //
 // **It renders with the reference implementation rather than shelling out to a compiler**, and that

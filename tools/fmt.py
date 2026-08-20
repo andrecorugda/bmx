@@ -1,3 +1,4 @@
+# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
 """Indents BMX documents so nesting is visible: one level per open block.
 
     python3 tools/fmt.py FILE...            # rewrites in place
