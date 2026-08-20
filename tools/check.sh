@@ -38,7 +38,12 @@ run "no refusal tells an author to write what the format refuses" bash -c '
 run "indenting a document does not change it" bash -c '
   python3 tests/roundtrip.py "node reference/bmx.js" &&
   python3 tests/roundtrip.py "node reference/bmx.js" --prove-it'
-run "the suite is not empty" bash -c '[ "$(ls tests/cases/*.bmx | wc -l)" -ge 20 ]'
+# **This line said `tests/cases` and `-ge 20` while CI said both folders and `-ge 39`** — so the file
+# whose header promises to mirror `ci.yml` was checking a different set against a different floor, and
+# the local run was the weaker of the two. Found while adding the implementer page, which states the
+# suite's size in prose and therefore needed to know which number was load-bearing. Both now count both
+# folders, and `tests/invitation.py` owns the floor the documentation claims.
+run "the suite is not empty" bash -c '[ "$(ls tests/cases/*.bmx tests/errors/*.bmx | wc -l)" -ge 39 ]'
 run "the linter fires where it should and stays quiet where it should" node tests/lints.mjs
 run "the invitation on the site is a command that works" bash -c '
   python3 tests/invitation.py && python3 tests/invitation.py --prove-it'
