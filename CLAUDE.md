@@ -229,13 +229,16 @@ The toolchain is installed at `~/.local/bin/burxt` with `~/.local/lib/burxt/` �
 `tools/check.sh` runs locally, 30 checks rather than 20, and `BURXT_LIB` is not needed for `burxt run`.
 Set it for `check.sh`, whose guard tests the library rather than the binary.
 
-**It says `burxt 1.4.0` and it is not the released 1.4.0.** Measured: its binary's md5 differs from the
-tarball in `~/burxt/dist/burxt-1.4.0-linux-x86_64.tar.gz`, and its library carries `zip.bx` and
-`deflate.bx`, which the release does not ship. **CI installs the release**, pinned by `BURXT` in
-`ci.yml`, so anything green here against a locally-installed compiler is green against a toolchain CI
-does not have. The star-burxt session lost a branch to exactly this — they switched their packer to
-`std/zip.bx`, it built locally, and `main` went red on a clean runner because the published 1.4.0 has
-no zip module.
+**Measure it; do not trust its version string, and do not trust this paragraph either.** For most of
+2026-08-20 the installed compiler reported `burxt 1.4.0` while being a different binary from the published
+1.4.0 — which is how star-burxt lost a branch: they moved their packer to `std/zip.bx`, it built locally,
+and `main` went red on a clean runner because the published 1.4.0 ships no zip module. **By the end of that
+day it had been replaced and is byte-identical to the published 1.5.0** (`1d920478…` both). So the hazard
+is not currently live on this machine, and **that is exactly why the instruction is to measure rather than
+to remember**: a warning about a condition that has lifted reads as one that has not, and the next
+replacement is invisible until someone hashes it.
+
+    md5sum "$(command -v burxt)"        # against the published asset's, below
 
 So **verify Burxt work against the release, not against what is installed** — and *the release* means
 the published asset, checksum-verified, **not `~/burxt/dist/`**:
@@ -262,8 +265,11 @@ Three layers of the same error, each one believed to be the ground: the installe
 `dist/` tarball, then the published asset. **Only the third is what CI downloads**, and only a checksum
 tells them apart — `burxt --version` prints the same string for all of them.
 
-`git grep -l "function <name>(" v1.4.0 -- lib` in `~/burxt` answers the narrower question — whether a
-symbol exists in the release — without a build. `print_error`, `substring`, `push` and `len` are
+`git grep -l "function <name>(" v1.5.0 -- lib` in `~/burxt` answers the narrower question — whether a
+symbol exists in the release — without a build, **and that shortcut is sound for a measured reason rather
+than an assumed one: all 29 `lib/*.bx` in the published 1.5.0 asset are byte-identical to `v1.5.0:lib/`.**
+The library *is* the tag; the binary is compiled and need not be, which is the whole distinction and why
+the digest check above cannot be replaced by this one. `print_error`, `substring`, `push` and `len` are
 compiler builtins and will not be found in `lib` at all.
 
 `~/burxt` (the language) and `~/star-burxt` (the framework above BMX) are **readable from here**, and
