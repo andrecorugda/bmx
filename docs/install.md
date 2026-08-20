@@ -205,8 +205,12 @@ against. In [Burxt](https://burxt-lang.org) it does get checked, which is
 ## In any other language
 
 Nothing to install, and nothing stopping you — BMX is a format, so a reader for it is a few hundred
-lines in any language. [Building on BMX](building-on.html) has what you need and what to check
-yourself against.
+lines in any language. [Writing an implementation](implementing.html) is the path: what to build,
+how to run the conformance suite against it, and the four things every implementation gets wrong.
+
+If instead you are building a *layer above* BMX — a framework, a component system, a site generator
+— that is [Building on BMX](building-on.html). This paragraph pointed there for both jobs, and the
+implementer arrived at a page whose first line says it is for the other one.
 
 ## Which version am I getting?
 

@@ -93,6 +93,20 @@ jobs:
       - name: The linter fires where it should and stays quiet where it should
         run: node tests/lints.mjs
 
+      # **`README.md` promised "any language can implement BMX" and `docs/` never named the harness.**
+      # The suite takes an arbitrary command, so a stranger genuinely can conform in an afternoon — and
+      # the only place that was written down was this repository, which a reader of the site never opens.
+      # `install.md` then sent them to Building on BMX, which says in its first line that it is for
+      # layers ABOVE the format. The reader 1.0 depends on met the wrong page and stopped.
+      #
+      # A page carrying a command is a claim, so the command is run. It deliberately does NOT pin the
+      # pass count: a gate that fires when somebody adds a conformance case argues against the thing
+      # this project wants to be frictionless.
+      - name: The invitation on the site is a command that works
+        run: |
+          python3 tests/invitation.py
+          python3 tests/invitation.py --prove-it
+
       # **Every failure mode of a language server is a silence.** A wrong Content-Length, a frame
       # split across two chunks, a request answered with nothing — the editor does not error, it just
       # stops showing diagnostics, and the author concludes the extension is broken. So the framing is

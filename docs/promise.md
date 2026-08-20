@@ -59,6 +59,10 @@ misread their own sentence twice the same way.
 The version number says so honestly. BMX is **0.12**, and it becomes 1.0 when someone who did not
 write the rules builds a tool from them and it passes — not when the feature list looks finished.
 
+**If that is you, the door is [Writing an implementation](implementing.html)** — the suite takes any
+command, so pointing it at your parser is one line. This page said what 1.0 needs for six releases
+without saying where to start, which is a wish of a different kind.
+
 ## How versions work, in one line
 
 A change that only **adds** documents to that folder is a small version bump: everything you have

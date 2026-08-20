@@ -146,6 +146,13 @@
       <h2>Extending BMX</h2>
       <ul>
         <li class="topic"><a href="{{ site.baseurl }}/building-on.html"{% if page.title == "Building on BMX" %} class="here" aria-current="page"{% endif %}><span>Building on BMX</span></a></li>
+        <!-- **Two doors, and for six releases only one of them was on the site.** `harness.py` appeared
+             on no page: the suite took an arbitrary command, so a third party could conform in an
+             afternoon, and nothing told them so. Worse, `install.md` sent them to Building on BMX,
+             whose first line says it is for layers ABOVE the format — so the one reader this project
+             most needs met the page that was not for them and stopped. Found by the star-burxt
+             session grepping `docs/` for the invitation and finding zero hits. -->
+        <li class="topic"><a href="{{ site.baseurl }}/implementing.html"{% if page.title == "Implementing BMX" %} class="here" aria-current="page"{% endif %}><span>Write an implementation</span></a></li>
       </ul>
     </div>
 

@@ -10,6 +10,10 @@ For anyone — person or agent — writing a **layer above** BMX: a component sy
 static site generator, an editor integration. **star-burxt is the first of these**, and this page
 is the contract it codes against.
 
+**Writing an implementation *of* BMX instead — a parser or renderer in another language? That is
+[Writing an implementation](implementing.html).** Two different jobs, and this page is the one that
+assumes a working BMX reader already exists.
+
 Read this before extending anything. Most of what a framework wants to add to BMX belongs in the
 host language instead, and the difference is not a matter of taste — it is what keeps the format
 implementable by somebody who is not you.
