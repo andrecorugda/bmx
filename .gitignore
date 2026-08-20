@@ -15,3 +15,23 @@ tools/*.png
 # CI installs it. Untracked and unignored, it turned up in every `git status` after the first local run
 # of `scopes.mjs`.
 editors/vscode/node_modules/
+
+# Written by Python the first time anything imports a runner as a module rather than running it —
+# `tests/version.py` gets imported to check what its page glob resolves to. Untracked and unignored it
+# turns up in every `git status` afterwards, which is the noise `node_modules` above caused and the same
+# one-line fix.
+#
+# **And one was already COMMITTED**, which this line does not undo: `tests/__pycache__/probe.cpython-312.pyc`
+# went in with 521f961, the commit that *added* `tests/probe.py` — swept up by a `git add tests/`. It was
+# the only tracked `.pyc` in the repository, it is a build artefact of a file already here, and a stale one
+# can shadow a source change.
+#
+# **Ignoring a path has no effect on a path git already tracks, and deleting the file does not stick** —
+# any run of `tools/check.sh` imports `probe` and Python writes it straight back, byte-identical, so the
+# deletion disappears from `git status` on the next run. Untracking it takes one deliberate command,
+# left for whoever commits this rather than staged as a side effect of a cleanup:
+#
+#     git rm --cached tests/__pycache__/probe.cpython-312.pyc
+#
+# The rule below is what stops the next one.
+tests/__pycache__/
