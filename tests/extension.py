@@ -58,6 +58,7 @@ That fix removes the friction. This file removes the option:
   kind of check available** — CI has no VS Code, so the instruction cannot be executed, only kept honest.
 """
 
+import io
 import json
 import pathlib
 import re
@@ -149,6 +150,28 @@ def main():
     check(before == after,
           f"the committed .vsix is what the packer writes ({len(before)} bytes)",
           "the committed .vsix is not what the packer writes — it was changed without repacking")
+
+    # **And the archive is a well-formed extension, asserted HERE rather than by a second step that
+    # packs.** `tools/check.sh` used to run `pack.py` again to inspect the result, three lines after the
+    # comparison above — so a stale artefact was detected and then silently repaired inside one
+    # invocation, and the second local run was always green. Guarding that with a park-and-restore worked
+    # and was the wrong fix: **the collision is eliminated by having exactly one thing pack.** star-burxt
+    # reached the same place from the other side and their CI says so in one line — *runs the test, not
+    # the packer* — which is why a planted stale artefact survives two runs in their tree.
+    #
+    # Read from the bytes rather than the file, so nothing on disk is touched at all. The entry list is
+    # written out rather than globbed, because a missing entry is only ever found by packaging.
+    need = ["[Content_Types].xml", "extension.vsixmanifest", "extension/package.json",
+            "extension/syntaxes/bmx.tmLanguage.json", "extension/icon.png"]
+    if prove:
+        need = need + ["extension/a-file-the-packer-never-writes"]
+    packed = zipfile.ZipFile(io.BytesIO(after))
+    missing_entries = [n for n in need if n not in packed.namelist()]
+    check(not missing_entries,
+          f"the packed archive carries all {len(need)} entries an editor needs, and is not corrupt",
+          f"the packed archive is missing {missing_entries}")
+    check(packed.testzip() is None, "the archive is readable end to end",
+          "the archive is corrupt")
 
     # **The language server had the same defect, found by grepping for the version I had just removed.**
     # It answered `initialize` with `serverInfo: {name: 'bmx-lsp', version: '0.1.0'}` while reporting 0.12
@@ -292,7 +315,8 @@ def main():
     if prove:
         if failures:
             print("the control failed as it must — an unbumped version, a stale artefact, a documented "
-                  "filename that does not exist and an install path nothing reads are all caught")
+                  "filename that does not exist, an install path nothing reads and a missing archive "
+                  "entry are all caught")
             return 0
         print("THE CONTROL DID NOT FAIL, so this check cannot see the defect it exists for")
         return 1

@@ -166,36 +166,11 @@ jobs:
           cp reference/bmx.js editors/vscode/reference/bmx.mjs
           node editors/vscode/test/preview.js
 
-      # A .vsix nobody built is a .vsix that does not package — and the file list in pack.py is
-      # written out rather than globbed, so a missing entry is only found by packaging.
-      # **Andre's complaint was that an icon "looks like it is really sticking to the edge".** Measured,
-      # it filled 86% of its height — four clear pixels at 48px. The family is cropped to its ink at 70%,
-      # and three icons on consecutive rows of a file tree read inconsistent margins as misalignment
-      # rather than as three different logos. Also: no white background rect, which is a box on any
-      # tinted surface.
-      - name: Every brand asset carries the family's margin and its own crop
-        run: |
-          python3 tests/branding.py
-          python3 tests/branding.py --prove-it
-
-      # **Thirty commits changed the package and the version never moved off 0.1.0.** VS Code decides
-      # whether to offer an update by comparing versions, so anyone who installed the first 0.1.0 holds a
-      # grammar that knows only the 0.6 fence and their editor tells them they are current. The cause was
-      # ergonomic — the version was in the FILENAME, so bumping it broke seven install commands — and the
-      # fix was to take it out of the filename. This is what makes the bump non-optional.
-      #
-      # It runs BEFORE the packaging step on purpose: that step packs and then inspects the result, which
-      # overwrites the evidence one line before looking for it. A check that regenerates the artefact it
-      # verifies cannot see a stale one.
-      - name: The extension's version is the format's, and the committed package is the packed one
-        run: |
-          python3 tests/extension.py
-          python3 tests/extension.py --prove-it
-
-      - name: The extension packages
-        run: |
-          python3 editors/vscode/pack.py
-          python3 -c "import zipfile,sys; z=zipfile.ZipFile('editors/vscode/bmx.vsix'); need=['[Content_Types].xml','extension.vsixmanifest','extension/package.json','extension/syntaxes/bmx.tmLanguage.json','extension/icon.png']; miss=[n for n in need if n not in z.namelist()]; sys.exit(f'missing {miss}') if miss else None; sys.exit('corrupt') if z.testzip() else print('vsix ok')"
+      # **There is deliberately no separate "does it package" step.** The obvious shape is `pack.py`
+      # then inspect the result, and it overwrites the evidence one line before looking for it — so a
+      # stale committed `.vsix` passes forever. `tests/extension.py` packs once, compares, restores, and
+      # asserts the archive's entries from the bytes it already has. **One thing packs.** star-burxt's CI
+      # says the same in one line, `runs the test, not the packer`, and reached it independently.
 
       # A page that documents `{{` is a page Jekyll reads as Liquid, so every doc wraps its body
       # in {% raw %}. An UNCLOSED one is worse than a missing one: the missing case fails on the
