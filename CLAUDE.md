@@ -225,9 +225,28 @@ name is reachable from *outside* this package. `editors/lsp/bmx-lsp.mjs` is a de
 
 ## The sibling repositories, and the one mistake to expect
 
-The toolchain is installed at `~/.local/bin/burxt` (1.4.0) with `~/.local/lib/burxt/` — so the Burxt
-half of `tools/check.sh` runs locally, 30 checks rather than 20, and `BURXT_LIB` is not needed for
-`burxt run`. Set it for `check.sh`, whose guard tests the library rather than the binary.
+The toolchain is installed at `~/.local/bin/burxt` with `~/.local/lib/burxt/` — so the Burxt half of
+`tools/check.sh` runs locally, 30 checks rather than 20, and `BURXT_LIB` is not needed for `burxt run`.
+Set it for `check.sh`, whose guard tests the library rather than the binary.
+
+**It says `burxt 1.4.0` and it is not the released 1.4.0.** Measured: its binary's md5 differs from the
+tarball in `~/burxt/dist/burxt-1.4.0-linux-x86_64.tar.gz`, and its library carries `zip.bx` and
+`deflate.bx`, which the release does not ship. **CI installs the release**, pinned by `BURXT` in
+`ci.yml`, so anything green here against a locally-installed compiler is green against a toolchain CI
+does not have. The star-burxt session lost a branch to exactly this — they switched their packer to
+`std/zip.bx`, it built locally, and `main` went red on a clean runner because the published 1.4.0 has
+no zip module.
+
+So **verify Burxt work against the release, not against what is installed**:
+
+```sh
+tar xzf ~/burxt/dist/burxt-1.4.0-linux-x86_64.tar.gz -C /tmp/rel --strip-components=1
+BURXT_LIB=/tmp/rel/lib /tmp/rel/burxt build burxt/conformance.bx -o /tmp/c && /tmp/c
+```
+
+`git grep -l "function <name>(" v1.4.0 -- lib` in `~/burxt` answers the narrower question — whether a
+symbol exists in the release — without a build. `print_error`, `substring`, `push` and `len` are
+compiler builtins and will not be found in `lib` at all.
 
 `~/burxt` (the language) and `~/star-burxt` (the framework above BMX) are **readable from here**, and
 BMX's docs make claims about both — what `burxt review --semver` reads, how a `dependency` line
