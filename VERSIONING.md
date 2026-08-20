@@ -1,5 +1,14 @@
 # Versioning — the conformance suite is the semver
 
+<!-- version-claims: historical -->
+<!-- Read by `tests/version.py`, which checks every STATUS claim in the tree against `SPEC.md`'s title.
+     This file is the changelog, so it is full of version numbers that are deliberately NOT status: an
+     illustration below says a host may "target BMX 0.1", and the write-ups quote past claims
+     like "as of 0.2" in order to say they were wrong. Both match the shapes that check looks for.
+     The opt-out lives here rather than in a list inside the checker, so that a file which is mostly
+     history declares itself and nobody has to remember it. If you add a STATUS claim to this file —
+     a sentence saying what BMX *is* today — it will not be checked, so do not. -->
+
 BMX carries its own version, independent of any host's. A host may be at 3.0 and target BMX 0.1;
 a host may support two BMX versions at once. Nothing about BMX's number implies anything about
 a host's.

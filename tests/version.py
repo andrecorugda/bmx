@@ -43,14 +43,82 @@ CLAIMS = [
     re.compile(r"^bmx_version: \"(\d+\.\d+)\"", re.M),        # and the variable that replaced it
 ]
 
-PAGES = ["README.md", "docs/promise.md", "docs/building-on.md", "docs/install.md",
-         "docs/syntax.md", "docs/errors.md", "SPEC.md",
-         # **The footer said "BMX 0.2" on every page of the site, six minors stale.** It was invisible
-         # here twice over: this list held only `.md` files, and `BMX 0.2 —` matches none of the shapes
-         # above. The version is `site.bmx_version` now, checked below — and the layout is scanned so a
-         # hard-coded one added later is caught. **The most-viewed claim on the site was the last one
-         # checked, because a template is not a document.**
-         "docs/_layouts/default.html", "docs/_config.yml"]
+# **This was a hand-written list of six pages, and a new page escaped it in silence.** `docs/implementing.md`
+# was added carrying "BMX is 0.12"; the phrasing matched the first pattern above perfectly, and the check
+# still passed with `0.11` written on it, because the file was not on the list. **That is the registry
+# failure mode this file's own docstring names two paragraphs up** — *"a list of known sites cannot see a
+# claim added somewhere new"* — and it was written about the PATTERNS while the FILES sat in a literal
+# list underneath. A rule applied to one half of a check and not the other. Globbing it caught
+# `docs/index.md` claiming 0.4 on the landing page, eight minors stale and the most-viewed claim on the site.
+#
+# **So every `.md` in the tree is read, and the one exception lives in the file it describes rather than
+# here.** `VERSIONING.md` is the changelog: it says *"a host may be at 3.0 and target BMX 0.1"* as an
+# illustration and quotes *"as of 0.2"* as a mistake it is writing up, both of which match the shapes above
+# and neither of which is a status claim. Excluding it by name would rebuild the list one exception at a
+# time — which is the thing being removed — so a file opts out with a marker IN ITSELF, and a future
+# changelog declares itself instead of being remembered here. The star-burxt session hit the same fork in
+# its own `.vsix` check today and took the same turn: fix the collision, do not grow the exception.
+OPT_OUT = "<!-- version-claims: historical -->"
+
+# **A DECLARATION, not a mention — and the difference was found by this check quietly losing a file.**
+# The first version tested `OPT_OUT in text`, so `CLAUDE.md` opted itself out the moment it *described*
+# the marker in a sentence about how the opt-out works. The page count fell 25 → 24 and nothing said so;
+# it was noticed only because the number was read. **A file can be dropped from a check by writing prose
+# about the check**, which is the same shape as a gate reading its own control literal — the star-burxt
+# session hit that in their `.vsix` check the same day, and I had flagged the family to them an hour
+# before writing this bug.
+#
+# So the marker must be alone on its line and in the file's header, where a declaration lives. A sentence
+# quoting it, a table describing it, or a fenced example showing it are all mentions and stay in scope.
+OPT_OUT_WITHIN = 20
+
+
+def opts_out(text):
+    return any(line.strip() == OPT_OUT for line in text.splitlines()[:OPT_OUT_WITHIN])
+
+# The two non-`.md` files a glob for prose cannot reach. **The footer said "BMX 0.2" on every page of the
+# site, six minors stale**, and it was invisible here twice over: this list held only `.md` files, and
+# `BMX 0.2 —` matches none of the shapes above. The version is `site.bmx_version` now, checked below — and
+# the layout is scanned so a hard-coded one added later is caught. **The most-viewed claim on the site was
+# the last one checked, because a template is not a document.**
+TEMPLATES = ["docs/_layouts/default.html", "docs/_config.yml"]
+
+
+def pages():
+    """Every prose file in the tree, minus the ones that declare themselves historical."""
+    found = []
+    for path in sorted(ROOT.glob("**/*.md")):
+        if any(part in (".git", "node_modules") for part in path.parts):
+            continue
+        if opts_out(path.read_text()):
+            continue
+        found.append(str(path.relative_to(ROOT)))
+    return found + TEMPLATES
+
+
+PAGES = pages()
+
+
+# **`burxt.package`'s version is checked on its own rather than as a CLAIMS pattern, and the reason is a
+# false positive I nearly shipped.** The obvious pattern is `^version\s+(\d+\.\d+)` — and
+# `docs/install.md` shows a *consumer's* manifest, `name my-app` / `version 0.1.0`, which that pattern
+# reads as a stale BMX claim. It is somebody else's version, in an example, and flagging it would be the
+# `\.at\(` mistake this file's docstring already records: a shape that matches text which is not the
+# thing. So the manifest is read by path, and the patterns above stay for prose.
+#
+# It compares major.minor, because the manifest carries a patch (`0.12.2`) and `SPEC.md`'s title does not.
+# That is the same rule `tests/extension.py` applies to the extension, for the same reason: a packaging
+# fix must not need a format release.
+MANIFEST = "burxt.package"
+
+
+def manifest_version():
+    """The version `burxt.package` declares, as major.minor — or None if there is no manifest."""
+    path = ROOT / MANIFEST
+    if not path.is_file():
+        return None
+    m = re.search(r"^version\s+(\d+\.\d+)", path.read_text(), re.M)
+    return m.group(1) if m else "(no version line)"
 
 
 def current():

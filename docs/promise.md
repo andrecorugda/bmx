@@ -27,8 +27,8 @@ same paragraph and build two different things, both convinced they are correct.
 ## So the rules are files, not paragraphs
 
 BMX is written down twice: once as an explanation, and once as **a folder of documents paired with
-exactly what each one should produce.** Around sixty of them, covering every construct and every way
-a document can be wrong.
+exactly what each one should produce.** More than ninety of them, covering every construct and every
+way a document can be wrong.
 
 Anyone writing a tool that reads BMX runs their tool against that folder. Either it produces what
 the files say, or it does not. There is no room to interpret, and no discussion to have.

@@ -122,12 +122,14 @@ way to the tag, so a template cannot quietly round `£4.947525` to two places on
 ## Can you rely on it?
 
 **Your document means the same thing in every tool that reads BMX**, and that is checked rather than
-promised — around sixty documents paired with exactly what each should produce, plus two independent
-implementations run against each other.
+promised — more than ninety documents paired with exactly what each should produce, plus two
+independent implementations run against each other.
 
-BMX is **0.4**, and honest about what that means: both implementations have one author, so they
+BMX is **0.12**, and honest about what that means: both implementations have one author, so they
 catch mistakes and not ambiguity. [Why documents agree](promise.html) is the short version, and it
-says plainly what would have to happen for this to be 1.0.
+says plainly what would have to happen for this to be 1.0 — which is an implementation by somebody
+who did not write the rules. If that sounds like you, [writing an
+implementation](implementing.html) is a suite that takes any command and an afternoon.
 
 Free to use, MIT or Apache-2.0.
 {% endraw %}
