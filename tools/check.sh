@@ -47,6 +47,8 @@ run "the suite is not empty" bash -c '[ "$(ls tests/cases/*.bmx tests/errors/*.b
 run "the linter fires where it should and stays quiet where it should" node tests/lints.mjs
 run "the invitation on the site is a command that works" bash -c '
   python3 tests/invitation.py && python3 tests/invitation.py --prove-it'
+run "the parser imports where there is no Node" bash -c '
+  node tests/embeds.mjs && node tests/embeds.mjs --prove-it'
 
 echo
 echo "the editor surface"

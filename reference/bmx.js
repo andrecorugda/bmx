@@ -1133,7 +1133,19 @@ export function render(source, bindings = {}) {
 
 // ---- the command line the conformance harness drives ------------------------
 
-if (process.argv[1] && process.argv[1].endsWith('bmx.js')) {
+// **`typeof process` rather than `process`, because this file must import where there is no `process`
+// at all.** It did not: a bare `process.argv` here is evaluated when the MODULE is evaluated, so a
+// browser threw `ReferenceError: process is not defined` before a single export was reachable — not a
+// broken CLI, a file that could not be imported client-side at all. Measured in a real headless browser
+// by the star-burxt session's playground, which needs exactly that and had assumed it worked because the
+// conformance harness passes; the harness is Node, and every exercise this file has ever had is Node run
+// from this repository's own root.
+//
+// **`tests/portability.py` is named for this and could not see it.** It measures which Node *syntax*
+// floor the file needs — a real question, and the wrong one to stop at: a parser offered to strangers to
+// copy is portable when it RUNS where they put it, not when its syntax is old enough. The guard below is
+// asserted now, in `tools/check.sh` and CI.
+if (typeof process !== 'undefined' && process.argv[1] && process.argv[1].endsWith('bmx.js')) {
   const { readFileSync } = await import('node:fs')
   // `--render` because the escaping contract is about OUTPUT, and until 0.11 this file could only be
   // asked for an AST from a shell. `tests/output.py` needs both implementations to answer the same

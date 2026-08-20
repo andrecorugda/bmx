@@ -107,6 +107,22 @@ jobs:
           python3 tests/invitation.py
           python3 tests/invitation.py --prove-it
 
+      # **`reference/bmx.js` could not be imported in a browser at all, and nothing here could see it.**
+      # The CLI guard was a bare `process.argv[1]`, evaluated when the MODULE is evaluated, so a browser
+      # threw `ReferenceError: process is not defined` before one export was reachable. Measured in real
+      # headless Chrome by the star-burxt session, building a playground that renders BMX client-side —
+      # they had assumed it worked because the conformance suite passes.
+      #
+      # **The suite is Node, run from this repository's own root, and so was every other exercise this
+      # file has ever had.** `tests/portability.py` is named for this and asks the narrower question: which
+      # Node *syntax* floor the file needs. A parser offered to strangers to copy is portable when it RUNS
+      # where they put it, not when its syntax is old enough to — so that check could have stayed green
+      # forever on a file no browser could load.
+      - name: The parser imports where there is no Node
+        run: |
+          node tests/embeds.mjs
+          node tests/embeds.mjs --prove-it
+
       # **Every failure mode of a language server is a silence.** A wrong Content-Length, a frame
       # split across two chunks, a request answered with nothing — the editor does not error, it just
       # stops showing diagnostics, and the author concludes the extension is broken. So the framing is
