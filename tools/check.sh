@@ -116,8 +116,7 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   run "it is formatted" bash -c '
     burxt fmt --check burxt/bmx.bx burxt/conformance.bx burxt/guarantees.bx'
   # **The implementation Burxt users get, verified by the language it serves.** `harness.py` above asks
-  run "it is formatted" bash -c '
-    burxt fmt --check burxt/bmx.bx burxt/conformance.bx'
+  # the same question in Python and stays exactly what it is — the neutral runner a stranger implementing
   # BMX in a sixth language can use without this toolchain. This one closes the gap that the Burxt
   # implementation was checked only by a program in another language. If the two ever disagree, one of
   # them has a bug and the fixtures are the arbiter.
@@ -130,7 +129,8 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
     python3 tests/output.py "node reference/bmx.js --render" /tmp/check-render'
   run "the two renderers produce the same page" bash -c '
     burxt build tools/render.bx -o /tmp/check-render && python3 tests/renders.py /tmp/check-render'
-  run "a document becomes a view the compiler checks" python3 burxt/test.py
+  run "a document becomes a view the compiler checks" bash -c '
+    burxt run burxt/guarantees.bx'
   run "every documented name is reachable, and every public name is documented" bash -c '
     python3 tests/surface.py && python3 tests/surface.py --prove-it'
 else

@@ -318,7 +318,7 @@ jobs:
       # dependency runs later fails in a way that reads like the tool being broken.
       - name: The Burxt implementation is formatted
         run: |
-          burxt fmt --check burxt/bmx.bx burxt/conformance.bx
+          burxt fmt --check burxt/bmx.bx burxt/conformance.bx burxt/guarantees.bx
 
       # **The rule across these three projects: if it can be written in Burxt, it must be, and reaching
       # for another language is a gap report rather than a solution.** `harness.py` was never the gap —
@@ -374,8 +374,17 @@ jobs:
       #
       # It lived in Burxt's `tests/runner.rs` while `bmx.bx` lived in Burxt's `lib/`, and moved
       # here with the implementation rather than staying behind as a claim nobody runs.
+      #
+      # **And it is Burxt now, where it was `burxt/test.py`.** That file had no defence under the rule
+      # that a thing writable in Burxt must be written in it: the argument protecting `harness.py` and
+      # the other neutral runners — a stranger must be able to check a sixth implementation without this
+      # toolchain — never reached it, because it *already required the toolchain* and only ever ran in
+      # this job. It was Python because the files around it were. The port asserts the same thirteen
+      # things under the same names, verified by running both and diffing; and it needed one capability
+      # the fixture runner did not, `os_capture_status`, which keeps stdout and stderr apart so a
+      # refusal asserted to START with `BMX-G001` cannot be prefixed by whatever the generator printed.
       - name: A document becomes a view the compiler checks
-        run: python3 burxt/test.py
+        run: burxt run burxt/guarantees.bx
 
       # A package is not usable because its own tests pass — star-burxt's suite was green through a
       # gap that made every symbol unreachable, because its only consumer lived inside the package.

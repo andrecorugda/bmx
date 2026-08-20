@@ -81,7 +81,7 @@ skips these has proved the easy half.
 
 Here they are [`tests/output.py`](tests/output.py) for the second and third — it also pins the one place
 a DOCUMENT's own bytes reach an attribute, a code fence's info string — and
-[`burxt/test.py`](burxt/test.py) for the first. **Both of those sentences were wrong until 0.11**, and the way they were wrong is
+[`burxt/guarantees.bx`](burxt/guarantees.bx) for the first. **Both of those sentences were wrong until 0.11**, and the way they were wrong is
 worth keeping:
 
 - *"the conformance suite tests this"* was an assertion. `tests/renders.py` was the nearest thing, and it

@@ -1,0 +1,164 @@
+// burxt/guarantees.bx — level 2: a document becomes a view the COMPILER checks.
+//
+//     burxt run burxt/guarantees.bx        # from the repository root
+//
+// **This is the reason the format was worth defining, and the one thing a level-1 implementation
+// cannot copy.** `burxt/conformance.bx` asks whether this parser matches the spec. This asks whether
+// the generated view carries the guarantees the document could not: a missing field, a wrong type and
+// re-rounded money are compile errors, and a `javascript:` target never reaches a page.
+//
+// It is a port of `burxt/test.py`, and the port is the point rather than a tidy-up. The rule across
+// these three projects is that if a thing can be written in Burxt it must be — and `test.py` had no
+// defence at all, because **it already required the Burxt toolchain**: it only ever ran in the job that
+// installs the compiler, so the argument that protects `tests/harness.py` and the other neutral runners
+// (a stranger must be able to check a sixth implementation without this toolchain) never reached it. It
+// was Python because the files around it were.
+//
+// **The five cases are four refusals and one acceptance, and the order matters.** A generator that
+// refused everything would pass every refusal test, so the accepting case is asserted first — it is what
+// makes the other four mean something.
+use "std/os.bx";
+use "std/files.bx";
+use "std/string.bx";
+
+class Ran { ok: Bool, said: String }
+
+let TYPES: String = "class Order \{ reference: String, customer: String, "
+        + "total: Decimal<2, RoundHalfEven>, amount: Decimal<2>, rate: Decimal<2> \}\n\n"
+        + "pure function money2(value: Decimal<2>) -> String \{ return to_string(value); \}\n";
+
+// **Returns its verdict rather than appending to a tally**, because a top-level `let mutable` is not
+// visible inside a function here — the compiler says so precisely, and `const` would make it
+// unwriteable. So the count is accumulated by the caller, which is also why every call below binds its
+// result: an ignored return would be an assertion that cannot fail the run.
+function check(name: String, condition: Bool, detail: String) -> Int {
+    if condition {
+        print("  ok    " + name);
+        return 0;
+    }
+    print("  FAIL  " + name);
+    print("        " + string_trim(detail));
+    return 1;
+}
+
+// **`errors` on failure and `output` on success, kept apart.** `os_capture` merges the two with
+// `2>&1`, and merging is destructive here: case 5 asserts that a refusal STARTS with `BMX-G001`, which
+// a merged stream can prefix with whatever the generator printed first.
+function run_in(directory: String, command: String) -> Ran touches commands, files, input {
+    let c: Capture = os_capture_status("cd " + file_quote(directory) + " && " + command);
+    if c.code == 0 {
+        return Ran { ok: true, said: c.output };
+    }
+    return Ran { ok: false, said: c.errors + c.output };
+}
+
+let mutable failed: Int = 0;
+
+match file_temp_directory("bmx-level2") {
+    None => {
+        print_error("cannot make a working directory");
+        exit(2);
+    }
+    Some(work) => {
+        let generator: String = work + "/bmx-generate";
+        let built: Ran = run_in(".", "burxt build burxt/examples/generate.bx -o "
+                + file_quote(generator) + " 2>&1");
+        if !built.ok {
+            print_error("the generator does not build:");
+            print_error(built.said);
+            exit(2);
+        }
+        let wrote_types: Int = file_write(work + "/types.bx", TYPES);
+
+        // ---- 1. a correct document renders, escaped, with the scale kept ----
+        let w1: Int = file_write(work + "/receipt.bmx",
+                    "# Receipt \{\{ order.reference \}\}\n\nThanks, **\{\{ order.customer \}\}** — "
+                + "\{\{ to_string(order.total) \}\}.\n");
+        let g1: Ran = run_in(work, file_quote(generator) + " receipt.bmx receipt_view "
+                + file_quote("order: Order"));
+        failed = failed + check("a valid document generates", g1.ok, g1.said);
+        if g1.ok {
+            let wv: Int = file_write(work + "/view.bx", g1.said);
+            let wa: Int = file_write(work + "/app.bx",
+                        "use \"types.bx\";\nuse \"view.bx\";\nlet o: Order = Order \{ reference: \"R-1\", "
+                        + "customer: \"Tom & <Co>\", total: 59.97, amount: 1.00, rate: 1.00 \};\n"
+                    + "print(html_render(receipt_view(o)));\n");
+            let r1: Ran = run_in(work, "burxt run app.bx");
+            failed = failed + check("the generated view compiles and runs", r1.ok, r1.said);
+
+            // **Generated code is read by people, so its SHAPE is part of the contract.** Measured
+            // across Burxt 1.3.0's `lib/`: 338 functions put the brace on the signature line, 79 hang
+            // it under contract clauses, 4 do neither — so the rule is *the brace hangs only when a
+            // clause does*, and the generator was one of the 4. It compiled and rendered correctly the
+            // whole time, which is exactly why this needs an assertion rather than a habit.
+            failed = failed + check("a clause-less signature keeps its brace on the signature line, as `lib/` does",
+                    string_contains(g1.said, "-> Html \{\n"), g1.said);
+            failed = failed + check("it renders what the document said, escaped, with the scale kept",
+                        string_contains(r1.said, "<h1>Receipt R-1</h1>")
+                        && string_contains(r1.said, "Tom &amp; &lt;Co&gt;")
+                    && string_contains(r1.said, "59.97"), r1.said);
+        }
+
+        // ---- 2. a slot naming a field that does not exist ----
+        //
+        // THE case: in every other template language this renders an empty string and ships.
+        let w2: Int = file_write(work + "/typo.bmx", "Hi \{\{ order.custmer \}\}.\n");
+        let g2: Ran = run_in(work, file_quote(generator) + " typo.bmx typo_view "
+                + file_quote("order: Order"));
+        failed = failed + check("a typo still generates", g2.ok, g2.said);
+        if g2.ok {
+            let wv2: Int = file_write(work + "/view.bx", g2.said);
+            let wa2: Int = file_write(work + "/app.bx", "use \"types.bx\";\nuse \"view.bx\";\n");
+            let r2: Ran = run_in(work, "burxt run app.bx");
+            failed = failed + check("a slot naming a missing field is refused", !r2.ok, r2.said);
+            failed = failed + check("the refusal names the field the document got wrong",
+                    string_contains(r2.said, "has no field named `custmer`"), r2.said);
+        }
+
+        // ---- 3. a slot holding something that is not a String ----
+        //
+        // The conversion has to be written in the DOCUMENT, where a reviewer sees it.
+        let w3: Int = file_write(work + "/raw.bmx", "Total: \{\{ order.total \}\}\n");
+        let g3: Ran = run_in(work, file_quote(generator) + " raw.bmx raw_view "
+                + file_quote("order: Order"));
+        if g3.ok {
+            let wv3: Int = file_write(work + "/view.bx", g3.said);
+            let wa3: Int = file_write(work + "/app.bx", "use \"types.bx\";\nuse \"view.bx\";\n");
+            let r3: Ran = run_in(work, "burxt run app.bx");
+            failed = failed + check("a Decimal in a String slot is refused", !r3.ok, r3.said);
+            failed = failed + check("the refusal says the slot's type was wrong",
+                    string_contains(r3.said, "must be String"), r3.said);
+        }
+
+        // ---- 4. money that would silently re-round, inside a view ----
+        //
+        // The thesis reaching the template: the exact product has four places, and reaching two means
+        // rounding, so the view is refused until the document says how.
+        let w4: Int = file_write(work + "/money.bmx", "Due: \{\{ money2(order.amount * order.rate) \}\}\n");
+        let g4: Ran = run_in(work, file_quote(generator) + " money.bmx money_view "
+                + file_quote("order: Order"));
+        if g4.ok {
+            let wv4: Int = file_write(work + "/view.bx", g4.said);
+            let wa4: Int = file_write(work + "/app.bx", "use \"types.bx\";\nuse \"view.bx\";\n");
+            let r4: Ran = run_in(work, "burxt run app.bx");
+            failed = failed + check("a view may not re-round money silently", !r4.ok, r4.said);
+            failed = failed + check("the refusal is the rounding rule",
+                    string_contains(r4.said, "means rounding it"), r4.said);
+        }
+
+        // ---- 5. a dangerous link target, refused by the GENERATOR before any page exists ----
+        let w5: Int = file_write(work + "/evil.bmx", "[click](javascript:steal)\n");
+        let g5: Ran = run_in(work, file_quote(generator) + " evil.bmx evil_view "
+                + file_quote("order: Order"));
+        failed = failed + check("a javascript: target is refused at generation", !g5.ok, g5.said);
+        failed = failed + check("the generator's refusal carries its code",
+                string_starts_with(string_trim(g5.said), "BMX-G001"), g5.said);
+
+        print("");
+        if failed > 0 {
+            print_error(to_string(failed) + " failed");
+            exit(1);
+        }
+        print("level 2: every case passed");
+    }
+}
