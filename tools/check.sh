@@ -17,6 +17,16 @@
 set -u -o pipefail
 cd "$(dirname "$0")/.."
 
+# Where the committed `.vsix` is parked while the packaging check overwrites it — see that check.
+#
+# **`export`, because `run` invokes `bash -c` and a plain shell variable is not in that child.** Without
+# it the name expanded to empty inside the check, `cp` failed on `''`, and the `&&` chain aborted before
+# `pack.py` ran — so the artefact survived because the step was broken, not because it was restored.
+# **That made the verification of this very fix pass for the wrong reason**, which is rule 3 of the golden
+# rules arriving while rule 3 was being written down: the instrument agreeing with you is not evidence.
+export TMPDIR_VSIX="$(mktemp -t bmx-vsix-XXXXXX)"
+trap 'rm -f "$TMPDIR_VSIX"' EXIT
+
 pass=0
 fail=0
 run() {
@@ -73,7 +83,18 @@ run "every brand asset carries the family's margin and its own crop" bash -c '
   python3 tests/branding.py && python3 tests/branding.py --prove-it'
 run "the extension's version is the format's, and the committed package is the packed one" bash -c '
   python3 tests/extension.py && python3 tests/extension.py --prove-it'
+# **This step used to REPAIR the defect the step above detects.** `pack.py` writes
+# `editors/vscode/bmx.vsix` in place, so a stale committed artefact failed
+# `tests/extension.py` here and was silently rewritten one line later — meaning the second local run of
+# this script passed with nothing fixed, and the first run read as flakiness. Measured: FAIL, repack, ok,
+# in one invocation. **A gate downstream of the thing it guards is not a gate**, which is the star-burxt
+# session's phrasing of why their `main` went red — their suite ran after `git push` in the same chain.
+#
+# So the committed artefact is put back afterwards, and this script no longer dirties a tracked file. CI
+# deliberately does NOT do this and is not drifting: it runs on a fresh checkout and its job has already
+# failed by the time the repack happens, so there is no second run to mislead and nothing to restore.
 run "the extension packages" bash -c '
+  cp editors/vscode/bmx.vsix "$TMPDIR_VSIX" &&
   python3 editors/vscode/pack.py >/dev/null &&
   python3 -c "
 import zipfile, sys
@@ -83,7 +104,8 @@ need = [\"[Content_Types].xml\", \"extension.vsixmanifest\", \"extension/package
 miss = [n for n in need if n not in z.namelist()]
 sys.exit(f\"missing {miss}\") if miss else None
 sys.exit(\"corrupt\") if z.testzip() else None
-"'
+" &&
+  cp "$TMPDIR_VSIX" editors/vscode/bmx.vsix'
 
 echo
 echo "the documentation"
