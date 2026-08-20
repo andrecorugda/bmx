@@ -35,3 +35,13 @@ editors/vscode/node_modules/
 #
 # The rule below is what stops the next one.
 tests/__pycache__/
+
+# Andre's golden rules for the Burxt family, kept per-working-copy rather than per-repository, so the
+# same file lives in `burxt`, `star-burxt`, `bmx` and `comet-code-playground` without four copies to keep
+# in step through git. Also `.claude/` is where a session's own scratch settings land, and those are one
+# machine's business.
+#
+# **Ignored rather than committed on purpose:** the rules are a record of what was learned, and a record
+# that travels with the repository invites being read as something the repository enforces. What this
+# repository enforces is in `tools/check.sh` and CI, where it can fail.
+.claude/
