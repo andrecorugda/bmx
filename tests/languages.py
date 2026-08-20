@@ -161,6 +161,19 @@ def main():
         for rel, lines in sorted(gaps, key=lambda g: -g[1]):
             print(f"    {lines:>5}  {rel}")
 
+    # **Zero is not a passing count, and this printed its success line over nothing.** Proven by handing
+    # it an empty scan: *"0 lines not Burxt, every one of them accounted for"*, exit 0. A glob that stops
+    # matching — a renamed directory, a suffix dropped from the list — reads exactly like a tree with
+    # nothing left to explain. The star-burxt session found the same shape in the most important suite
+    # they have: `every guarantee holds`, no number, which is what it would print over zero guarantees.
+    #
+    # The floors are deliberately far below today's numbers. They are not budgets; they are the assertion
+    # that the scan found a tree at all.
+    if burxt < 500 or total < 500:
+        print(f"  FAIL  this scanned {burxt} lines of Burxt and {total} of anything else, which is not "
+              f"this repository — the glob has stopped finding it")
+        missing = missing or ["(the scan itself)"]
+
     if prove:
         if missing or unknown:
             print("\nthe control failed as it must — a file with no stated reason is caught")

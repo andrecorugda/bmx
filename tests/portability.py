@@ -37,6 +37,12 @@ SOURCE = "reference/bmx.js"
 FLOOR_DOC = "docs/install.md"
 
 # (pattern, name, the Node release that first shipped it)
+# **An empty feature table reports the best possible answer.** Proven by emptying it: *"needs nothing
+# newer than Node 0, and the documentation promises 14"*, exit 0. A check whose whole job is measuring a
+# floor reports maximum portability when it measures nothing — and the ways to get there are ordinary: a
+# regex that stops matching after a source reformat, or this list edited down. So `main` asserts the table
+# is populated and that something in it was actually found. Same shape as the star-burxt session's gate
+# that printed `every guarantee holds` with no count.
 FEATURES = [
     (r"\bObject\.groupBy\(",                            "Object.groupBy",            21.0),
     (r"\bArray\.fromAsync\(",                           "Array.fromAsync",           22.0),
@@ -69,6 +75,9 @@ def stated_floor():
     return float(m.group(1))
 
 
+FEATURE_FLOOR = 8        # far below the twelve it knows; the assertion is "a table exists", not a budget
+
+
 def main():
     prove = "--prove-it" in sys.argv
     floor = stated_floor()
@@ -77,12 +86,21 @@ def main():
         # The control is a real feature that really would break the stated floor, in the real shape.
         src += "\nconst copy = structuredClone(tree)\n"
 
+    # The table and the scan must both have found something — see the note above `FEATURES`.
+    if len(FEATURES) < FEATURE_FLOOR:
+        sys.exit(f"the feature table holds {len(FEATURES)} patterns, below the floor of {FEATURE_FLOOR} "
+                 f"— it has been edited down, and an empty table measures every file as Node 0")
+
     used = []
     for pattern, name, since in FEATURES:
         m = re.search(pattern, src)
         if m:
             used.append((since, name, src[:m.start()].count("\n") + 1))
     used.sort(reverse=True)
+
+    if not used:
+        sys.exit(f"no known feature matched {SOURCE} at all, so the measured floor is meaningless — "
+                 f"the patterns have stopped matching, which reports maximum portability")
 
     print(f"  {FLOOR_DOC} states a floor of Node {floor:g}")
     for since, name, line in used[:4]:

@@ -39,6 +39,16 @@ ICONS = [
     ("editors/vscode/icon.png", 128),
     ("docs/assets/bmx-file-icon-128.png", 128),
 ]
+# **Zero assets is not a passing state, and this printed its success line over an empty list.** Proven by
+# emptying `ICONS`: *"every brand asset carries the family's margin, an alpha channel, and its own crop"*,
+# exit 0. A list edited down, or a directory renamed, reads as a family with nothing wrong with it. The
+# floor is far below the real count — it asserts a list exists rather than budgeting one.
+#
+# **And the first attempt to prove this proved nothing.** I set `B.ASSETS = <empty dir>` on the module and
+# watched it pass — but there is no `ASSETS` here, so I had created an attribute nothing reads and then
+# tested it. The instrument agreed with me because it was not connected to anything.
+ICON_FLOOR = 3
+
 TARGET_INK = 70          # per cent of height, the family's margin
 TOLERANCE = 4            # 48px rounds coarsely: one row is 2%
 
@@ -206,6 +216,10 @@ def weight(rows, w, h):
 
 def main():
     prove = "--prove-it" in sys.argv
+    if len(ICONS) < ICON_FLOOR:
+        sys.exit(f"the icon list holds {len(ICONS)}, below the floor of {ICON_FLOOR} — it has been edited "
+                 f"down, and an empty list passes every assertion in this file")
+
     failures = 0
 
     for path, expected in ICONS:
