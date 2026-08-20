@@ -237,12 +237,30 @@ does not have. The star-burxt session lost a branch to exactly this — they swi
 `std/zip.bx`, it built locally, and `main` went red on a clean runner because the published 1.4.0 has
 no zip module.
 
-So **verify Burxt work against the release, not against what is installed**:
+So **verify Burxt work against the release, not against what is installed** — and *the release* means
+the published asset, checksum-verified, **not `~/burxt/dist/`**:
 
 ```sh
-tar xzf ~/burxt/dist/burxt-1.4.0-linux-x86_64.tar.gz -C /tmp/rel --strip-components=1
-BURXT_LIB=/tmp/rel/lib /tmp/rel/burxt build burxt/conformance.bx -o /tmp/c && /tmp/c
+v=1.5.0
+gh release download "v$v" --repo andrecorugda/burxt --dir /tmp/rel \
+    --pattern "burxt-$v-linux-x86_64.tar.gz" --pattern SHA256SUMS --clobber
+(cd /tmp/rel && sha256sum -c --ignore-missing SHA256SUMS)      # the step that makes it the release
+tar xzf /tmp/rel/burxt-$v-linux-x86_64.tar.gz -C /tmp/rel --strip-components=1
+PATH=/tmp/rel:$PATH BURXT_LIB=/tmp/rel/lib tools/check.sh
 ```
+
+**`~/burxt/dist/` holds LOCAL BUILDS and this file recommended it.** Measured — the same tag, three
+different byte streams:
+
+| | 1.4.0 | 1.5.0 |
+|---|---|---|
+| `~/.local/bin/burxt` (installed) | — | reports `1.4.0`, differs from every tarball |
+| `~/burxt/dist/…tar.gz` | `6670264f…` | `58429358…` |
+| the published release asset | `161e6ecb…` | `44d3b566…` |
+
+Three layers of the same error, each one believed to be the ground: the installed compiler, then the
+`dist/` tarball, then the published asset. **Only the third is what CI downloads**, and only a checksum
+tells them apart — `burxt --version` prints the same string for all of them.
 
 `git grep -l "function <name>(" v1.4.0 -- lib` in `~/burxt` answers the narrower question — whether a
 symbol exists in the release — without a build. `print_error`, `substring`, `push` and `len` are
