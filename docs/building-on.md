@@ -241,6 +241,29 @@ none.
 **No cross-file component resolution in the format.** A block names a component; how a host finds
 it is the host's module system, not BMX's.
 
+**No lint in `burxt/bmx.bx`, and this one is a decision rather than a backlog item.** The four warnings —
+`BMX-W001`, `W002`, `W003`, `W005` — exist only in `reference/bmx.js`, which exports `lint`. A host asked
+for them in the Burxt implementation, with a real caller: their language server had become Burxt, which
+removed Node from their extension entirely, and the warnings went with it. It was declined, for two
+reasons worth stating because they are the reasons anyone asking again will run into.
+
+**`BMX-W` codes are deliberately not conformance.** [Writing an implementation](implementing.html) tells
+a third-party implementer that lints are optional and that no fixture requires them. Two lint
+implementations obliged to agree would quietly promote them toward conformance — changing what the format
+asks of *everyone* who implements it, in exchange for four warnings in one editor. That is a
+[versioning](https://github.com/andrecorugda/bmx/blob/main/VERSIONING.md) question wearing a feature's
+clothes.
+
+**And it is not 150 lines; it is 150 lines plus a promise.** Every `public` name in `burxt/bmx.bx` must
+appear on this page and be reachable from an outside package — `tests/surface.py` checks both directions.
+`bmx_lint` would be a compatibility commitment this repository then keeps, and `W002` and `W005` have each
+been *too broad* once already, so a second implementation would inherit a judgement it cannot maintain.
+
+**What the host did instead is the better pattern for anyone in the same position:** announce the missing
+capability at startup and assert that the announcement happens, so it cannot vanish quietly, plus a probe
+that fires if somebody reimplements the four rules locally to close a gap that is not one. If `bmx_lint`
+is ever added here, those warnings return with no change on the host's side.
+
 ## Give your library its own version number
 
 Not BMX's. They measure different promises, and 0.2 is the worked example of why.
