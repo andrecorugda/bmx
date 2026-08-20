@@ -278,9 +278,23 @@ jobs:
           BURXT: 1.4.0
         run: |
           set -eux
-          curl -fsSL -o /tmp/burxt.tar.gz \
-            "https://github.com/andrecorugda/burxt/releases/download/v$BURXT/burxt-$BURXT-linux-x86_64.tar.gz"
-          mkdir -p /tmp/burxt && tar xzf /tmp/burxt.tar.gz -C /tmp/burxt --strip-components=1
+          base="https://github.com/andrecorugda/burxt/releases/download/v$BURXT"
+          asset="burxt-$BURXT-linux-x86_64.tar.gz"
+          curl -fsSL -o "/tmp/$asset" "$base/$asset"
+
+          # **The digest, because a version string does not identify a binary.** This step downloaded and
+          # unpacked whatever the URL served and never checked what it got. Measured locally on the day
+          # this was added: for one tag there were THREE different byte streams — an installed compiler,
+          # a tarball in the language repository's `dist/`, and the published asset — and
+          # `burxt --version` prints the same `burxt 1.4.0` for all of them. A local build of the same tag
+          # is what turned star-burxt's `main` red while every local suite was green.
+          #
+          # So the pin is a digest as well as a number. If a future release ships no `SHA256SUMS`, this
+          # fails loudly, which is the correct outcome: an unverifiable toolchain is not one to pin to.
+          curl -fsSL -o /tmp/SHA256SUMS "$base/SHA256SUMS"
+          (cd /tmp && grep " $asset\$" SHA256SUMS | sha256sum -c -)
+
+          mkdir -p /tmp/burxt && tar xzf "/tmp/$asset" -C /tmp/burxt --strip-components=1
           sudo install -d /usr/local/bin /usr/local/lib/burxt
           sudo install -m 755 /tmp/burxt/burxt /usr/local/bin/burxt
           sudo install -m 644 /tmp/burxt/lib/*.bx /usr/local/lib/burxt/
