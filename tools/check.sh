@@ -19,6 +19,28 @@ cd "$(dirname "$0")/.."
 
 pass=0
 fail=0
+# **What was NOT run, because the summary line said only what was.** A fresh clone of this repository
+# reports `26 checks passed` where a complete tree reports 29 — the three grammar tests need an `npm
+# install` that a clone does not have — and a reader comparing that number against CI's has no way to see
+# the difference. The skips were printed, four lines apart from a total that ignored them; `tests/version.py`
+# carries the same defect written up as *a runner whose summary contradicts its own exit code*, and this is
+# its milder cousin: a summary that is true about what ran and silent about what did not.
+#
+# **The counts in the skip labels are hand-written and were wrong on the first try** — the Burxt half was
+# labelled 8 and is 9, which showed up only because 17 passed + 3 + 9 has to equal the 29 a complete tree
+# runs, and 17 + 3 + 8 did not. `grep -c '^  run '` inside each guarded block is the check; if a `run`
+# line is added to a block, its number here moves.
+#
+# **A check that only ever runs where the tree is complete cannot find an incomplete tree** — the
+# star-burxt session's sentence, after four red `main` runs traced to files their local tree had and a
+# runner did not. This is the reporting half of it.
+skipped=0
+skipped_what=""
+skip() {
+  printf '  \033[33mskip\033[0m  %s\n' "$1"
+  skipped=$((skipped + 1))
+  skipped_what="${skipped_what}${skipped_what:+; }$2"
+}
 run() {
   local name="$1"; shift
   local out
@@ -61,7 +83,8 @@ if [ -d editors/vscode/node_modules/vscode-textmate ]; then
   run "every line is numbered and the document survives painting" bash -c '
     node editors/vscode/test/panel.mjs && node editors/vscode/test/panel.mjs --prove-it'
 else
-  printf '  \033[33mskip\033[0m  the grammar tests need `cd editors/vscode && npm install vscode-textmate vscode-oniguruma`\n'
+  skip 'the grammar tests need `cd editors/vscode && npm install vscode-textmate vscode-oniguruma`' \
+       'the grammar tests (3, no vscode-textmate)'
 fi
 run "the editor behaves the way the format reads" node editors/vscode/test/config.mjs
 run "the language server says what it should, in the right coordinates" node editors/lsp/test/protocol.mjs
@@ -123,13 +146,20 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   run "every documented name is reachable, and every public name is documented" bash -c '
     python3 tests/surface.py && python3 tests/surface.py --prove-it'
 else
-  printf '  \033[33mskip\033[0m  the Burxt half needs `burxt` on PATH and BURXT_LIB set — see docs/install.md\n'
+  skip 'the Burxt half needs `burxt` on PATH and BURXT_LIB set — see docs/install.md' \
+       'the Burxt half (9, no toolchain)'
 fi
 
 echo
 if [ "$fail" -eq 0 ]; then
-  printf '\033[32m%d checks passed\033[0m\n' "$pass"
+  printf '\033[32m%d checks passed\033[0m' "$pass"
 else
-  printf '\033[31m%d failed\033[0m, %d passed\n' "$fail" "$pass"
+  printf '\033[31m%d failed\033[0m, %d passed' "$fail" "$pass"
+fi
+if [ "$skipped" -gt 0 ]; then
+  printf ', \033[33m%d group(s) skipped\033[0m — %s\n' "$skipped" "$skipped_what"
+  printf 'so this run is NOT the suite CI runs; the number above is not comparable to it.\n'
+else
+  printf ' — the whole suite, nothing skipped\n'
 fi
 exit "$fail"
