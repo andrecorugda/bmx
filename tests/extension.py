@@ -163,11 +163,74 @@ def main():
           f"a client logs that, so every bug report about it names the wrong version")
 
     # And the name every document hands to a reader.
+    #
+    # **Only names on an `install-extension` line, because the promise IS the install command.** This
+    # scanned every `.vsix` token on every page, which cannot tell **using** a name from **mentioning**
+    # one — so a sentence recording the old scheme (*"the artefact used to be called `bmx-0.1.0.vsix`"*)
+    # failed the check for describing history accurately. Proven reachable by appending exactly that
+    # sentence to `editors/vscode/README.md` and watching this fire; latent only because no page happens
+    # to carry it today. The Burxt session hit the identical bug in their own filename test twice and had
+    # to reword prose to get green, which is the wrong direction — a check should not constrain what the
+    # documentation may say about its own past.
+    #
+    # The same use-versus-mention failure took a file out of `tests/version.py`'s scope the same day, when
+    # `CLAUDE.md` opted itself out by *describing* the opt-out marker. Both fixes are structural: there,
+    # a declaration must stand alone at the top of a file; here, a promise must stand in a command.
+    #
+    # Internal paths — the `ZipFile(...)` lines in `check.sh` and `ci.yml` — are deliberately not scanned.
+    # They are not promises to a reader, and they are self-checking: opening a missing zip throws.
+    # **A SPLIT, not a character class, and that distinction is the day's best transferable finding.**
+    # This was `re.findall(r"\b([\w.-]+\.vsix)\b", line)`, and `code --install-extension
+    # bmx-<version>.vsix` matched NOTHING: the character before `.vsix` is `>`, which the class does not
+    # admit, so the scan could not reach the name and a wrong filename on a real install line passed
+    # silently. Verified before changing it.
+    #
+    # **A character class enumerates what a filename may contain; splitting on delimiters accepts whatever
+    # is actually there.** Prose contains things filenames do not — placeholders, ellipses, a name inside
+    # parentheses — and each of those is a hole in a class and none is a hole in a split. The Burxt
+    # session's equivalent check catches the placeholder for exactly this reason, which they were candid
+    # was an accident of their predicate rather than foresight; it is still the right shape, and it is why
+    # their check found this class of defect in anger while mine could not see it.
+    #
+    # **And the lesson's second half, which is symmetric and cost two measurements to find:**
+    #
+    #     A class misses what it did not enumerate. A split accepts what it should not.
+    #
+    # The class missed `bmx-<version>.vsix` because `>` was not in it. The split then failed at the other
+    # end of the same token: pointed at `editors/README.md` — the page about how a HOST extends BMX — a
+    # legitimate `code --install-extension star-burxt.vsix` was reported as a missing file of ours.
+    # Measured, not imagined; that page is the likeliest place such a line gets written.
+    #
+    # So the split is filtered to OUR artefact, by the name `package.json` declares rather than a literal,
+    # which is the guard the Burxt session's predicate had all along (`ends_with(".vsix") && contains
+    # ("burxt")`) and that I dropped in switching to theirs. Their check lost to punctuation at the same
+    # time mine lost to a placeholder — neither predicate was better, they failed at opposite ends of one
+    # token, and **both wanted the trim**, which is the cheap half neither of us had before today.
+    #
+    # Trailing punctuation is trimmed so a sentence-ending `bmx.vsix.` and a parenthesised
+    # `(bmx-0.1.0.vsix)` are still the names they name — both walked past their check untrimmed, in the
+    # file where such a sentence is most plausible. A path is reduced to its basename because
+    # `editors/vscode/bmx.vsix` promises the same file.
+    ours = json.loads(PKG.read_text())["name"]
+
+    def promised(text):
+        out = set()
+        for line in text.splitlines():
+            if "install-extension" not in line:
+                continue
+            for token in re.split(r"[\s`'\"(),]+", line):
+                token = token.strip("`'\".,;:!?()")
+                if token.endswith(".vsix") and ours in token:
+                    out.add(token.rsplit("/", 1)[-1])
+        return out
+
     named = set()
     for page in PAGES:
-        named.update(re.findall(r"\b([\w.-]+\.vsix)\b", (ROOT / page).read_text()))
+        named.update(promised((ROOT / page).read_text()))
     if prove:
-        named.add("bmx-0.1.0.vsix")
+        # Through `promised`, not straight into the set: a control that skips the extractor proves the
+        # comparison works and says nothing about whether the extractor still sees an install line.
+        named.update(promised("code --install-extension bmx-0.1.0.vsix"))
     missing = sorted(n for n in named if not (ROOT / "editors" / "vscode" / n).exists())
     check(not missing,
           f"every .vsix the documentation names exists ({', '.join(sorted(named))})",
