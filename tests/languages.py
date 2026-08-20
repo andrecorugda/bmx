@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# not-burxt: standalone
+# not-burxt: gap — checks THIS REPOSITORY rather than the format, so the standalone argument never reached it
 """Every file in this repository that is not Burxt says why it is not.
 
     python3 tests/languages.py
@@ -27,10 +27,9 @@ one exists* is stronger.
               conformance suite would require the Burxt toolchain — so a stranger implementing BMX in
               a sixth language could not check their work, which is the one thing these files exist
               for.
-`standalone`  `ci.yml` states it: *"There is deliberately NO Burxt here. The format must be testable
-              without its first host installed, or 'standalone' is a word rather than a property."*
-              These run in the Node-only job. In Burxt they would make BMX's own test suite depend on
-              BMX's first host, which is the property that job exists to protect.
+`bootstrap`   `tools/check.sh` only. The entry point a contributor runs **before** any toolchain
+              exists, so it cannot need what it installs — the chicken-and-egg category, and it
+              already discloses which groups it skipped.
 `platform`    The artefact under test, or the runtime it runs in, is JavaScript and nothing else can
               be: VS Code's extension host is Node, a TextMate grammar is tokenised by a JS engine,
               and `docs/assets/code.js` runs in the reader's browser.
@@ -39,6 +38,19 @@ one exists* is stronger.
               break the property that makes it a copy.
 `gap`         **Could be Burxt and is not.** Named rather than defended. This is the number the rule
               is about, and it is the only category that should ever shrink.
+
+**`standalone` used to be a category here and it was doing work it had not earned.** It covered sixteen
+files on the strength of `ci.yml`'s sentence — *the format must be testable without its first host
+installed* — and **that sentence is about the format, not about this repository's CI.** What the format's
+claim actually needs is the fixtures, which are data, plus a runner a stranger can execute: that is
+`neutral`, and it is genuinely permanent. `tests/version.py`, `tests/branding.py`,
+`editors/vscode/pack.py` and the rest check *this repository*. In Burxt they would make the conformance
+job need a toolchain — which costs a contributor without one some checks, and **costs the format's
+portability claim nothing at all.**
+
+Conflating those two is how a real property lent its authority to a choice. Reclassified 2026-08-21:
+fifteen files moved to `gap`, and the gap went from 708 lines to 3,074. **The number was wrong in the
+flattering direction, which is the only direction that survives.**
 
 **This total is not comparable to the other repositories', and that has to be said here or a reader will
 compare it anyway.** star-burxt reached `gap` zero; BMX cannot and should not. The difference is
@@ -80,7 +92,7 @@ SUFFIXES = (".py", ".mjs", ".js", ".sh")
 MARKER = re.compile(r"^(?:#|//)\s*not-burxt:\s*([a-z]+)(?:\s|$)")
 WITHIN = 20
 
-REASONS = ("reference", "neutral", "standalone", "platform", "gap")
+REASONS = ("reference", "neutral", "bootstrap", "platform", "gap")
 
 # Files that must not be edited, so they cannot carry a marker. The reason lives here because the
 # alternative is editing the thing whose whole property is being an unedited copy.
@@ -150,9 +162,9 @@ def main():
 
     # Printed, not asserted, for the reason in the docstring: `gap` is the debt and the rest is the
     # architecture, so the two want reading differently rather than summing.
-    permanent = sum(tally.get(r, 0) for r in ("reference", "neutral", "standalone"))
-    print(f"  of that, {permanent} lines are permanent — reference, neutral and standalone cannot be")
-    print(f"  Burxt while the conformance job may not need a Burxt toolchain (see ci.yml's first line)")
+    permanent = sum(tally.get(r, 0) for r in ("reference", "neutral", "platform"))
+    print(f"  of that, {permanent} lines are permanent — reference, neutral and platform, which no")
+    print(f"  release and no amount of work can move; everything in `gap` can.")
 
     # **The gap total is printed rather than capped.** A threshold here would be a number somebody
     # raises when it is inconvenient, and the rule is not "keep it under N" — it is "know what it is".

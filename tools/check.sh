@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
+# not-burxt: bootstrap — the entry point a contributor runs BEFORE any toolchain exists; it cannot need what it installs
 #
 # Everything CI runs, locally, in one command.
 #

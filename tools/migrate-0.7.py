@@ -1,4 +1,4 @@
-# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
+# not-burxt: gap — checks THIS REPOSITORY rather than the format, so the standalone argument never reached it
 """Rewrites BMX 0.6 fences to 0.7: `::: name head` / `:::` becomes `:name: head` / `:!name:`.
 
     python3 tools/migrate-0.7.py FILE...          # rewrites in place

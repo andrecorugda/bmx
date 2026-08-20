@@ -1,4 +1,4 @@
-# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
+# not-burxt: gap — checks THIS REPOSITORY rather than the format, so the standalone argument never reached it
 """The reference parser's runtime floor, read out of the documentation and checked against the source.
 
     python3 tests/portability.py

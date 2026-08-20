@@ -1,4 +1,4 @@
-# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
+# not-burxt: gap — checks THIS REPOSITORY rather than the format, so the standalone argument never reached it
 """The committed brand assets, measured: a consistent margin, an alpha channel, and no white box.
 
     python3 tests/branding.py

@@ -189,9 +189,17 @@ Three of the reasons are properties of BMX being a *format*, and they are not ne
 - `neutral` — `harness.py`, `probe.py`, `agree.py`, `renders.py`, `output.py` take an **arbitrary
   implementation command**. In Burxt, a stranger implementing BMX in a sixth language could not run
   them, which is the only thing they exist for.
-- `standalone` — `ci.yml` states it: *"There is deliberately NO Burxt here. The format must be testable
-  without its first host installed, or 'standalone' is a word rather than a property."* Rewriting these
-  in Burxt would make BMX's own suite depend on BMX's first host.
+- `bootstrap` — `tools/check.sh` alone: the entry point a contributor runs **before** a toolchain
+  exists, so it cannot need what it installs.
+
+**A category was deleted on 2026-08-21 because it was doing work it had not earned.** `standalone`
+covered sixteen files on the strength of `ci.yml`'s sentence — *the format must be testable without its
+first host installed* — and **that sentence is about the format, not about this repository's CI.** The
+format's claim needs the fixtures, which are data, plus a runner a stranger can run: that is `neutral`.
+`tests/version.py`, `tests/branding.py`, `editors/vscode/pack.py` and twelve others check *this
+repository*. In Burxt they cost a contributor without a toolchain some local checks and cost the
+portability claim nothing. Fifteen files moved to `gap`; **the gap went from 708 lines to 3,086.** The
+number had been wrong in the flattering direction.
 
 `platform` is forced by the runtime (VS Code's extension host is Node; a TextMate grammar is tokenised
 by a JS engine; `docs/assets/code.js` runs in a reader's browser) and `vendored` is a byte copy from

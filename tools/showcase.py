@@ -1,4 +1,4 @@
-# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
+# not-burxt: gap — checks THIS REPOSITORY rather than the format, so the standalone argument never reached it
 """The landing page's showcase: one document becoming a whole page, with a slider over its two halves.
 
     burxt build render.bx -o bmxrender

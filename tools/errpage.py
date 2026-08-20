@@ -1,4 +1,4 @@
-# not-burxt: standalone — CI's Node-only job; in Burxt, BMX's own suite would need BMX's first host installed
+# not-burxt: gap — checks THIS REPOSITORY rather than the format, so the standalone argument never reached it
 import subprocess, sys, html
 name = sys.argv[1]
 out = subprocess.run(["./bmxrender", name + ".bmx"], capture_output=True, text=True).stdout.strip()
