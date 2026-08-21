@@ -1011,6 +1011,16 @@ export function at(source, offset) {
 // `tests/renders.mjs` compares the two over the whole corpus. Where they differ, one of them is
 // wrong and the suite says so.
 
+// **Dated: the apostrophe's spelling must move in the same commit as the `BURXT` pin.** `ESCAPING.md`
+// names the characters a host escapes and leaves the ENTITY SPELLING to the host — so `&#39;` and
+// `&#x27;` are both conformant, and `tests/renders.py` comparing pages byte-for-byte is therefore
+// stricter than the spec, exactly as `burxt/conformance.bx` is about JSON key order.
+//
+// Today both implementations spell it `&#39;` and agree. Burxt's `lib/html.bx` moves to `&#x27;` in their
+// 1.7.0 — **so raising the pin without changing this line makes the two renderers disagree**, and
+// `tests/cases/081-an-apostrophe-is-ordinary-text` exists to make that a failure rather than a surprise
+// in somebody's page. Verified by planting `&#x27;` here against published 1.6.0: `renders.py` reports
+// `1 differ`, exit 1.
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 
 /** The one escaping rule, and there is no way to opt out of it — that is ESCAPING.md. */

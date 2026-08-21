@@ -19,6 +19,13 @@ where the command is a program that prints a rendered page for one document, e.g
 `tools/render.bx`. Both sides are given the same bindings, which are the ones that tool declares.
 
 Exits non-zero on the first page that differs.
+
+**This is stricter than `ESCAPING.md`, and that is worth knowing before reading a failure as a conformance
+bug.** The normative document names the characters a host escapes and says the host supplies the function
+— so two implementations may legitimately spell the same entity differently (`&#39;` versus `&#x27;`) and
+both be conformant. Comparing pages byte-for-byte is the right check for two implementations that are
+*meant* to be interchangeable, and it is not the same claim as the specification's. Same shape as
+`burxt/conformance.bx` being order-sensitive about JSON keys when the suite is not.
 """
 
 import pathlib
