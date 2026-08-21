@@ -1,0 +1,271 @@
+// tests/mirror.bx — `tools/check.sh` and `.github/workflows/ci.yml` run the same checks.
+//
+//     burxt build tests/mirror.bx -o mirror
+//     ./mirror
+//     ./mirror --prove-it     # the negative control
+//
+// **`check.sh`'s header has promised since it was written that it "mirrors `ci.yml` and nothing else",
+// and nothing checked it. Three drifts were found in one afternoon, by hand, one at a time:**
+//
+//   1. `tests/invitation` ran in `check.sh`'s unguarded group and in `ci.yml`'s Burxt job. It builds the
+//      harness, so on a machine without a toolchain it FAILED instead of being skipped — invisible to me
+//      because `burxt` happens to be on this author's PATH globally.
+//   2. Three ported runners were added to `ci.yml` beside the sibling they read like belonging next to,
+//      and that sibling was in the `conformance` job — which may not need a Burxt toolchain. CI went red
+//      twice with `burxt: command not found`.
+//   3. **`tests/extension` and `tests/branding` ran locally and in no CI job at all.** The extension is
+//      the one artefact a person installs, and the brand assets are the one artefact no test can catch
+//      going stale. Both were verified only by whoever last ran `check.sh`.
+//
+// The third is the one that matters, and it is the one a person cannot find by reading: a check that is
+// present in one file and absent from the other looks like nothing. Two lists of thirty names are not
+// comparable by eye, which is exactly the kind of comparison a program should be doing.
+//
+// **It compares NAMES, and that is a real constraint on both files rather than a weakness of the check.**
+// A `run "…"` label in `check.sh` and a `- name:` in `ci.yml` must be the same sentence for the same
+// check, and where they were not — *"it is formatted"* against *"The Burxt implementation is formatted"* —
+// the drift was invisible for the same reason the missing checks were. Matching is case-insensitive
+// because `ci.yml` capitalises a step name and `check.sh` does not; anything more forgiving would be a
+// fuzzy match, and a fuzzy match on this question reports agreement it has not established.
+//
+// **Two checks are CI's alone and are named here, because an exception list of two is honest and a
+// heuristic is not.** A pull-request comment and a dependent-package build cannot run locally, and
+// neither is a check of the format.
+use "std/array.bx";
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+const CHECK_SH: String = "tools/check.sh";
+const CI_YML: String = ".github/workflows/ci.yml";
+
+// CI-only, by nature rather than by omission.
+function ci_alone() -> [String] {
+    let mutable out: [String] = [];
+    // A comment on a pull request; there is no pull request locally.
+    let a: Int = push(out, "report whether this touched an existing case");
+    // Fetches and unpacks a release tarball; `check.sh` requires one already on PATH and says so.
+    let b: Int = push(out, "install the burxt this release of bmx supports");
+    // Writes a package into /tmp that depends on this one by absolute path. `tests/surface.bx` asks the
+    // same question from inside the suite; this step is the end-to-end version and needs a clean checkout.
+    let c: Int = push(out, "somebody else's program can reach `bmx_parse`");
+    return out;
+}
+
+pure function has(items: [String], needle: String) -> Bool {
+    let mutable i: Int = 0;
+    while i < len(items) {
+        if items[i] == needle {
+            return true;
+        }
+        i += 1;
+    }
+    return false;
+}
+
+pure function fold(text: String) -> String {
+    return string_to_lower_ascii(string_trim(text));
+}
+
+// Every `run "…"` label in `check.sh`.
+pure function check_labels(text: String) -> [String] {
+    let mutable out: [String] = [];
+    let lines: [String] = string_split(text, "\n");
+    let mutable i: Int = 0;
+    while i < len(lines) {
+        let line: String = string_trim(lines[i]);
+        if string_starts_with(line, "run \"") {
+            let start: Int = 5;
+            let ends: Int = string_find_from(line, "\"", start);
+            if ends > start {
+                let a: Int = push(out, fold(substring(line, start, ends - start)));
+            }
+        }
+        i += 1;
+    }
+    return out;
+}
+
+// Every `- name:` step in `ci.yml`, with the job it belongs to. A YAML parser would be the honest way to
+// read this; two facts make a scan enough, and both are asserted rather than assumed below: a job header
+// is the only thing at two spaces of indentation ending in a colon, and a step name is the only thing
+// spelled `- name:`.
+class Step { job: String, name: String }
+
+pure function ci_steps(text: String) -> [Step] {
+    let mutable out: [Step] = [];
+    let mutable job: String = "";
+    let lines: [String] = string_split(text, "\n");
+    let mutable i: Int = 0;
+    while i < len(lines) {
+        let line: String = lines[i];
+        if string_starts_with(line, "  ") && !string_starts_with(line, "   ")
+                && string_ends_with(string_trim_end(line), ":") {
+            let trimmed: String = string_trim(line);
+            job = substring(trimmed, 0, len(trimmed) - 1);
+        }
+        let body: String = string_trim(line);
+        if string_starts_with(body, "- name:") {
+            let a: Int = push(out, Step { job: job, name: fold(substring(body, 7, len(body) - 7)) });
+        }
+        i += 1;
+    }
+    return out;
+}
+
+pure function pad_right(text: String, width: Int) -> String {
+    let mutable out: String = text;
+    while char_count(out) < width {
+        out = out + " ";
+    }
+    return out;
+}
+
+// ---- the program ---------------------------------------------------------------------------------
+
+let mutable prove: Bool = false;
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    if os_arg(a) == "--prove-it" {
+        prove = true;
+    }
+    a += 1;
+}
+
+let mutable sh_text: String = "";
+let mutable yml_text: String = "";
+match file_read_maybe(CHECK_SH) {
+    None => {
+        print_error("cannot read " + CHECK_SH + " — run this from the repository root");
+        exit(2);
+    }
+    Some(text) => { sh_text = text; }
+}
+match file_read_maybe(CI_YML) {
+    None => {
+        print_error("cannot read " + CI_YML + " — run this from the repository root");
+        exit(2);
+    }
+    Some(text) => { yml_text = text; }
+}
+
+let mutable local: [String] = check_labels(sh_text);
+let steps: [Step] = ci_steps(yml_text);
+let mutable remote: [String] = [];
+let mutable s: Int = 0;
+while s < len(steps) {
+    let x: Int = push(remote, steps[s].name);
+    s += 1;
+}
+if prove {
+    // The control is drift in the direction that actually happened: a check `check.sh` runs and CI does
+    // not. Planted by taking one name out of CI's list rather than adding one to `check.sh`'s, so the
+    // comparison is exercised and not the parser.
+    //
+    // **The name it removes is DISCOVERED, and the first cut took the last one and proved nothing**: the
+    // last step in `ci.yml` is `somebody else's program can reach bmx_parse`, which is on the excused
+    // list, so deleting it was invisible and the control reported that it could not fail. A control that
+    // plants at a position rather than at a subject is a control that depends on the file's order.
+    let mutable dropped: Bool = false;
+    let mutable d: Int = 0;
+    while d < len(remote) && !dropped {
+        if has(local, remote[d]) {
+            let gone: Int = array_remove_at(remote, d);
+            dropped = true;
+        }
+        d += 1;
+    }
+}
+
+let excused: [String] = ci_alone();
+let mutable missing_in_ci: [String] = [];
+let mutable missing_in_sh: [String] = [];
+let mutable i: Int = 0;
+while i < len(local) {
+    if !has(remote, local[i]) {
+        let x: Int = push(missing_in_ci, local[i]);
+    }
+    i += 1;
+}
+let mutable j: Int = 0;
+while j < len(remote) {
+    if !has(local, remote[j]) && !has(excused, remote[j]) {
+        let x: Int = push(missing_in_sh, remote[j]);
+    }
+    j += 1;
+}
+
+let mutable k: Int = 0;
+while k < len(missing_in_ci) {
+    print("  FAIL  " + CHECK_SH + " runs `" + missing_in_ci[k] + "` and " + CI_YML
+            + " has no step with that name — a check that runs on one machine is a check");
+    k += 1;
+}
+let mutable m: Int = 0;
+while m < len(missing_in_sh) {
+    print("  FAIL  " + CI_YML + " runs `" + missing_in_sh[m] + "` and " + CHECK_SH
+            + " does not — a contributor cannot reproduce a red build they cannot run");
+    m += 1;
+}
+
+// **The parser has to have found something, and both halves of it.** A scan that stops matching reports
+// perfect agreement between two empty lists, which is the failure mode of every comparison.
+if len(local) < 10 || len(remote) < 10 {
+    print("  FAIL  this found " + to_string(len(local)) + " checks in " + CHECK_SH + " and "
+            + to_string(len(remote)) + " steps in " + CI_YML
+            + ", which is not these files — the scan has stopped reading them");
+    if len(missing_in_ci) == 0 && len(missing_in_sh) == 0 {
+        let x: Int = push(missing_in_ci, "(the scan itself)");
+    }
+}
+
+// And every job a step landed in, so the placement half of the same question is readable rather than
+// inferred. A step that needs the compiler and sits in the job that does not install it is the drift
+// that turned CI red twice, and it is not a name mismatch — both files had the check.
+let mutable jobs: [String] = [];
+let mutable counts: [Int] = [];
+let mutable p: Int = 0;
+while p < len(steps) {
+    let mutable at: Int = -1;
+    let mutable q: Int = 0;
+    while q < len(jobs) {
+        if jobs[q] == steps[p].job {
+            at = q;
+        }
+        q += 1;
+    }
+    if at < 0 {
+        let x: Int = push(jobs, steps[p].job);
+        let y: Int = push(counts, 1);
+    } else {
+        counts[at] = counts[at] + 1;
+    }
+    p += 1;
+}
+print("  " + to_string(len(local)) + " checks in " + CHECK_SH + ", " + to_string(len(remote))
+        + " steps in " + CI_YML + ", " + to_string(len(excused)) + " of them CI's alone:");
+let mutable r: Int = 0;
+while r < len(jobs) {
+    print("    " + pad_right(jobs[r], 22) + to_string(counts[r]) + " steps");
+    r += 1;
+}
+
+if prove {
+    if len(missing_in_ci) > 0 || len(missing_in_sh) > 0 {
+        print("");
+        print("the control failed as it must — a check one file runs and the other does not is caught");
+        exit(0);
+    }
+    print("");
+    print("THE CONTROL DID NOT FAIL, so this check cannot see the two files drifting");
+    exit(1);
+}
+if len(missing_in_ci) > 0 || len(missing_in_sh) > 0 {
+    print("");
+    print(to_string(len(missing_in_ci) + len(missing_in_sh)) + " check(s) run in one place and not the"
+            + " other");
+    exit(1);
+}
+print("");
+print("every check runs in both places, under the same name");
+exit(0);

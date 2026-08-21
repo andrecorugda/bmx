@@ -132,7 +132,7 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   # Needs burxt 1.4.0 or newer, which is the pinned version — `fmt` did not exist before it.
   # **Both Burxt files, because the check named one.** `conformance.bx` arrived unformatted and this
   # step would not have said so — the same shape as the scopes that were hand-listed elsewhere today.
-  run "it is formatted" bash -c '
+  run "the Burxt implementation is formatted" bash -c '
     burxt fmt --check burxt/bmx.bx burxt/conformance.bx burxt/guarantees.bx'
   # **The implementation Burxt users get, verified by the language it serves.** `harness.py` above asks
   # the same question in Python and stays exactly what it is — the neutral runner a stranger implementing
@@ -141,7 +141,7 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   # them has a bug and the fixtures are the arbiter.
   run "the suite runs on Burxt, over the Burxt implementation" bash -c '
     burxt build burxt/conformance.bx -o /tmp/check-conformance && /tmp/check-conformance'
-  run "it passes the format's own suite" bash -c '
+  run "the Burxt implementation passes the format's own suite" bash -c '
     burxt build tests/harness.bx -o /tmp/check-harness && /tmp/check-harness /tmp/check-parse'
   run "the two implementations agree with each other" bash -c '
     burxt build tests/agree.bx -o /tmp/check-agree &&
@@ -241,6 +241,13 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   # from `lib/zip.bx`, so packaging needs the toolchain now — which is the trade the `gap`
   # reclassification already decided: the format's portability claim is about the FORMAT, and packaging
   # this repository's editor extension was never part of it.
+  # **The check that would have caught the three drifts above**, added after the third: `check.sh` and
+  # `ci.yml` must run the same checks under the same names. It is in the Burxt group because it is a Burxt
+  # program, which means a contributor without a toolchain cannot see the drift — and CI can, which is the
+  # half that matters for a file whose subject is CI.
+  run "check.sh and ci.yml run the same checks" bash -c '
+    burxt build tests/mirror.bx -o /tmp/check-mirror &&
+    /tmp/check-mirror && /tmp/check-mirror --prove-it'
   run "the extension's version is the format's, and the committed package is the packed one" bash -c '
     burxt build editors/vscode/pack.bx -o /tmp/check-pack &&
     burxt build tests/extension.bx -o /tmp/check-extension &&
