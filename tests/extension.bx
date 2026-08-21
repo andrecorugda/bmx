@@ -614,7 +614,7 @@ let k6: Int = push(claims, Claim { ok: unreadable == 0,
 
 // **The language server had the same defect, found by grepping for the version I had just removed.** It
 // answered `initialize` with `serverInfo: {name: 'bmx-lsp', version: '0.1.0'}` while reporting 0.12
-// diagnostics, and `editors/lsp/test/protocol.mjs` checked the NAME — the half that never changes — and
+// diagnostics, and `editors/lsp/test/protocol.bx` checked the NAME — the half that never changes — and
 // not the version. A client puts `serverInfo` in its log, so a stale one misdirects the first question
 // anybody asks about a diagnostic: which version produced it.
 // **The file and the pattern both moved when the server was ported to Burxt**, and this check is how I

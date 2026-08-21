@@ -22,7 +22,7 @@
 // every editor that runs it. Two things had to exist first, and neither was a workaround:
 //
 //   * **`bmx_lint`** — the four `BMX-W` warnings lived only in `reference/bmx.js`, so a Burxt server
-//     could have reported refusals and nothing else. `editors/lsp/test/protocol.mjs` asserts `BMX-W001`
+//     could have reported refusals and nothing else. `editors/lsp/test/protocol.bx` asserts `BMX-W001`
 //     and `BMX-W002`, so an errors-only port fails the test it inherits.
 //   * **`print_exact`** — LSP framing is `Content-Length: N` then EXACTLY N bytes. `print` appends a
 //     newline, and writing to `/dev/stdout` is a different stream that **truncates when stdout is a
@@ -44,7 +44,7 @@ use "std/string.bx";
 //
 // **Reading a byte at a time makes the split-frame case disappear rather than handling it.** The
 // JavaScript server buffered chunks and re-scanned for a header, because Node hands a server whatever
-// arrived — and `protocol.mjs` writes one frame in two pieces precisely to catch a server that parses a
+// arrived — and `protocol.bx` writes one frame in two pieces precisely to catch a server that parses a
 // fragment. A blocking read of exactly `Content-Length` bytes cannot see a partial message: it waits.
 pure function header_length(line: String) -> Int {
     // **Case-insensitively, because the protocol says the header name is**, and a client may put any

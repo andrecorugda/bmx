@@ -213,7 +213,9 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   # and the summary says so rather than hiding it in a total.
   run "the language server says what it should, in the right coordinates" bash -c '
     burxt build editors/lsp/bmx-lsp.bx -o /tmp/check-bmx-lsp &&
-    BMX_LSP=/tmp/check-bmx-lsp node editors/lsp/test/protocol.mjs'
+    burxt build editors/lsp/test/protocol.bx -o /tmp/check-protocol &&
+    BMX_LSP=/tmp/check-bmx-lsp /tmp/check-protocol &&
+    BMX_LSP=/tmp/check-bmx-lsp /tmp/check-protocol --prove-it'
   run "a document becomes a view the compiler checks" bash -c '
     burxt run burxt/guarantees.bx'
   run "every documented name is reachable, and every public name is documented" bash -c '

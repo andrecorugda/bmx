@@ -46,7 +46,7 @@ burxt build tools/fmt.bx -o /tmp/fmt
 # Editor surface
 cd editors/vscode && npm install vscode-textmate vscode-oniguruma   # what scopes.mjs needs
 node editors/vscode/test/scopes.mjs
-node editors/lsp/test/protocol.mjs
+burxt build editors/lsp/test/protocol.bx -o /tmp/protocol && BMX_LSP=<the server> /tmp/protocol
 burxt build editors/vscode/pack.bx -o /tmp/pack && /tmp/pack   # writes editors/vscode/bmx.vsix, which is committed
 ```
 

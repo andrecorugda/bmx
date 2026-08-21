@@ -1,0 +1,492 @@
+// editors/lsp/test/protocol.bx — drive the language server with real LSP frames.
+//
+//     burxt build editors/lsp/test/protocol.bx -o protocol
+//     BMX_LSP=<the server> ./protocol
+//     BMX_LSP=<the server> ./protocol --prove-it     # the negative control
+//
+// **Every failure mode of a server is a silence.** A wrong Content-Length, a frame split across two
+// chunks, a request answered with nothing — the editor does not error, it just stops showing diagnostics,
+// and the author concludes the extension is broken or that their document is fine. So the framing is
+// exercised deliberately, not only the happy path.
+//
+// ---- the port ------------------------------------------------------------------------------------
+//
+// Ported from `editors/lsp/test/protocol.mjs`, which drove `bmx-lsp.mjs` and then drove a Burxt binary —
+// and that is what expired its `platform` defence. While the server was JavaScript a JavaScript driver was
+// forced; star-burxt has `drive-lsp.bx` doing this job in Burxt, so only the port was outstanding.
+//
+// **The one structural difference: this feeds the whole conversation in and reads the whole conversation
+// out**, where the JavaScript awaited each frame before sending the next. Burxt can run a command and
+// capture its streams; it cannot hold a child's stdin open and interleave. That is a real difference and
+// it costs nothing here, because **every request this driver sends is fixed** — not one of them depends on
+// a reply — so the `await`s were sequencing, not logic. What they bought was ordering, and ordering is
+// still observable: the frames come back in the order the server emitted them, and this file now asserts
+// that order rather than enforcing it procedurally, which is strictly more than the JavaScript checked.
+//
+// **The split-frame case survives, and it is a REAL two-write split rather than a simulated one.** The
+// input is written as two files and delivered by `{ cat one; sleep; cat two; } | server`, so the server
+// genuinely sees a frame arrive in two pieces with a gap in the middle. It reads a byte at a time, so it
+// could not have failed this — which is exactly why the assertion stays: the reader that could fail it was
+// the one this file was written against, and nothing stops the next one from buffering again.
+//
+// **And it gained a control, because the file's own subject is silence.** `--prove-it` points the driver at
+// a command that says nothing at all. Every assertion below must fail, and a driver that cannot tell *the
+// server answered correctly* from *the server answered nothing* is the instrument this file exists to be.
+use "std/files.bx";
+use "std/json.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+class Claim { ok: Bool, name: String, detail: String }
+
+// ---- reading a Json without ceremony -------------------------------------------------------------
+
+pure function field(value: Json, name: String) -> Json {
+    match json_at(value, name) {
+        None => { return json_null(); }
+        Some(found) => { return found; }
+    }
+}
+
+pure function is_absent(value: Json) -> Bool {
+    match value {
+        Null => { return true; }
+        Truth(t) => { return false; }
+        Number(d) => { return false; }
+        Text(s) => { return false; }
+        List(items) => { return false; }
+        Object(fields) => { return false; }
+    }
+}
+
+pure function text_of(value: Json) -> String {
+    match json_as_text(value) {
+        None => { return ""; }
+        Some(said) => { return said; }
+    }
+}
+
+pure function int_of(value: Json, fallback: Int) -> Int {
+    match json_as_int(value) {
+        None => { return fallback; }
+        Some(number) => { return number; }
+    }
+}
+
+pure function list_length(value: Json) -> Int {
+    match value {
+        List(items) => { return len(items); }
+        Null => { return 0 - 1; }
+        Truth(t) => { return 0 - 1; }
+        Number(d) => { return 0 - 1; }
+        Text(s) => { return 0 - 1; }
+        Object(fields) => { return 0 - 1; }
+    }
+}
+
+pure function list_at(value: Json, at: Int) -> Json {
+    match value {
+        List(items) => {
+            if at < 0 || at >= len(items) {
+                return json_null();
+            }
+            return items[at];
+        }
+        Null => { return json_null(); }
+        Truth(t) => { return json_null(); }
+        Number(d) => { return json_null(); }
+        Text(s) => { return json_null(); }
+        Object(fields) => { return json_null(); }
+    }
+}
+
+// ---- writing frames ------------------------------------------------------------------------------
+
+// `Content-Length` counts BYTES, which is the whole reason this file exists. `£` is two of them and `å`
+// is two, and a length in characters puts the next frame's header inside this frame's body.
+pure function framed(body: String) -> String {
+    return "Content-Length: " + to_string(len(body)) + "\r\n\r\n" + body;
+}
+
+function request(id: Int, method: String, params: Json) -> String {
+    let mutable fields: [Field] = [];
+    let a: Int = push(fields, json_field("jsonrpc", json_text("2.0")));
+    if id >= 0 {
+        let b: Int = push(fields, json_field("id", json_int(id)));
+    }
+    let c: Int = push(fields, json_field("method", json_text(method)));
+    let d: Int = push(fields, json_field("params", params));
+    return framed(json_render(json_object(fields)));
+}
+
+function empty_object() -> Json {
+    let mutable nothing: [Field] = [];
+    return json_object(nothing);
+}
+
+// A `textDocument/didOpen`, which is how every document in this file arrives.
+function did_open(uri: String, text: String) -> String {
+    let mutable doc: [Field] = [];
+    let a: Int = push(doc, json_field("uri", json_text(uri)));
+    let b: Int = push(doc, json_field("languageId", json_text("bmx")));
+    let c: Int = push(doc, json_field("version", json_int(1)));
+    let d: Int = push(doc, json_field("text", json_text(text)));
+    let mutable params: [Field] = [];
+    let e: Int = push(params, json_field("textDocument", json_object(doc)));
+    return request(0 - 1, "textDocument/didOpen", json_object(params));
+}
+
+function did_change(uri: String, text: String) -> String {
+    let mutable doc: [Field] = [];
+    let a: Int = push(doc, json_field("uri", json_text(uri)));
+    let b: Int = push(doc, json_field("version", json_int(2)));
+    let mutable change: [Field] = [];
+    let c: Int = push(change, json_field("text", json_text(text)));
+    let mutable changes: [Json] = [];
+    let d: Int = push(changes, json_object(change));
+    let mutable params: [Field] = [];
+    let e: Int = push(params, json_field("textDocument", json_object(doc)));
+    let f: Int = push(params, json_field("contentChanges", json_list(changes)));
+    return request(0 - 1, "textDocument/didChange", json_object(params));
+}
+
+function did_close(uri: String) -> String {
+    let mutable doc: [Field] = [];
+    let a: Int = push(doc, json_field("uri", json_text(uri)));
+    let mutable params: [Field] = [];
+    let b: Int = push(params, json_field("textDocument", json_object(doc)));
+    return request(0 - 1, "textDocument/didClose", json_object(params));
+}
+
+// ---- reading frames ------------------------------------------------------------------------------
+
+// Every frame the server emitted, in order. A header it cannot read stops the scan rather than being
+// skipped: a driver that resynchronises on a malformed stream is a driver that hides one.
+function frames_in(stream: String, mutable into: [Json]) -> Int {
+    let mutable at: Int = 0;
+    while at < len(stream) {
+        let split: Int = string_find_from(stream, "\r\n\r\n", at);
+        if split < 0 {
+            return len(into);
+        }
+        let header: String = substring(stream, at, split - at);
+        let mark: Int = string_find(string_to_lower_ascii(header), "content-length:");
+        if mark < 0 {
+            return 0 - 1;
+        }
+        let mutable i: Int = mark + 15;
+        while i < len(header) && byte_at(header, i) == 32 {
+            i += 1;
+        }
+        let digits_at: Int = i;
+        while i < len(header) && byte_at(header, i) >= 48 && byte_at(header, i) <= 57 {
+            i += 1;
+        }
+        if i == digits_at {
+            return 0 - 1;
+        }
+        let length: Int = string_to_int(substring(header, digits_at, i - digits_at), 0 - 1);
+        if length < 0 || split + 4 + length > len(stream) {
+            return 0 - 1;
+        }
+        let body: String = substring(stream, split + 4, length);
+        match json_parse(body) {
+            Error(why) => { return 0 - 1; }
+            Ok(message) => { let a: Int = push(into, message); }
+        }
+        at = split + 4 + length;
+    }
+    return len(into);
+}
+
+// The first frame answering `id`, or -1.
+pure function reply_index(frames: [Json], id: Int) -> Int {
+    let mutable i: Int = 0;
+    while i < len(frames) {
+        if int_of(field(frames[i], "id"), 0 - 1) == id {
+            return i;
+        }
+        i += 1;
+    }
+    return 0 - 1;
+}
+
+// The first `publishDiagnostics` for `uri`, or -1. `wanted` of -1 means any; otherwise the frame must
+// carry that many diagnostics, which is how the cleared frames are found after the loud ones.
+pure function diagnostics_index(frames: [Json], uri: String, wanted: Int) -> Int {
+    let mutable i: Int = 0;
+    while i < len(frames) {
+        let f: Json = frames[i];
+        if text_of(field(f, "method")) == "textDocument/publishDiagnostics" {
+            let params: Json = field(f, "params");
+            if text_of(field(params, "uri")) == uri {
+                let count: Int = list_length(field(params, "diagnostics"));
+                if wanted < 0 || count == wanted {
+                    return i;
+                }
+            }
+        }
+        i += 1;
+    }
+    return 0 - 1;
+}
+
+pure function diagnostics_of(frames: [Json], at: Int) -> Json {
+    if at < 0 {
+        return json_null();
+    }
+    return field(field(frames[at], "params"), "diagnostics");
+}
+
+// ---- the program ---------------------------------------------------------------------------------
+
+let mutable prove: Bool = false;
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    if os_arg(a) == "--prove-it" {
+        prove = true;
+    }
+    a += 1;
+}
+
+// **The server under test is a Burxt binary**, so its path is passed in rather than assumed: the build
+// lives wherever the caller put it, and `tools/check.sh` builds it to a temp path. Defaults to a sibling
+// `bmx-lsp` so running this by hand needs no environment.
+let mutable command: String = os_env_or("BMX_LSP", "editors/lsp/bmx-lsp");
+if prove {
+    // The control: a command that says nothing at all, which is every real failure of a language server.
+    command = "true";
+}
+
+// The conversation, in order. Nothing here depends on a reply, which is what makes one stream correct.
+let mutable script: [String] = [];
+let mutable init_params: [Field] = [];
+let _c: Int = push(init_params, json_field("capabilities", empty_object()));
+let _1: Int = push(script, request(1, "initialize", json_object(init_params)));
+let _2: Int = push(script, did_open("file:///broken.bmx", "Your balance is **£240.00\n"));
+let _3: Int = push(script, did_open("file:///second-line.bmx", "fine\n**broken\n"));
+let _4: Int = push(script, did_open("file:///accent.bmx", "Your bålance is **£240.00\n"));
+let _5: Int = push(script, did_open("file:///lint.bmx", "# One\n\n### Three\n\n:bare:\n:!bare:\n"));
+let _6: Int = push(script, did_open("file:///both.bmx", "# One\n\n### Three\n\nUnterminated **bold\n"));
+let _7: Int = push(script, did_change("file:///broken.bmx", "# fixed\n"));
+let _8: Int = push(script, did_close("file:///lint.bmx"));
+// THE framing case, which is why the input is delivered in two pieces: this frame is cut mid-header.
+let split_frame: String = did_open("file:///split.bmx", "Broken **here\n");
+let _9: Int = push(script, substring(split_frame, 0, 30));
+let _10: Int = push(script, substring(split_frame, 30, len(split_frame) - 30));
+let _11: Int = push(script, request(99, "textDocument/formatting", empty_object()));
+// LAST, and the ordering is the point. **A server that answers nothing to everything passes the clean
+// assertion on its own**, so it comes after every case that proves this one can speak — the refusal, the
+// warnings, the positions. Taken from star-burxt's driver, which had it last while mine had it second: the
+// vacuity problem in a place I had not thought to look.
+let _12: Int = push(script, did_open("file:///clean.bmx", "# Title\n\nA paragraph.\n"));
+let _13: Int = push(script, request(100, "shutdown", empty_object()));
+let _14: Int = push(script, request(0 - 1, "exit", empty_object()));
+
+match file_temp_directory("bmx-protocol") {
+    None => {
+        print_error("cannot make a scratch directory");
+        exit(2);
+    }
+    Some(scratch) => {
+        // The cut is between element 8 and element 9 of the script, which is 30 bytes into the split
+        // frame's own header — so the server has a partial `Content-Length` line in hand when the pipe
+        // goes quiet.
+        let mutable first: [String] = [];
+        let mutable second: [String] = [];
+        let mutable i: Int = 0;
+        while i < len(script) {
+            if i <= 8 {
+                let p: Int = push(first, script[i]);
+            } else {
+                let p: Int = push(second, script[i]);
+            }
+            i += 1;
+        }
+        let one: String = scratch + "/part-one";
+        let two: String = scratch + "/part-two";
+        let w1: Int = file_write(one, string_join(first, ""));
+        let w2: Int = file_write(two, string_join(second, ""));
+        let ran: Capture = os_capture_status("\{ cat " + file_quote(one) + "; sleep 0.2; cat "
+                + file_quote(two) + "; \} | " + command);
+
+        let mutable frames: [Json] = [];
+        let read: Int = frames_in(ran.output, frames);
+        let mutable claims: [Claim] = [];
+        if read < 0 {
+            let c: Int = push(claims, Claim { ok: false, name: "the server's stream is LSP frames",
+                    detail: "a header this driver cannot read, so nothing after it can be believed" });
+        }
+
+        // ---- initialize ----
+        let ready_at: Int = reply_index(frames, 1);
+        let mutable ready: Json = json_null();
+        if ready_at >= 0 {
+            ready = frames[ready_at];
+        }
+        let result: Json = field(ready, "result");
+        let k1: Int = push(claims, Claim { ok: !is_absent(result), name: "it answers initialize",
+                detail: "" });
+        let sync: Int = int_of(field(field(result, "capabilities"), "textDocumentSync"), 0 - 1);
+        let k2: Int = push(claims, Claim { ok: sync == 1, name: "it declares full document sync",
+                detail: json_render(field(result, "capabilities")) });
+        let k3: Int = push(claims, Claim {
+                ok: text_of(field(field(result, "serverInfo"), "name")) == "bmx-lsp",
+                name: "it names itself", detail: "" });
+
+        // ---- a refusal ----
+        let broken_at: Int = diagnostics_index(frames, "file:///broken.bmx", 0 - 1);
+        let broken: Json = diagnostics_of(frames, broken_at);
+        let first_broken: Json = list_at(broken, 0);
+        let k4: Int = push(claims, Claim { ok: list_length(broken) == 1,
+                name: "a broken document reports one error", detail: json_render(broken) });
+        let k5: Int = push(claims, Claim { ok: text_of(field(first_broken, "code")) == "BMX-E002",
+                name: "with the format's code", detail: text_of(field(first_broken, "code")) });
+        let k6: Int = push(claims, Claim { ok: int_of(field(first_broken, "severity"), 0) == 1,
+                name: "at severity Error", detail: "" });
+        // **A negative assertion passes over an absence, and the control caught this one.** Written as
+        // "the message does not start with `BMX-E002 at `", it held for a diagnostic with no message at
+        // all — so a silent server satisfied it, and the control reported 20 failures out of 21 with this
+        // the survivor. A diagnostic with an empty message is a failure of the same rule this is about:
+        // the reader must be told something. So the message has to exist AND not repeat the code.
+        let message: String = text_of(field(first_broken, "message"));
+        let k7: Int = push(claims, Claim {
+                ok: len(message) > 0 && !string_starts_with(message, "BMX-E002 at "),
+                name: "and the message does not repeat the code and offset", detail: message });
+
+        // ---- ZERO-based positions, which is the thing everybody gets wrong ----
+        let second_at: Int = diagnostics_index(frames, "file:///second-line.bmx", 0 - 1);
+        let second_range: Json = field(list_at(diagnostics_of(frames, second_at), 0), "range");
+        let k8: Int = push(claims, Claim {
+                ok: int_of(field(field(second_range, "start"), "line"), 0 - 1) == 1,
+                name: "a problem on line 2 is reported as line 1, because LSP is zero-based",
+                detail: json_render(second_range) });
+
+        // ---- a CHARACTER column, on a line with a multi-byte character ----
+        let accent_at: Int = diagnostics_index(frames, "file:///accent.bmx", 0 - 1);
+        let accent_range: Json = field(list_at(diagnostics_of(frames, accent_at), 0), "range");
+        let k9: Int = push(claims, Claim {
+                ok: int_of(field(field(accent_range, "start"), "character"), 0 - 1) == 16,
+                name: "the column counts characters, not bytes (16 not 17 on a line with `å`)",
+                detail: json_render(accent_range) });
+
+        // ---- lints, on a document that parses ----
+        let lint_at: Int = diagnostics_index(frames, "file:///lint.bmx", 0 - 1);
+        let lints: Json = diagnostics_of(frames, lint_at);
+        let k10: Int = push(claims, Claim { ok: list_length(lints) == 2,
+                name: "a document that parses gets warnings", detail: json_render(lints) });
+        let mutable all_warnings: Bool = list_length(lints) > 0;
+        let mutable saw_headings: Bool = false;
+        let mutable saw_empty: Bool = false;
+        let mutable d: Int = 0;
+        while d < list_length(lints) {
+            let one_lint: Json = list_at(lints, d);
+            if int_of(field(one_lint, "severity"), 0) != 2 {
+                all_warnings = false;
+            }
+            if text_of(field(one_lint, "code")) == "BMX-W001" {
+                saw_headings = true;
+            }
+            if text_of(field(one_lint, "code")) == "BMX-W002" {
+                saw_empty = true;
+            }
+            d += 1;
+        }
+        let k11: Int = push(claims, Claim { ok: all_warnings, name: "at severity Warning", detail: "" });
+        let k12: Int = push(claims, Claim { ok: saw_headings, name: "the heading skip is found",
+                detail: "" });
+        let k13: Int = push(claims, Claim { ok: saw_empty, name: "the empty block is found", detail: "" });
+
+        // ---- a refusal SUPPRESSES lints, so the reason is not buried ----
+        let both_at: Int = diagnostics_index(frames, "file:///both.bmx", 0 - 1);
+        let both: Json = diagnostics_of(frames, both_at);
+        let k14: Int = push(claims, Claim {
+                ok: list_length(both) == 1 && int_of(field(list_at(both, 0), "severity"), 0) == 1,
+                name: "a document that does not parse reports the refusal only",
+                detail: json_render(both) });
+
+        // ---- an edit republishes ----
+        let fixed_at: Int = diagnostics_index(frames, "file:///broken.bmx", 0);
+        let k15: Int = push(claims, Claim { ok: fixed_at >= 0,
+                name: "fixing the document clears its diagnostics",
+                detail: "no cleared frame for file:///broken.bmx ever arrived" });
+
+        // ---- closing clears, or a stale problem outlives the file ----
+        let closed_at: Int = diagnostics_index(frames, "file:///lint.bmx", 0);
+        let k16: Int = push(claims, Claim { ok: closed_at >= 0,
+                name: "closing a document clears its diagnostics",
+                detail: "no cleared frame for file:///lint.bmx ever arrived" });
+
+        // ---- THE framing case: one message, delivered in two pieces ----
+        let split_at: Int = diagnostics_index(frames, "file:///split.bmx", 0 - 1);
+        let split_diagnostics: Json = diagnostics_of(frames, split_at);
+        let k17: Int = push(claims, Claim {
+                ok: text_of(field(list_at(split_diagnostics, 0), "code")) == "BMX-E002",
+                name: "a frame split across two writes is still read",
+                detail: json_render(split_diagnostics) });
+
+        // ---- an unknown REQUEST is answered, so the client does not hang ----
+        let refused_at: Int = reply_index(frames, 99);
+        let mutable refused: Json = json_null();
+        if refused_at >= 0 {
+            refused = frames[refused_at];
+        }
+        let k18: Int = push(claims, Claim { ok: !is_absent(field(refused, "error")),
+                name: "an unsupported request is answered rather than ignored",
+                detail: json_render(refused) });
+
+        // ---- the clean document, and the order it arrives in ----
+        let clean_at: Int = diagnostics_index(frames, "file:///clean.bmx", 0 - 1);
+        let clean: Json = diagnostics_of(frames, clean_at);
+        let k19: Int = push(claims, Claim { ok: list_length(clean) == 0,
+                name: "a clean document publishes an empty list rather than nothing",
+                detail: json_render(clean) });
+        // **The ordering the JavaScript enforced by waiting, asserted instead.** The clean frame proves
+        // nothing on its own — a server that says nothing to everything would satisfy it — so it has to
+        // arrive after a frame that carries a real refusal.
+        let k20: Int = push(claims, Claim { ok: broken_at >= 0 && clean_at > broken_at,
+                name: "and it arrives after a frame that reported a real problem",
+                detail: "the refusal was frame " + to_string(broken_at) + " and the clean list was frame "
+                        + to_string(clean_at) });
+
+        let k21: Int = push(claims, Claim { ok: reply_index(frames, 100) >= 0,
+                name: "it answers shutdown", detail: "" });
+
+        let mutable failures: Int = 0;
+        let mutable c: Int = 0;
+        while c < len(claims) {
+            let claim: Claim = claims[c];
+            if claim.ok {
+                print("  ok    " + claim.name);
+            } else {
+                failures += 1;
+                print("  FAIL  " + claim.name);
+                if len(claim.detail) > 0 {
+                    print("        " + claim.detail);
+                }
+            }
+            c += 1;
+        }
+
+        print("");
+        if len(string_trim(ran.errors)) > 0 {
+            print("server stderr:");
+            print(ran.errors);
+        }
+        if prove {
+            if failures > 0 {
+                print("the control failed as it must — a server that says nothing fails every"
+                        + " expectation here");
+                exit(0);
+            }
+            print("THE CONTROL DID NOT FAIL, so this driver cannot tell an answer from a silence");
+            exit(1);
+        }
+        if failures > 0 {
+            print(to_string(failures) + " failed");
+            exit(1);
+        }
+        print("the server says what it should, when it should, in the right coordinates");
+        exit(0);
+    }
+}

@@ -428,7 +428,9 @@ jobs:
       - name: The language server says what it should, in the right coordinates
         run: |
           burxt build editors/lsp/bmx-lsp.bx -o /tmp/bmx-lsp
-          BMX_LSP=/tmp/bmx-lsp node editors/lsp/test/protocol.mjs
+          burxt build editors/lsp/test/protocol.bx -o /tmp/protocol
+          BMX_LSP=/tmp/bmx-lsp /tmp/protocol
+          BMX_LSP=/tmp/bmx-lsp /tmp/protocol --prove-it
 
       - name: A document becomes a view the compiler checks
         run: burxt run burxt/guarantees.bx
