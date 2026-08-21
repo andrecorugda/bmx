@@ -9,7 +9,9 @@ vim.filetype.add({ extension = { bmx = "bmx" } })
 --
 -- Point `cmd` at your checkout. Using vim.lsp.start rather than nvim-lspconfig so this file has no
 -- plugin dependency — a config that needs a plugin manager is a config half of readers cannot use.
-local bmx_lsp = vim.fn.expand("~/bmx/editors/lsp/bmx-lsp.mjs")
+-- Built once: `burxt build editors/lsp/bmx-lsp.bx -o ~/bin/bmx-lsp`. It needs no runtime;
+-- it was a node script until the server was ported to Burxt.
+local bmx_lsp = vim.fn.expand("~/bin/bmx-lsp")
 
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "bmx",
@@ -17,7 +19,7 @@ vim.api.nvim_create_autocmd("FileType", {
     if vim.fn.filereadable(bmx_lsp) == 1 then
       vim.lsp.start({
         name = "bmx-lsp",
-        cmd = { "node", bmx_lsp },
+        cmd = { bmx_lsp },
         root_dir = vim.fs.dirname(vim.api.nvim_buf_get_name(event.buf)),
       })
     end

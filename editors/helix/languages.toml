@@ -1,10 +1,10 @@
 # Helix: append to ~/.config/helix/languages.toml
 #
-# Diagnostics come from `bmx-lsp`, which needs node and nothing else.
+# Diagnostics come from `bmx-lsp`, a Burxt binary you build once. It needs no runtime at all —
+# it used to need node, and porting the server removed that requirement from every editor.
 
 [language-server.bmx-lsp]
-command = "node"
-args = ["/path/to/bmx/editors/lsp/bmx-lsp.mjs"]
+command = "/path/to/bmx-lsp"
 
 [[language]]
 name = "bmx"

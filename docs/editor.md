@@ -109,8 +109,7 @@ Colour comes from Helix's own grammar support; diagnostics come from the languag
 
 ```toml
 [language-server.bmx-lsp]
-command = "node"
-args = ["/path/to/bmx/editors/lsp/bmx-lsp.mjs"]
+command = "/path/to/bmx-lsp"
 
 [[language]]
 name = "bmx"
@@ -134,7 +133,7 @@ it into your config. It sets the filetype and starts the language server, and ne
 The language server speaks ordinary LSP over stdio:
 
 ```sh
-node editors/lsp/bmx-lsp.mjs
+burxt build editors/lsp/bmx-lsp.bx -o bmx-lsp && ./bmx-lsp
 ```
 
 It reports refusals and warnings, and **deliberately nothing else** — no completion, no hover, no

@@ -178,8 +178,12 @@ def main():
     # diagnostics, and `editors/lsp/test/protocol.mjs` checked the NAME — the half that never changes —
     # and not the version. A client puts `serverInfo` in its log, so a stale one misdirects the first
     # question anybody asks about a diagnostic: which version produced it.
-    lsp = (ROOT / "editors" / "lsp" / "bmx-lsp.mjs").read_text()
-    m = re.search(r"serverInfo:\s*\{[^}]*version:\s*'([^']+)'", lsp)
+    # **The file and the pattern both moved when the server was ported to Burxt**, and this check is how
+    # I found out: it read `bmx-lsp.mjs`, which no longer exists, and the suite failed on a path rather
+    # than on a version. A check keyed to a filename is a check that breaks when the file is right to
+    # rename — which is the cheap kind of breakage, because it says so immediately.
+    lsp = (ROOT / "editors" / "lsp" / "bmx-lsp.bx").read_text()
+    m = re.search(r'json_field\("version",\s*json_text\("([^"]+)"\)\)', lsp)
     served = "0.1.0" if prove else (m.group(1) if m else None)
     check(served is not None and served.startswith(want + "."),
           f"the language server answers `initialize` with {served}",

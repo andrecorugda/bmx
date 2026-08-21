@@ -106,7 +106,7 @@ conflicts is **formatting**, which neither this server nor a framework's needs t
 conclusion never followed — and it left the common case, somebody writing `.bmx` with no framework at
 all, with no diagnostics in their editor.
 
-    editors/lsp/bmx-lsp.mjs     diagnostics over stdio. node, no dependencies.
+    editors/lsp/bmx-lsp.bx      diagnostics over stdio. a Burxt binary, no runtime.
 
 It reports a refusal and the lint warnings, and **nothing else on purpose**: no completion, because
 BMX does not know which blocks exist; no hover, because there is nothing it knows to say about

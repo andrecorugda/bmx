@@ -173,9 +173,6 @@ jobs:
       - name: The editor behaves the way the format reads
         run: node editors/vscode/test/config.mjs
 
-      - name: The language server says what it should, in the right coordinates
-        run: node editors/lsp/test/protocol.mjs
-
       # **The failure modes of a preview all look fine in a diff**: a command under the wrong id, a
       # panel that renders once and never again, an error path that shows a blank page instead of the
       # reason. VS Code cannot be scripted here; extension.js can, against a stub `vscode`.
@@ -427,6 +424,15 @@ jobs:
           cp tools/ex1.bmx tools/ex2.bmx tools/ex3.bmx tools/err1.bmx "$d/"
           for n in ex1 ex2 ex3; do (cd "$d" && ./page "$n" x); cmp "$d/$n.html" "tools/$n.html"; done
           (cd "$d" && ./errpage err1); cmp "$d/err1.html" "tools/err1.html"
+
+      # **This step lives in the Burxt job now, because the server it drives is a Burxt binary.** The
+      # conformance job above lost a check, which is the cost the `standalone` reclassification predicted
+      # and named: the format is still testable without a Burxt toolchain, and this repository's editor
+      # surface is not.
+      - name: The language server says what it should, in the right coordinates
+        run: |
+          burxt build editors/lsp/bmx-lsp.bx -o /tmp/bmx-lsp
+          BMX_LSP=/tmp/bmx-lsp node editors/lsp/test/protocol.mjs
 
       - name: A document becomes a view the compiler checks
         run: burxt run burxt/guarantees.bx

@@ -145,7 +145,9 @@ requires a third-party implementation.
   is its head. A slot's `offset` is the first byte of the *trimmed* expression. Adjacent `text` nodes
   are always merged.
 
-**`editors/`** ships highlighting and the format's half of a language server. It colours structure
+**`editors/`** ships highlighting and the format's half of a language server — `bmx-lsp.bx`, a Burxt
+binary since 2026-08-21, which removed `node` from what any editor needs to get diagnostics and added a
+build step for anyone without a Burxt toolchain. Its test moved to CI's Burxt job for the same reason. It colours structure
 only and leaves three scopes deliberately uncoloured — `meta.slot.expression.bmx`,
 `meta.block.head.bmx`, `meta.inline-block.head.bmx` — which are **a compatibility surface, not an
 implementation detail**: hosts inject their expression language into them, so renaming one is a major
@@ -215,7 +217,7 @@ from the question into its two halves, found their own instance the same day.
 
 **`gap` is the only category that should ever shrink**, and it is named rather than defended:
 `tests/surface.py` **already requires the Burxt toolchain**, so it has no standalone defence and is
-the real remaining gap — as did `burxt/test.py`, now `burxt/guarantees.bx`; `editors/lsp/bmx-lsp.mjs` could be Burxt but would cost the
+the real remaining gap — as did `burxt/test.py`, now `burxt/guarantees.bx`, and `editors/lsp/bmx-lsp.mjs`, now `bmx-lsp.bx`; `docs/assets/code.js` could be Burxt through wasm but would cost the
 documented promise that Helix and Neovim need *only Node*; `tools/shot.mjs` is blocked on Burxt having
 no browser driver. The check prints the gap and caps nothing — a threshold is a number somebody raises
 when it is inconvenient.
@@ -237,7 +239,7 @@ printed first. `burxt run burxt/guarantees.bx`.
 
 The remaining gap of that shape is **`tests/surface.py`** — the ledger prints its size, deliberately not
 repeated here — which needs a third capability again: it writes a dependent package into a temp directory and builds it, to prove every documented
-name is reachable from *outside* this package. `editors/lsp/bmx-lsp.mjs` is a decision rather than a task
+name is reachable from *outside* this package. `docs/assets/code.js` is a decision rather than a task
 — it would cost the documented promise that Helix and Neovim need *only Node*.
 
 ## The sibling repositories, and the one mistake to expect

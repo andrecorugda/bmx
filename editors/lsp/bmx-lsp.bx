@@ -1,0 +1,426 @@
+// editors/lsp/bmx-lsp.bx — a language server for BMX. Diagnostics only, over stdio, no dependencies.
+//
+//     burxt build editors/lsp/bmx-lsp.bx -o bmx-lsp && ./bmx-lsp
+//
+// **Why this exists after I argued it should not.** `editors/README.md` said BMX would ship no server
+// because "most editors let one language server own a file, so a BMX server and a framework's server
+// would fight over `.bmx`". The conclusion did not follow from the fact, and the fact was wrong in the
+// part that mattered: **diagnostics are additive.** In VS Code each extension owns a named
+// `DiagnosticCollection` and they merge in the Problems panel; helix and nvim both run several servers
+// for one language. What genuinely conflicts is formatting, which this does not provide.
+//
+// **What it deliberately does not do**, and each is a host's rather than a gap:
+//
+//   completion for block names   BMX does not know which blocks exist. A host declares them.
+//   hover                        the same: there is nothing to say about `card` that BMX knows.
+//   formatting                   reflowing a head means deciding what it means.
+//   go-to-definition             a component lives wherever the host's module system says.
+//
+// ---- why this file is Burxt, and what it cost ------------------------------------------------------
+//
+// It was `bmx-lsp.mjs`, 186 lines of JavaScript, and porting it removed `node` from the requirements of
+// every editor that runs it. Two things had to exist first, and neither was a workaround:
+//
+//   * **`bmx_lint`** — the four `BMX-W` warnings lived only in `reference/bmx.js`, so a Burxt server
+//     could have reported refusals and nothing else. `editors/lsp/test/protocol.mjs` asserts `BMX-W001`
+//     and `BMX-W002`, so an errors-only port fails the test it inherits.
+//   * **`print_exact`** — LSP framing is `Content-Length: N` then EXACTLY N bytes. `print` appends a
+//     newline, and writing to `/dev/stdout` is a different stream that **truncates when stdout is a
+//     regular file** (measured: two writes through a pipe give both, redirected they give the second
+//     only). Burxt added the statement; it is in published 1.7.0 and verified from the tarball here.
+//
+// **The documented promise this changes is stated rather than buried.** `docs/install.md` said Helix and
+// Neovim get diagnostics from a server that needs only Node. They now need a Burxt binary, which is a
+// trade: one fewer runtime for anyone who has Burxt, one more build step for anyone who does not.
+use "../../burxt/bmx.bx";
+use "std/os.bx";
+use "std/json.bx";
+use "std/string.bx";
+
+// LSP severities. 1 is an error, 2 a warning; the other two are unused here on purpose.
+// A note is what a linter says when it is not sure, and this one is always sure.
+
+// ---- framing -------------------------------------------------------------------
+//
+// **Reading a byte at a time makes the split-frame case disappear rather than handling it.** The
+// JavaScript server buffered chunks and re-scanned for a header, because Node hands a server whatever
+// arrived — and `protocol.mjs` writes one frame in two pieces precisely to catch a server that parses a
+// fragment. A blocking read of exactly `Content-Length` bytes cannot see a partial message: it waits.
+pure function header_length(line: String) -> Int {
+    // **Case-insensitively, because the protocol says the header name is**, and a client may put any
+    // number of spaces after the colon. `string_fold_ascii` folds a single BYTE rather than a string, so
+    // the comparison is done on the fixed-width prefix instead of by lowering the whole line.
+    let name: String = "Content-Length:";
+    if len(line) < len(name) {
+        return 0 - 1;
+    }
+    if !string_equals_ignore_case(substring(line, 0, len(name)), name) {
+        return 0 - 1;
+    }
+    return string_to_int(string_trim(substring(line, len(name), len(line) - len(name))), 0 - 1);
+}
+
+function read_body(length: Int) -> String touches input {
+    let mutable bytes: [Int] = [];
+    let mutable i: Int = 0;
+    while i < length {
+        let b: Int = os_read_byte();
+        if b < 0 {
+            return from_bytes(bytes);
+        }
+        let p: Int = push(bytes, b);
+        i += 1;
+    }
+    return from_bytes(bytes);
+}
+
+// **`os_flush` after every frame, or the client waits forever.** Standard output to a pipe is block
+// buffered, so a reply sits in the buffer until enough follows it — and every failure mode of a server
+// is a silence, which is exactly what that looks like.
+function send(body: String) -> Int touches input {
+    print_exact("Content-Length: " + to_string(len(body)) + "\r\n\r\n");
+    print_exact(body);
+    let flushed: Bool = os_flush();
+    return len(body);
+}
+
+// ---- diagnostics ---------------------------------------------------------------
+
+pure function line_text(source: String, line: Int) -> String {
+    let mutable at: Int = 1;
+    let mutable start: Int = 0;
+    let mutable i: Int = 0;
+    while i < len(source) {
+        if byte_at(source, i) == 10 {
+            if at == line {
+                return substring(source, start, i - start);
+            }
+            at += 1;
+            start = i + 1;
+        }
+        i += 1;
+    }
+    if at == line {
+        return substring(source, start, len(source) - start);
+    }
+    return "";
+}
+
+// **LSP positions are ZERO-based and count characters**, which is the pair everybody gets wrong.
+// `bmx_where` answers a one-based CHARACTER column — verified on a line holding `å`, where the byte
+// column is 18 and the character column 17 — so the conversion is one subtraction and no re-counting.
+pure function span(line: Int, column: Int, length: Int) -> Json {
+    let mutable fields: [Field] = [];
+    let mutable start: [Field] = [];
+    let s1: Int = push(start, json_field("line", json_int(line - 1)));
+    let s2: Int = push(start, json_field("character", json_int(column - 1)));
+    let mutable end: [Field] = [];
+    let e1: Int = push(end, json_field("line", json_int(line - 1)));
+    let e2: Int = push(end, json_field("character", json_int(column - 1 + length)));
+    let f1: Int = push(fields, json_field("start", json_object(start)));
+    let f2: Int = push(fields, json_field("end", json_object(end)));
+    return json_object(fields);
+}
+
+pure function diagnostic(range: Json, severity: Int, code: String, message: String) -> Json {
+    let mutable fields: [Field] = [];
+    let a: Int = push(fields, json_field("range", range));
+    let b: Int = push(fields, json_field("severity", json_int(severity)));
+    let c: Int = push(fields, json_field("code", json_text(code)));
+    let d: Int = push(fields, json_field("source", json_text("bmx")));
+    let e: Int = push(fields, json_field("message", json_text(message)));
+    return json_object(fields);
+}
+
+// Everything to say about one document: the refusal if it has one, otherwise the warnings.
+//
+// **A document that does not parse has no tree, so there is nothing to lint** — and a style note printed
+// beside a refusal buries the refusal, which is the one thing the reader needs.
+function diagnose(source: String) -> [Json] {
+    let mutable out: [Json] = [];
+    match bmx_check(source) {
+        Some(d) => {
+            // **The span is the rest of the line, not one character.** A caret on a single byte is hard
+            // to see and often points at the character AFTER the mistake — an unterminated `**` is
+            // reported where it opened, and the problem is everything from there on.
+            let text: String = line_text(source, d.line);
+            let mutable length: Int = char_count(text) - (d.column - 1);
+            if length < 1 {
+                length = 1;
+            }
+            let a: Int = push(out, diagnostic(span(d.line, d.column, length), 1, d.code, d.message));
+            return out;
+        }
+        None => {
+            let found: [BmxDiagnostic] = bmx_lint(source);
+            let mutable i: Int = 0;
+            while i < len(found) {
+                let w: BmxDiagnostic = found[i];
+                let a: Int = push(out, diagnostic(span(w.line, w.column, 1), 2, w.code, w.message));
+                i += 1;
+            }
+            return out;
+        }
+    }
+}
+
+// An explicitly empty list, which is not the same as publishing nothing: the client replaces what it
+// holds for that URI, and "nothing" leaves the old problems on screen.
+function publish_empty(uri: String) -> Int touches input {
+    let mutable params: [Field] = [];
+    let a: Int = push(params, json_field("uri", json_text(uri)));
+    let mutable none: [Json] = [];
+    let b: Int = push(params, json_field("diagnostics", json_list(none)));
+    let mutable message: [Field] = [];
+    let c: Int = push(message, json_field("jsonrpc", json_text("2.0")));
+    let d: Int = push(message, json_field("method", json_text("textDocument/publishDiagnostics")));
+    let e: Int = push(message, json_field("params", json_object(params)));
+    return send(json_render(json_object(message)));
+}
+
+function publish(uri: String, source: String) -> Int touches input {
+    let mutable params: [Field] = [];
+    let a: Int = push(params, json_field("uri", json_text(uri)));
+    let b: Int = push(params, json_field("diagnostics", json_list(diagnose(source))));
+    let mutable message: [Field] = [];
+    let c: Int = push(message, json_field("jsonrpc", json_text("2.0")));
+    let d: Int = push(message, json_field("method", json_text("textDocument/publishDiagnostics")));
+    let e: Int = push(message, json_field("params", json_object(params)));
+    return send(json_render(json_object(message)));
+}
+
+// ---- reading one message -------------------------------------------------------
+
+pure function text_at(value: Json, name: String) -> String {
+    match json_at(value, name) {
+        None => { return ""; }
+        Some(found) => {
+            match json_as_text(found) {
+                None => { return ""; }
+                Some(s) => { return s; }
+            }
+        }
+    }
+}
+
+// `params.textDocument.uri`, which every document notification carries.
+pure function document_uri(params: Json) -> String {
+    match json_at(params, "textDocument") {
+        None => { return ""; }
+        Some(doc) => { return text_at(doc, "uri"); }
+    }
+}
+
+// The text of the LAST content change. **A full-sync server is handed the whole document**, and the
+// protocol allows several changes in one notification, so the last one is the document.
+pure function last_change_text(params: Json) -> String {
+    match json_at(params, "contentChanges") {
+        None => { return ""; }
+        Some(changes) => {
+            match changes {
+                List(items) => {
+                    if len(items) == 0 {
+                        return "";
+                    }
+                    return text_at(items[len(items) - 1], "text");
+                }
+                Null => { return ""; }
+                Truth(b) => { return ""; }
+                Number(d) => { return ""; }
+                Text(s) => { return ""; }
+                Object(f) => { return ""; }
+            }
+        }
+    }
+}
+
+// ---- the open documents --------------------------------------------------------
+//
+// Two parallel arrays rather than a map: a top-level `let mutable` is invisible inside a function here,
+// so the store is threaded through as `mutable` parameters, and an editor has a handful of files open.
+
+pure function index_of(uris: [String], uri: String) -> Int {
+    let mutable i: Int = 0;
+    while i < len(uris) {
+        if uris[i] == uri {
+            return i;
+        }
+        i += 1;
+    }
+    return 0 - 1;
+}
+
+function remember(mutable uris: [String], mutable texts: [String], uri: String, text: String) -> Int {
+    let at: Int = index_of(uris, uri);
+    if at < 0 {
+        let a: Int = push(uris, uri);
+        let b: Int = push(texts, text);
+        return len(uris);
+    }
+    texts[at] = text;
+    return len(uris);
+}
+
+function forget(mutable uris: [String], mutable texts: [String], uri: String) -> Int {
+    let at: Int = index_of(uris, uri);
+    if at >= 0 {
+        // No `remove` for an array, so the slot is emptied rather than closed up. A URI is never empty,
+        // so an emptied slot can never match a lookup.
+        uris[at] = "";
+        texts[at] = "";
+    }
+    return len(uris);
+}
+
+// ---- replies -------------------------------------------------------------------
+
+function reply(id: Json, result: Json) -> Int touches input {
+    let mutable message: [Field] = [];
+    let a: Int = push(message, json_field("jsonrpc", json_text("2.0")));
+    let b: Int = push(message, json_field("id", id));
+    let c: Int = push(message, json_field("result", result));
+    return send(json_render(json_object(message)));
+}
+
+// **A request must be answered even when unsupported, or the client waits forever.** A notification has
+// no id and is dropped, which is what the protocol says to do.
+function refuse(id: Json, method: String) -> Int touches input {
+    let mutable error: [Field] = [];
+    let a: Int = push(error, json_field("code", json_int(0 - 32601)));
+    let b: Int = push(error, json_field("message", json_text("no method " + method)));
+    let mutable message: [Field] = [];
+    let c: Int = push(message, json_field("jsonrpc", json_text("2.0")));
+    let d: Int = push(message, json_field("id", id));
+    let e: Int = push(message, json_field("error", json_object(error)));
+    return send(json_render(json_object(message)));
+}
+
+function initialize_result() -> Json {
+    let mutable capabilities: [Field] = [];
+    // 1 = full text on every change. A document is small and the parser has no incremental mode, so
+    // anything cleverer would be a claim with no measurement behind it.
+    let a: Int = push(capabilities, json_field("textDocumentSync", json_int(1)));
+    let mutable info: [Field] = [];
+    let b: Int = push(info, json_field("name", json_text("bmx-lsp")));
+    let c: Int = push(info, json_field("version", json_text("0.12.2")));
+    let mutable result: [Field] = [];
+    let d: Int = push(result, json_field("capabilities", json_object(capabilities)));
+    let e: Int = push(result, json_field("serverInfo", json_object(info)));
+    return json_object(result);
+}
+
+// ---- the loop ------------------------------------------------------------------
+
+let mutable uris: [String] = [];
+let mutable texts: [String] = [];
+let mutable running: Bool = true;
+
+while running {
+    let mutable length: Int = 0 - 1;
+    let mutable eof: Bool = false;
+    let mutable in_header: Bool = true;
+
+    while in_header {
+        match os_read_line() {
+            None => {
+                eof = true;
+                in_header = false;
+            }
+            Some(raw) => {
+                let line: String = string_trim(raw);
+                if len(line) == 0 {
+                    in_header = false;
+                } else {
+                    let found: Int = header_length(line);
+                    if found >= 0 {
+                        length = found;
+                    }
+                }
+            }
+        }
+    }
+
+    if eof {
+        running = false;
+    } else {
+        if length < 0 {
+            // Unrecoverable: without a length there is no way to find the next frame.
+            print_error("bmx-lsp: a frame arrived with no Content-Length");
+            exit(2);
+        }
+        let body: String = read_body(length);
+        match json_parse(body) {
+            Error(why) => {
+                print_error("bmx-lsp: " + why);
+            }
+            Ok(message) => {
+                let method: String = text_at(message, "method");
+                let has_id: Bool = false;
+                match json_at(message, "params") {
+                    None => {
+                        // `initialized`, `exit` and `shutdown` may arrive without params.
+                        if method == "exit" {
+                            running = false;
+                        }
+                        if method == "shutdown" {
+                            match json_at(message, "id") {
+                                None => { }
+                                Some(id) => { let r: Int = reply(id, json_null()); }
+                            }
+                        }
+                    }
+                    Some(params) => {
+                        if method == "initialize" {
+                            match json_at(message, "id") {
+                                None => { }
+                                Some(id) => { let r: Int = reply(id, initialize_result()); }
+                            }
+                        }
+                        if method == "textDocument/didOpen" {
+                            match json_at(params, "textDocument") {
+                                None => { }
+                                Some(doc) => {
+                                    let uri: String = text_at(doc, "uri");
+                                    let text: String = text_at(doc, "text");
+                                    let n: Int = remember(uris, texts, uri, text);
+                                    let p: Int = publish(uri, text);
+                                }
+                            }
+                        }
+                        if method == "textDocument/didChange" {
+                            let uri: String = document_uri(params);
+                            let text: String = last_change_text(params);
+                            let n: Int = remember(uris, texts, uri, text);
+                            let p: Int = publish(uri, text);
+                        }
+                        if method == "textDocument/didClose" {
+                            let uri: String = document_uri(params);
+                            let n: Int = forget(uris, texts, uri);
+                            // **Clearing on close is not optional**: a stale diagnostic for a file nobody
+                            // has open is a problem the reader can neither find nor dismiss.
+                            let p: Int = publish_empty(uri);
+                        }
+                        if method == "shutdown" {
+                            match json_at(message, "id") {
+                                None => { }
+                                Some(id) => { let r: Int = reply(id, json_null()); }
+                            }
+                        }
+                        if method == "exit" {
+                            running = false;
+                        }
+                        if method != "initialize" && method != "initialized"
+                                && method != "textDocument/didOpen" && method != "textDocument/didChange"
+                                && method != "textDocument/didClose" && method != "shutdown"
+                                && method != "exit" {
+                            match json_at(message, "id") {
+                                None => { }
+                                Some(id) => { let r: Int = refuse(id, method); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -89,7 +89,6 @@ else
        'the grammar tests (3, no vscode-textmate)'
 fi
 run "the editor behaves the way the format reads" node editors/vscode/test/config.mjs
-run "the language server says what it should, in the right coordinates" node editors/lsp/test/protocol.mjs
 # **The staged parser is deleted before it is staged, and that is not belt-and-braces.** `preview.js`
 # imports `editors/vscode/reference/bmx.mjs`, which is gitignored, and it **passes against a stale one** —
 # measured: staged a copy of the parser from four days earlier and it exited 0. So the `cp` below is the
@@ -184,6 +183,12 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
     cmp -s "$d/err1.html" "tools/err1.html" || { echo "err1.html is not what tools/errpage.bx produces"; bad=1; }
     rm -rf "$d"
     exit $bad'
+  # **Moved out of the Node-only section, because the server is a Burxt binary now.** That is a real cost
+  # and it is the one the reclassification predicted: a contributor without a toolchain loses this check,
+  # and the summary says so rather than hiding it in a total.
+  run "the language server says what it should, in the right coordinates" bash -c '
+    burxt build editors/lsp/bmx-lsp.bx -o /tmp/check-bmx-lsp &&
+    BMX_LSP=/tmp/check-bmx-lsp node editors/lsp/test/protocol.mjs'
   run "a document becomes a view the compiler checks" bash -c '
     burxt run burxt/guarantees.bx'
   run "every documented name is reachable, and every public name is documented" bash -c '

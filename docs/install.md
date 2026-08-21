@@ -19,7 +19,10 @@ so it needs **no compiler and no toolchain**:
 code --install-extension bmx.vsix
 ```
 
-Helix and Neovim get diagnostics from a language server that needs only Node. All three are on
+Helix and Neovim get diagnostics from a language server that is **a Burxt binary you build once** — it
+needs no runtime at all. **That is a change, and it is a trade rather than an improvement:** the server was
+a node script, so anyone with node had it working immediately and now needs a Burxt toolchain to build it.
+One fewer runtime to have installed, one more step to take. All three are on
 [In your editor](editor.html).
 
 Everything below is for *rendering* documents from a program, which is a different job.

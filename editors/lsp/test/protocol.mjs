@@ -1,5 +1,9 @@
 #!/usr/bin/env node
-// not-burxt: platform — the artefact under test, or its runtime, is JavaScript and nothing else can be
+// not-burxt: gap — the artefact under test is a Burxt binary now, so the platform defence expired with it
+// **This drove `bmx-lsp.mjs` and now drives a Burxt binary, which changes what this file is.** While the
+// server was JavaScript, a JavaScript driver was forced. It is not any more: star-burxt has `drive-lsp.bx`
+// doing the same job in Burxt, so this is portable and only the port is outstanding. Reclassified rather
+// than left claiming a defence it lost.
 // Drive the language server with real LSP frames.
 //
 // **Every failure mode of a server is a silence.** A wrong Content-Length, a frame split across two
@@ -16,7 +20,12 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const server = spawn('node', [join(here, '..', 'bmx-lsp.mjs')], { stdio: ['pipe', 'pipe', 'pipe'] })
+// **The server under test is a Burxt binary now**, so its path is passed in rather than assumed: the
+// build lives wherever the caller put it, and `tools/check.sh` builds it to a temp path. Defaults to a
+// sibling `bmx-lsp` so running this by hand needs no environment.
+const command = process.env.BMX_LSP ?? join(here, '..', 'bmx-lsp')
+const server = spawn(command, [], { stdio: ['pipe', 'pipe', 'pipe'] })
+server.on('error', (e) => { console.log(`  FAIL  cannot run ${command}: ${e.message}`); process.exit(1) })
 
 let stderr = ''
 server.stderr.on('data', (d) => { stderr += d.toString() })
