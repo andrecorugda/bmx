@@ -6,7 +6,7 @@
 // **This file existed for four releases with nothing testing it, and then broke silently.** Its folding
 // markers and its onEnter rule were keyed on `:{3,}` — 0.6's fence — so when 0.7 respelled the fence,
 // folding a block stopped working and the *stay inside the block* rule stopped firing. No test noticed,
-// because none existed; the grammar has `scopes.mjs`, the server has `protocol.mjs`, the preview has
+// because none existed; the grammar has `scopes.mjs`, the server has `protocol.bx`, the preview has
 // `preview.js`, and the file that decides how the editor BEHAVES had nothing.
 //
 // It was found by reading, prompted by the star-burxt session reporting the same shape on its side: a

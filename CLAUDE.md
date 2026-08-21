@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 BMX is a **markup format**, not an application: a normative grammar plus a conformance suite, with
 two implementations of it living alongside. There is no build step and no package manifest at the
-root — the toolchain is `burxt` (every test and tool) and `node` (the reference parser and three editor
-tests). **There is no Python in this repository any more**; `burxt` on `PATH` with `BURXT_LIB` set is
+root — the toolchain is `burxt` (every runner and tool) and `node`, which runs the reference parser and
+the seven checks whose subject is JavaScript — the TextMate grammar, the preview, the linter and the
+parser's own embeddability. **There is no Python in this repository any more**; `burxt` on `PATH` with `BURXT_LIB` set is
 what a full run needs, and `tools/check.sh` skips the groups it cannot run and says which.
 
 Nothing here is compiled or installed to be worked on. Editing a `.md` normative document, a test
