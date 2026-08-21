@@ -1435,6 +1435,17 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: I
 
 // ---- the AST as JSON -----------------------------------------------------------
 //
+// **Dated: this path emits invalid JSON for a control byte, and the defect is not here.** `SPEC.md` §1
+// makes a control byte legal input — a document is a sequence of bytes — and `std/json.bx`'s
+// `json_escape` escapes only `"` `\` `\n` `\r` `\t` `\b` `\f`, leaving every other byte below 0x20
+// raw, which RFC 8259 §7 forbids. Measured 2026-08-21 against published 1.6.0: `a\x01b` renders as
+// invalid JSON here and as `a\u0001b` in `reference/bmx.js`; `a\x00b` is additionally truncated, because
+// a Burxt String holds a zero byte and printing stops at it.
+//
+// Reported upstream with both measurements. **Nothing is worked around here on purpose** — pre-escaping
+// would double-escape the moment the library is fixed, and the two implementations disagreeing is the
+// finding rather than something to hide. `tests/agree.py` records why no fixture covers it yet.
+//
 // This is what the format's conformance suite compares. It is not for humans and it is not the
 // rendering path — it exists so that two implementations can be shown to agree about STRUCTURE
 // rather than about the pages someone thought to look at.
