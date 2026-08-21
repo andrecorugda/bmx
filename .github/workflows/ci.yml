@@ -285,6 +285,13 @@ jobs:
 
       - name: Install the Burxt this release of BMX supports
         env:
+          # Raised 1.5.0 -> 1.7.0 on 2026-08-21, and **not alone**: `lib/html.bx` spells the apostrophe
+          # `&#x27;` from 1.7.0, so `reference/bmx.js`'s escape table had to move in the same commit or the
+          # two renderers disagree on any document containing one. `tests/cases/081` is what turned that
+          # from a surprise into a failing check. 1.7.0 also carries `print_exact`, which is what a
+          # language server needs to frame a message, and a `json_escape` that escapes every control byte.
+          # Verified against the published asset with its digest, not against a report.
+          #
           # Raised 1.4.0 -> 1.5.0 on 2026-08-20, deliberately and alone, with the suite green against the
           # PUBLISHED asset rather than a local build of the tag: 29 checks, including the Burxt half.
           # 1.5.0 ships `std/zip.bx` and `std/deflate.bx`, which this repository does not use and will not
@@ -292,7 +299,7 @@ jobs:
           # Burxt toolchain (see the top of this file). The pin is what BMX tests against; the FLOOR is
           # 1.3.0 and is stated in `docs/install.md`, which is a different number and must not follow this
           # one.
-          BURXT: 1.5.0
+          BURXT: 1.7.0
         run: |
           set -eux
           base="https://github.com/andrecorugda/burxt/releases/download/v$BURXT"

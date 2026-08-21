@@ -1081,17 +1081,18 @@ export function at(source, offset) {
 // `tests/renders.mjs` compares the two over the whole corpus. Where they differ, one of them is
 // wrong and the suite says so.
 
-// **Dated: the apostrophe's spelling must move in the same commit as the `BURXT` pin.** `ESCAPING.md`
+// **The date resolved on 2026-08-21, and this line moved with the pin.** `ESCAPING.md`
 // names the characters a host escapes and leaves the ENTITY SPELLING to the host — so `&#39;` and
 // `&#x27;` are both conformant, and `tests/renders.py` comparing pages byte-for-byte is therefore
 // stricter than the spec, exactly as `burxt/conformance.bx` is about JSON key order.
 //
-// Today both implementations spell it `&#39;` and agree. Burxt's `lib/html.bx` moves to `&#x27;` in their
-// 1.7.0 — **so raising the pin without changing this line makes the two renderers disagree**, and
-// `tests/cases/081-an-apostrophe-is-ordinary-text` exists to make that a failure rather than a surprise
-// in somebody's page. Verified by planting `&#x27;` here against published 1.6.0: `renders.py` reports
-// `1 differ`, exit 1.
-const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
+// Burxt's `lib/html.bx` spells it `&#x27;` from published 1.7.0, so this had to move in the same commit
+// as `BURXT` or the two renderers disagree. **`tests/cases/081-an-apostrophe-is-ordinary-text` is the only
+// reason that was a failure rather than a surprise in somebody's page** — it was added a day earlier,
+// after measuring that no fixture contained an apostrophe at all, and it reported `1 differ` the moment
+// the pin moved. The whole cost of the transition was one line and one commit, because something was
+// watching.
+const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }
 
 /** The one escaping rule, and there is no way to opt out of it — that is ESCAPING.md. */
 const escape = (s) => s.replace(/[&<>"']/g, (c) => ESCAPES[c])
