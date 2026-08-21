@@ -1,0 +1,62 @@
+// tools/page.bx — the source-beside-rendered panel on the documentation site, from real renderer output.
+//
+//     burxt build tools/page.bx -o page && ./page ex2 "any title"
+//
+// **Ported from `tools/page.py`, byte-identical to it**, and verified by generating the same page with
+// both and comparing bytes — then by planting a difference in the template and confirming the comparison
+// catches it, because a byte comparison that agrees proves nothing until it has been seen to disagree.
+//
+// The escape table is written out rather than calling `html_escape`, for the reason in `errpage.bx`: the
+// library spells the apostrophe `&#39;` and Python spells it `&#x27;`, and this file's output is committed.
+//
+// **`title` is read and unused, exactly as the Python read and ignored it.** A port that quietly dropped
+// an argument would change the command line, and `tools/README.md` documents the two-argument form.
+use "std/os.bx";
+use "std/files.bx";
+use "std/string.bx";
+
+pure function escape_html(text: String) -> String {
+    let mutable out: String = "";
+    let mutable i: Int = 0;
+    while i < len(text) {
+        let b: Int = byte_at(text, i);
+        let mutable entity: String = "";
+        if b == 38 { entity = "&amp;"; }
+        if b == 60 { entity = "&lt;"; }
+        if b == 62 { entity = "&gt;"; }
+        if b == 34 { entity = "&quot;"; }
+        if b == 39 { entity = "&#x27;"; }
+        if len(entity) > 0 {
+            out = out + entity;
+        } else {
+            out = out + substring(text, i, 1);
+        }
+        i += 1;
+    }
+    return out;
+}
+
+let mutable name: String = "";
+if os_arg_count() > 1 {
+    name = os_arg(1);
+}
+if len(name) == 0 {
+    print_error("usage: page <name> [title]   (reads <name>.bmx, writes <name>.html)");
+    exit(2);
+}
+
+let rendered: Capture = os_capture_status("./bmxrender " + file_quote(name + ".bmx"));
+let rendered_body: String = string_trim(rendered.output);
+
+match file_read_maybe(name + ".bmx") {
+    None => {
+        print_error("cannot read " + name + ".bmx");
+        exit(2);
+    }
+    Some(raw) => {
+        let src: String = string_trim_end(raw);
+        let page: String = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">\n<style>\n *\{box-sizing:border-box\} body\{margin:0;background:#eef1f5;font:16px/1.6 -apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#16181d\}\n .wrap\{max-width:940px;margin:0 auto;padding:34px 30px\}\n .pair\{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start\}\n .panel\{background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(16,24,40,.08),0 8px 24px rgba(16,24,40,.06);overflow:hidden\}\n .cap\{font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em;text-transform:uppercase;color:#6b7280;padding:12px 16px;border-bottom:1px solid #eceff3;background:#fafbfc\}\n pre\{margin:0;padding:16px;font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;color:#1f2937\}\n .render\{padding:20px 22px\}\n .bmx h1\{font-size:1.5rem;margin:.1em 0 .5em;letter-spacing:-.02em\}\n .bmx p\{margin:.7em 0\}\n .bmx ul,.bmx ol\{margin:.7em 0;padding-left:1.3em\}\n .bmx li\{margin:.25em 0\}\n .bmx blockquote\{margin:.9em 0;padding-left:.9em;border-left:3px solid #dfe3e8;color:#5b6270\}\n .bmx code\{background:#f3f4f6;padding:.13em .35em;border-radius:3px;font-size:.9em\}\n .bmx pre\{background:#f6f8fa;border-radius:6px;padding:12px 14px\}\n .bmx pre code\{background:none;padding:0\}\n .bmx a\{color:#E8502A\}\n .bmx strong\{font-weight:650\}\n</style></head><body><div class=\"wrap\"><div class=\"pair\">\n<div class=\"panel\"><div class=\"cap\">" + name + ".bmx</div><pre>" + escape_html(src) + "</pre></div>\n<div class=\"panel\"><div class=\"cap\">rendered</div><div class=\"render\">" + rendered_body + "</div></div>\n</div></div></body></html>";
+        let wrote: Int = file_write(name + ".html", page);
+        print("wrote " + name + ".html");
+    }
+}

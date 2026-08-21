@@ -1,0 +1,63 @@
+// tools/errpage.bx — the "refused" panel on the documentation site, from real renderer output.
+//
+//     burxt build tools/errpage.bx -o errpage && ./errpage err1
+//
+// **Ported from `tools/errpage.py`, and byte-identical to it.** The rule across these projects is that a
+// thing writable in Burxt must be written in it; this file was Python because the files around it were.
+// Verified by generating the same page with both and comparing bytes, not by reading the output.
+//
+// **The escape table is written out here rather than calling `html_escape`, and that is the port being
+// faithful rather than clever.** `lib/html.bx` spells the apostrophe `&#39;`; Python's `html.escape`
+// spells it `&#x27;`. Both are correct HTML and they are not the same bytes, so using the library would
+// have changed a committed page the moment any source document contained an apostrophe — a difference
+// that would have appeared later, in a screenshot, with no test able to see it.
+use "std/os.bx";
+use "std/files.bx";
+use "std/string.bx";
+
+pure function escape_html(text: String) -> String {
+    let mutable out: String = "";
+    let mutable i: Int = 0;
+    while i < len(text) {
+        let b: Int = byte_at(text, i);
+        let mutable entity: String = "";
+        if b == 38 { entity = "&amp;"; }
+        if b == 60 { entity = "&lt;"; }
+        if b == 62 { entity = "&gt;"; }
+        if b == 34 { entity = "&quot;"; }
+        if b == 39 { entity = "&#x27;"; }
+        if len(entity) > 0 {
+            out = out + entity;
+        } else {
+            out = out + substring(text, i, 1);
+        }
+        i += 1;
+    }
+    return out;
+}
+
+// `.strip()` and `.rstrip()` in the Python, on the render and the source respectively.
+let mutable name: String = "";
+if os_arg_count() > 1 {
+    name = os_arg(1);
+}
+if len(name) == 0 {
+    print_error("usage: errpage <name>   (reads <name>.bmx, writes <name>.html)");
+    exit(2);
+}
+
+let rendered: Capture = os_capture_status("./bmxrender " + file_quote(name + ".bmx"));
+let out: String = string_trim(rendered.output);
+
+match file_read_maybe(name + ".bmx") {
+    None => {
+        print_error("cannot read " + name + ".bmx");
+        exit(2);
+    }
+    Some(raw) => {
+        let src: String = string_trim_end(raw);
+        let page: String = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><style>\n *\{box-sizing:border-box\} body\{margin:0;background:#eef1f5;font:16px/1.6 -apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#16181d\}\n .wrap\{max-width:940px;margin:0 auto;padding:34px 30px\}\n .pair\{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start\}\n .panel\{background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(16,24,40,.08),0 8px 24px rgba(16,24,40,.06);overflow:hidden\}\n .cap\{font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em;text-transform:uppercase;color:#6b7280;padding:12px 16px;border-bottom:1px solid #eceff3;background:#fafbfc\}\n .cap.bad\{color:#b42318;background:#fef3f2;border-bottom-color:#fee4e2\}\n pre\{margin:0;padding:16px;font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;color:#1f2937\}\n .err\{padding:18px;font:13px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:#b42318\}\n .note\{padding:0 18px 18px;color:#5b6270;font-size:14px\}\n</style></head><body><div class=\"wrap\"><div class=\"pair\">\n<div class=\"panel\"><div class=\"cap\">" + name + ".bmx</div><pre>" + escape_html(src) + "</pre></div>\n<div class=\"panel\"><div class=\"cap bad\">refused</div><div class=\"err\">" + escape_html(out) + "</div>\n<div class=\"note\">Nothing renders. Markdown would have shipped this page with two stray asterisks in it.</div></div>\n</div></div></body></html>";
+        let wrote: Int = file_write(name + ".html", page);
+        print("wrote " + name + ".html");
+    }
+}

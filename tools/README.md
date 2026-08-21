@@ -5,8 +5,8 @@ mock-up and none is hand-written HTML, because a picture of what the format *oug
 the same defect as a spec sentence nobody ran.
 
     burxt build render.bx -o bmxrender      # the level-1 renderer, from burxt/bmx.bx
-    python3 page.py ex2                     # source + rendered, side by side
-    python3 errpage.py err1                 # source + the refusal
+    burxt build page.bx -o page && ./page ex2        # source + rendered, side by side
+    burxt build errpage.bx -o errpage && ./errpage err1   # source + the refusal
     python3 fmt.py docs/*.md                # indent every example, one level per open block
     python3 migrate-0.7.py FILE...          # 0.6 fences -> 0.7, tracking a stack
     python3 showcase.py                     # the landing page, as LIVE HTML -> docs/_includes/
