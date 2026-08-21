@@ -1,0 +1,500 @@
+// tests/portability.bx — the reference parser's runtime floor, read out of the documentation and checked
+// against the source.
+//
+//     burxt build tests/portability.bx -o portability
+//     ./portability
+//     ./portability --prove-it     # the negative control
+//
+// **A zero-dependency parser whose runtime requirement is undocumented is not portable — it is untested on
+// everything except the machine that wrote it.** `reference/bmx.js` is the implementation this project offers
+// a stranger to copy, and until now nothing said which Node runs it. CI provides Node 20, which is a *pin*
+// and was never a floor: the two numbers are different, and conflating them is what makes a host upgrade for
+// a reason that is not theirs.
+//
+// **Measured, not chosen.** The newest thing the file uses is nullish coalescing, so the floor is Node 14.
+// The check derives that number from `docs/install.md` rather than holding its own copy, because a floor
+// stated in two places is a floor that goes stale in one of them.
+//
+// **And measuring it produced a false positive first, which is the reason this file scans the way it does.**
+// A pattern of `\.at\(` reported `Array.prototype.at` and a floor of Node 16.6 — from what is really
+// `...at(source, offset)`: a **spread of a local function named `at`**, where the third dot of `...` matched
+// the `.`. I nearly documented a floor 2.6 versions too high on the strength of it. So:
+//
+//   * comments and string literals are stripped before anything is matched, because a feature *named in
+//     prose* is not a feature *used*
+//   * the member-access patterns require a real receiver before the dot
+//
+// **What this cannot see**, said out loud because a check that overstates its reach is worse than none: it
+// knows the features listed below and nothing else. A file that starts using `Object.groupBy` (Node 21) is
+// caught; one that uses a Node API rather than a language feature is not. The list is the maintained part.
+//
+// ---- the port ------------------------------------------------------------------------------------
+//
+// Ported from `tests/portability.py` and verified byte-identical on the real source, on the control, and
+// on a planted feature.
+//
+// **The Python's twelve regexes are twelve literal searches with a rule about the byte in front**, which
+// is what they always were: `\bObject\.groupBy\(` is `Object.groupBy(` not preceded by a word character,
+// and `[\w\)\]](?<!\.)\.at\(` is `.at(` with a real receiver in front of the dot. The lookbehind in that
+// last one never did anything — it forbids a `.` at a position that had just matched `[\w)\]]`, which
+// cannot be a `.` — and writing it out as a predicate is what made that visible.
+//
+// **The stripping order is the Python's, deliberately, and it is not the order a lexer would use.**
+// Comments go first, so a `//` inside a string literal takes the rest of that line with it. A cleaner
+// scanner would disagree with the retired file on some input this repository does not contain, and the
+// point of a port is to be the same check. The order is now written down instead of implied by which
+// `re.sub` came first.
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+// A Node version is two Ints. `16.6` in a float table is a number nobody can compare exactly; here the
+// comparison is the one the check means — a major and a minor, in that order.
+class Version { major: Int, minor: Int }
+
+// `kind` says what has to be true of the byte in FRONT of the needle:
+//   0  nothing
+//   1  not a word character — the `\b` in `\bObject\.groupBy\(`
+//   2  a word character, `)` or `]` — a real receiver, the fix for the `...at(` false positive
+class Feature { kind: Int, needles: [String], name: String, since: Version }
+
+class Found { since: Version, name: String, line: Int }
+
+pure function version(major: Int, minor: Int) -> Version {
+    return Version { major: major, minor: minor };
+}
+
+pure function feature(kind: Int, needles: [String], name: String, since: Version) -> Feature {
+    return Feature { kind: kind, needles: needles, name: name, since: since };
+}
+
+pure function is_word(b: Int) -> Bool {
+    return (b >= 48 && b <= 57) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 95;
+}
+
+pure function is_receiver(b: Int) -> Bool {
+    return is_word(b) || b == 41 || b == 93;
+}
+
+// ---- the table -----------------------------------------------------------------------------------
+//
+// **An empty feature table reports the best possible answer.** Proven by emptying it: *"needs nothing
+// newer than Node 0, and the documentation promises 14"*, exit 0. A check whose whole job is measuring a
+// floor reports maximum portability when it measures nothing — and the ways to get there are ordinary: a
+// pattern that stops matching after a source reformat, or this list edited down. So the program below
+// asserts the table is populated and that something in it was actually found. Same shape as the
+// star-burxt session's gate that printed `every guarantee holds` with no count.
+function features() -> [Feature] {
+    let mutable table: [Feature] = [];
+    let a: Int = push(table, feature(1, ["Object.groupBy("], "Object.groupBy", version(21, 0)));
+    let b: Int = push(table, feature(1, ["Array.fromAsync("], "Array.fromAsync", version(22, 0)));
+    let c: Int = push(table, feature(1, ["structuredClone("], "structuredClone", version(17, 0)));
+    let d: Int = push(table, feature(1, ["Object.hasOwn("], "Object.hasOwn", version(16, 9)));
+    let e: Int = push(table, feature(2, [".at("], "Array/String.at", version(16, 6)));
+    let f: Int = push(table, feature(0, [".replaceAll("], "String.replaceAll", version(15, 0)));
+    let g: Int = push(table, feature(0, ["??=", "||=", "&&="], "logical assignment", version(15, 0)));
+    let h: Int = push(table, feature(0, ["??"], "nullish coalescing", version(14, 0)));
+    let i: Int = push(table, feature(0, ["?."], "optional chaining", version(14, 0)));
+    let j: Int = push(table, feature(1, ["matchAll("], "String.matchAll", version(12, 0)));
+    let k: Int = push(table, feature(0, [".flatMap(", ".flat("], "Array.flat / flatMap", version(11, 0)));
+    let l: Int = push(table, feature(1, ["padStart(", "padEnd("], "String.padStart / padEnd",
+            version(8, 0)));
+    return table;
+}
+
+const SOURCE: String = "reference/bmx.js";
+const FLOOR_DOC: String = "docs/install.md";
+// far below the twelve it knows; the assertion is "a table exists", not a budget
+const FEATURE_FLOOR: Int = 8;
+
+// ---- stripping -----------------------------------------------------------------------------------
+
+// `//` to the end of the line, left to right. The newline stays, so every line number below is still the
+// line number in the file.
+pure function without_line_comments(source: String) -> String {
+    let mutable out: [String] = [];
+    let mutable i: Int = 0;
+    let mutable kept: Int = 0;
+    while i < len(source) {
+        if byte_at(source, i) == 47 && i + 1 < len(source) && byte_at(source, i + 1) == 47 {
+            let a: Int = push(out, substring(source, kept, i - kept));
+            while i < len(source) && byte_at(source, i) != 10 {
+                i += 1;
+            }
+            kept = i;
+        } else {
+            i += 1;
+        }
+    }
+    let b: Int = push(out, substring(source, kept, len(source) - kept));
+    return string_join(out, "");
+}
+
+// `/* … */`, shortest match, newlines included.
+pure function without_block_comments(source: String) -> String {
+    let mutable out: [String] = [];
+    let mutable i: Int = 0;
+    let mutable kept: Int = 0;
+    while i < len(source) {
+        if byte_at(source, i) == 47 && i + 1 < len(source) && byte_at(source, i + 1) == 42 {
+            let mutable j: Int = i + 2;
+            let mutable closed: Bool = false;
+            while j + 1 < len(source) && !closed {
+                if byte_at(source, j) == 42 && byte_at(source, j + 1) == 47 {
+                    closed = true;
+                } else {
+                    j += 1;
+                }
+            }
+            if closed {
+                let a: Int = push(out, substring(source, kept, i - kept));
+                i = j + 2;
+                kept = i;
+            } else {
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+    }
+    let b: Int = push(out, substring(source, kept, len(source) - kept));
+    return string_join(out, "");
+}
+
+// Every string literal becomes `''`. Quotes and apostrophes end at a newline; a backtick does not. A
+// literal that never closes is not a literal, and the scan moves on one byte — which is the regex
+// engine's behaviour and therefore the retired check's.
+pure function without_strings(source: String) -> String {
+    let mutable out: [String] = [];
+    let mutable i: Int = 0;
+    let mutable kept: Int = 0;
+    while i < len(source) {
+        let quote: Int = byte_at(source, i);
+        if quote == 39 || quote == 34 || quote == 96 {
+            let mutable j: Int = i + 1;
+            let mutable closed: Bool = false;
+            let mutable ran_out: Bool = false;
+            while !closed && !ran_out {
+                if j >= len(source) {
+                    ran_out = true;
+                } else {
+                    let b: Int = byte_at(source, j);
+                    if b == 92 {
+                        j += 2;
+                    } else {
+                        if b == quote {
+                            closed = true;
+                        } else {
+                            if b == 10 && quote != 96 {
+                                ran_out = true;
+                            } else {
+                                j += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            if closed {
+                let a: Int = push(out, substring(source, kept, i - kept));
+                let c: Int = push(out, "''");
+                i = j + 1;
+                kept = i;
+            } else {
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+    }
+    let d: Int = push(out, substring(source, kept, len(source) - kept));
+    return string_join(out, "");
+}
+
+pure function stripped(source: String) -> String {
+    return without_strings(without_block_comments(without_line_comments(source)));
+}
+
+// ---- matching ------------------------------------------------------------------------------------
+
+// The leftmost position where this feature is used, or -1. Alternations answer the leftmost of their
+// branches, which is what the regex engine does and what makes the reported line number the right one.
+pure function first_use(source: String, f: Feature) -> Int {
+    let mutable best: Int = -1;
+    let mutable n: Int = 0;
+    while n < len(f.needles) {
+        let needle: String = f.needles[n];
+        let mutable from: Int = 0;
+        let mutable looking: Bool = true;
+        while looking {
+            let at: Int = string_find_from(source, needle, from);
+            if at < 0 {
+                looking = false;
+            } else {
+                let mutable ok: Bool = true;
+                if f.kind == 1 {
+                    if at > 0 && is_word(byte_at(source, at - 1)) {
+                        ok = false;
+                    }
+                }
+                if f.kind == 2 {
+                    if at == 0 || !is_receiver(byte_at(source, at - 1)) {
+                        ok = false;
+                    }
+                }
+                if ok {
+                    // kind 2 matches ONE BYTE EARLIER than the needle: the receiver is part of the
+                    // pattern, and the retired check reported that byte's line.
+                    let mutable start: Int = at;
+                    if f.kind == 2 {
+                        start = at - 1;
+                    }
+                    if best < 0 || start < best {
+                        best = start;
+                    }
+                    looking = false;
+                } else {
+                    from = at + 1;
+                }
+            }
+        }
+        n += 1;
+    }
+    return best;
+}
+
+pure function line_of(source: String, offset: Int) -> Int {
+    let mutable line: Int = 1;
+    let mutable i: Int = 0;
+    while i < offset {
+        if byte_at(source, i) == 10 {
+            line += 1;
+        }
+        i += 1;
+    }
+    return line;
+}
+
+// ---- the stated floor ----------------------------------------------------------------------------
+
+// `**Node 14 or newer**`, and nothing else counts. A floor mentioned in prose is not a floor stated.
+pure function stated_floor(text: String) -> Option<Version> {
+    let mutable from: Int = 0;
+    while true {
+        let at: Int = string_find_from(text, "**Node ", from);
+        if at < 0 {
+            return Option.None;
+        }
+        let mutable i: Int = at + 7;
+        let digits_at: Int = i;
+        while i < len(text) && byte_at(text, i) >= 48 && byte_at(text, i) <= 57 {
+            i += 1;
+        }
+        if i > digits_at {
+            let major: String = substring(text, digits_at, i - digits_at);
+            let mutable minor: String = "0";
+            if i < len(text) && byte_at(text, i) == 46 {
+                let mutable j: Int = i + 1;
+                while j < len(text) && byte_at(text, j) >= 48 && byte_at(text, j) <= 57 {
+                    j += 1;
+                }
+                if j > i + 1 {
+                    minor = substring(text, i + 1, j - i - 1);
+                    i = j;
+                }
+            }
+            if string_matches_at(text, " or newer**", i) {
+                return Option.Some(version(string_to_int(major, 0), string_to_int(minor, 0)));
+            }
+        }
+        from = at + 1;
+    }
+    return Option.None;
+}
+
+// ---- formatting ----------------------------------------------------------------------------------
+//
+// `%g` on a float, spelled out: `14.0` prints as `14` and `16.6` as `16.6`. The retired check got this
+// from Python's formatter, which is why the numbers in the table were floats at all.
+pure function version_text(v: Version) -> String {
+    if v.minor == 0 {
+        return to_string(v.major);
+    }
+    return to_string(v.major) + "." + to_string(v.minor);
+}
+
+pure function pad_left(text: String, width: Int) -> String {
+    let mutable out: String = text;
+    while char_count(out) < width {
+        out = " " + out;
+    }
+    return out;
+}
+
+pure function pad_right(text: String, width: Int) -> String {
+    let mutable out: String = text;
+    while char_count(out) < width {
+        out = out + " ";
+    }
+    return out;
+}
+
+// Descending by version, then by name, then by line — `used.sort(reverse=True)` over a tuple in that
+// order. The name and the line are in the key because two features can share a version, and a run whose
+// order depends on which one the scan happened to reach first is a run whose output cannot be compared.
+pure function precedes(a: Found, b: Found) -> Bool {
+    if a.since.major != b.since.major {
+        return a.since.major > b.since.major;
+    }
+    if a.since.minor != b.since.minor {
+        return a.since.minor > b.since.minor;
+    }
+    if a.name != b.name {
+        return string_compare(a.name, b.name) > 0;
+    }
+    return a.line > b.line;
+}
+
+pure function above(v: Version, floor: Version) -> Bool {
+    if v.major != floor.major {
+        return v.major > floor.major;
+    }
+    return v.minor > floor.minor;
+}
+
+// ---- the program ---------------------------------------------------------------------------------
+
+let mutable prove: Bool = false;
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    if os_arg(a) == "--prove-it" {
+        prove = true;
+    }
+    a += 1;
+}
+
+match file_read_maybe(FLOOR_DOC) {
+    None => {
+        print_error("cannot read " + FLOOR_DOC + " — run this from the repository root");
+        exit(2);
+    }
+    Some(doc) => {
+        match stated_floor(doc) {
+            None => {
+                print_error(FLOOR_DOC
+                        + " does not state a Node floor, so there is nothing to check against");
+                exit(1);
+            }
+            Some(floor) => {
+                match file_read_maybe(SOURCE) {
+                    None => {
+                        print_error("cannot read " + SOURCE + " — run this from the repository root");
+                        exit(2);
+                    }
+                    Some(raw) => {
+                        let mutable source: String = stripped(raw);
+                        if prove {
+                            // The control is a real feature that really would break the stated floor, in
+                            // the real shape.
+                            source = source + "\nconst copy = structuredClone(tree)\n";
+                        }
+                        let table: [Feature] = features();
+                        if len(table) < FEATURE_FLOOR {
+                            print_error("the feature table holds " + to_string(len(table))
+                                    + " patterns, below the floor of " + to_string(FEATURE_FLOOR)
+                                    + " — it has been edited down, and an empty table measures every"
+                                    + " file as Node 0");
+                            exit(1);
+                        }
+
+                        let mutable used: [Found] = [];
+                        let mutable t: Int = 0;
+                        while t < len(table) {
+                            let f: Feature = table[t];
+                            let at: Int = first_use(source, f);
+                            if at >= 0 {
+                                let p: Int = push(used, Found { since: f.since, name: f.name,
+                                        line: line_of(source, at) });
+                            }
+                            t += 1;
+                        }
+
+                        if len(used) == 0 {
+                            print_error("no known feature matched " + SOURCE + " at all, so the measured"
+                                    + " floor is meaningless — the patterns have stopped matching, which"
+                                    + " reports maximum portability");
+                            exit(1);
+                        }
+
+                        // selection sort: the table is twelve entries and a sort that reads in one pass
+                        // is easier to check than one that is fast
+                        let mutable i: Int = 0;
+                        while i < len(used) {
+                            let mutable best: Int = i;
+                            let mutable j: Int = i + 1;
+                            while j < len(used) {
+                                if precedes(used[j], used[best]) {
+                                    best = j;
+                                }
+                                j += 1;
+                            }
+                            let hold: Found = used[i];
+                            used[i] = used[best];
+                            used[best] = hold;
+                            i += 1;
+                        }
+
+                        print("  " + FLOOR_DOC + " states a floor of Node " + version_text(floor));
+                        let mutable shown: Int = 0;
+                        while shown < len(used) && shown < 4 {
+                            let f: Found = used[shown];
+                            let mutable mark: String = "";
+                            if above(f.since, floor) {
+                                mark = "  <-- above the floor";
+                            }
+                            print("    Node " + pad_left(version_text(f.since), 5) + "   "
+                                    + pad_right(f.name, 26) + " line " + to_string(f.line) + mark);
+                            shown += 1;
+                        }
+
+                        let mutable over: [Found] = [];
+                        let mutable k: Int = 0;
+                        while k < len(used) {
+                            if above(used[k].since, floor) {
+                                let p: Int = push(over, used[k]);
+                            }
+                            k += 1;
+                        }
+                        print("");
+                        if prove {
+                            if len(over) > 0 {
+                                print("the control failed as it must — a feature above the stated floor"
+                                        + " is caught");
+                                exit(0);
+                            }
+                            print("THE CONTROL DID NOT FAIL, so this check cannot see the floor being"
+                                    + " raised");
+                            exit(1);
+                        }
+                        if len(over) > 0 {
+                            let mutable m: Int = 0;
+                            while m < len(over) {
+                                let f: Found = over[m];
+                                print("  FAIL  " + SOURCE + ":" + to_string(f.line) + " uses " + f.name
+                                        + ", which needs Node " + version_text(f.since)
+                                        + " — above the documented floor of " + version_text(floor)
+                                        + ". Either replace it or raise the number in " + FLOOR_DOC
+                                        + ", and if you raise it, say what a consumer gains for the"
+                                        + " upgrade");
+                                m += 1;
+                            }
+                            exit(1);
+                        }
+                        print(SOURCE + " needs nothing newer than Node " + version_text(used[0].since)
+                                + ", and the documentation promises " + version_text(floor));
+                        exit(0);
+                    }
+                }
+            }
+        }
+    }
+}

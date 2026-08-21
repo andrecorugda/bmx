@@ -86,6 +86,11 @@ def built(lines):
             out.setdefault(source, []).append(binary)
     return out
 
+
+def aliases(by_source):
+    """binary name -> the source it was compiled from."""
+    return {binary: source for source, binaries in by_source.items() for binary in binaries}
+
 PATHLIKE = re.compile(r"[\w./-]+\.(?:py|mjs|js|sh|bx)")
 
 
@@ -106,21 +111,28 @@ def offers(rel, path):
     for line in path.read_text().splitlines():
         if FLAG not in line:
             continue
-        named = PATHLIKE.findall(line)
+        # **A line that fires a COMPILED runner names a binary, not a path**, and `/tmp/check-portability`
+        # has no extension to recognise — so `check.sh` read as naming no file at all, which is the shape
+        # of a file offering its OWN control, and it accused itself of advertising a `--prove-it` nothing
+        # fires. The `-o` map is already built for the other half of this check; consulting it here is the
+        # same fact used twice, which is the point of having it.
+        named = PATHLIKE.findall(line) + [ALIASES[b] for b in ALIASES if b in line]
         if not named or any(n.endswith(own) for n in named):
             return True
     return False
 
 
 BUILT = {}
+ALIASES = {}
 
 
 def main():
     prove = FLAG in sys.argv
     advertise, dead, unrun = [], [], []
     runner = (ROOT / CHECK_SH).read_text().splitlines()
-    global BUILT
+    global BUILT, ALIASES
     BUILT = built(runner)
+    ALIASES = aliases(BUILT)
 
     for rel, path in runners():
         text = path.read_text()
@@ -150,7 +162,7 @@ def main():
             named = False
         if not named:
             unrun.append(rel)
-        if prove and rel == "tests/portability.py":
+        if prove and rel == "tests/portability.bx":
             # The control: the defect as star-burxt had it — the flag named in the header, and nothing
             # anywhere that reads an argument. Simulated by stripping the reads from a copy of the text.
             text = "\n".join(l for l in text.splitlines() if not any(r.search(l) for r in READS))

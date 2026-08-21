@@ -66,7 +66,7 @@ a claim no implementation has to honour, and this repository's history is largel
 converting such claims into checks.
 
 Beyond conformance, `tests/` holds meta-checks over the repository itself — `version.py`,
-`messages.py`, `portability.py`, `branding.py`, `extension.py`, `surface.py`,
+`messages.py`, `portability.bx`, `branding.py`, `extension.py`, `surface.py`,
 `output.py`, `invitation.py`. Most take **`--prove-it`, a negative control** that asserts the check can fail; CI runs
 both halves, because a check nobody has watched fail is a check nobody has tested. Add the control
 when you add a check.
@@ -123,7 +123,7 @@ blaming every document — call it from any new runner that takes a command.
 - `reference/bmx.js` — zero dependencies, written to be read (no lookup tables, no regex where a
   loop is clearer), because somebody porting BMX to a third language reads it top to bottom. Exports
   `parse`, `render`, `lint`, `at`, `BmxError`; also a CLI (`[--render] <file>`). Its Node floor is
-  **14**, measured, and `tests/portability.py` reads that floor out of `docs/install.md` so the
+  **14**, measured, and `tests/portability.bx` reads that floor out of `docs/install.md` so the
   number lives in one place.
 - `burxt/bmx.bx` — the Burxt implementation, for Burxt programs. Level 1 today; level 2 (a document
   becomes a `pure function … -> Html` whose slots the compiler type-checks) is its road, exercised by

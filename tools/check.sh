@@ -107,8 +107,6 @@ run "the extension's version is the format's, and the committed package is the p
 
 echo
 echo "the documentation"
-run "the reference parser needs nothing newer than the Node it promises" bash -c '
-  python3 tests/portability.py && python3 tests/portability.py --prove-it'
 run "every version the documentation states agrees with SPEC.md" bash -c '
   python3 tests/version.py && python3 tests/version.py --prove-it'
 run "every doc page closes its raw tag" bash -c '
@@ -222,6 +220,12 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   # **The tool `BMX-E036` names had no runner at all**, and its header claimed for a year that a refusal
   # leaves the file alone while the code rewrote it anyway. This check is that claim, plus the one nobody
   # writes down: that the path in a diagnostic is a path that exists.
+  # **Out of the documentation group, because measuring a Node floor now needs a Burxt compiler.** The
+  # trade is the one every port in this file has made: the check is written in the language this
+  # repository is becoming, and a contributor without a toolchain loses it — which the summary says.
+  run "the reference parser needs nothing newer than the Node it promises" bash -c '
+    burxt build tests/portability.bx -o /tmp/check-portability &&
+    /tmp/check-portability && /tmp/check-portability --prove-it'
   run "the migrator does what its own header says, and E036 names a file that is there" bash -c '
     burxt build tools/migrate-0.7.bx -o /tmp/check-migrate &&
     burxt build tests/migration.bx -o /tmp/check-migration &&
@@ -229,7 +233,7 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
     BMX_MIGRATE=/tmp/check-migrate /tmp/check-migration "node reference/bmx.js" --prove-it'
 else
   skip 'the Burxt half needs `burxt` on PATH and BURXT_LIB set — see docs/install.md' \
-       'the Burxt half (10, no toolchain)'
+       'the Burxt half (11, no toolchain)'
 fi
 
 echo

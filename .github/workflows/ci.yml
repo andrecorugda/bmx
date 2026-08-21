@@ -104,7 +104,7 @@ jobs:
       # they had assumed it worked because the conformance suite passes.
       #
       # **The suite is Node, run from this repository's own root, and so was every other exercise this
-      # file has ever had.** `tests/portability.py` is named for this and asks the narrower question: which
+      # file has ever had.** `tests/portability.bx` is named for this and asks the narrower question: which
       # Node *syntax* floor the file needs. A parser offered to strangers to copy is portable when it RUNS
       # where they put it, not when its syntax is old enough to — so that check could have stayed green
       # forever on a file no browser could load.
@@ -181,11 +181,6 @@ jobs:
       # **Indentation is insignificant, so nothing else can catch a wrong one.** The examples on the
       # site are what a reader copies, and a wrongly-indented example teaches the wrong shape while
       # parsing perfectly. `tools/fmt.py` decides the shape; this asserts the docs are in it.
-      - name: The reference parser needs nothing newer than the Node it promises
-        run: |
-          python3 tests/portability.py
-          python3 tests/portability.py --prove-it
-
       # **Three status claims were stale at once, one of them nine releases behind** — and a stale
       # NOT-DONE is found by nobody, because a reader who is told a feature is absent believes it and
       # leaves. The version lives in `SPEC.md`'s title; this checks every page against it.
@@ -472,6 +467,15 @@ jobs:
       # instead of. A year of nobody noticing, in a docstring nothing checked. The last claim here is the
       # one that generalises: a path inside a diagnostic is a promise to a stranger, and this is the
       # second time one went stale (`BMX-W005` was the first).
+      # **Out of the conformance job, because measuring a Node floor now needs a Burxt compiler.** The
+      # question it asks did not change: which Node *syntax* floor `reference/bmx.js` needs, measured
+      # rather than chosen, against the one number `docs/install.md` states.
+      - name: The reference parser needs nothing newer than the Node it promises
+        run: |
+          burxt build tests/portability.bx -o /tmp/portability
+          /tmp/portability
+          /tmp/portability --prove-it
+
       - name: The migrator does what its own header says, and E036 names a file that is there
         run: |
           burxt build tools/migrate-0.7.bx -o /tmp/migrate-0.7
