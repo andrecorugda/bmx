@@ -283,11 +283,13 @@ Three layers of the same error, each one believed to be the ground: the installe
 tells them apart — `burxt --version` prints the same string for all of them.
 
 **Raising the pin has a second job: re-test the dated claims.** Grep for `Dated` before bumping `BURXT`.
-Three sit there now: `burxt run … -- args` in the two `.bx` runners; the hand-written HTML escape table in
-`tools/page.bx` and `tools/errpage.bx`, which becomes redundant once `html_escape` spells the apostrophe
-`&#x27;`; and **`reference/bmx.js`'s `ESCAPES` table, which must move to `&#x27;` in the same commit as the
-pin** — Burxt's `lib/html.bx` moves in 1.7.0, and raising the pin without it makes the two renderers
-disagree on any document containing an apostrophe.
+**All three that stood on 2026-08-21 resolved with the 1.7.0 pin raise, and the pattern held: each was
+cheap to act on and would have been invisible without something watching.** `reference/bmx.js`'s escape
+table moved in the same commit as the pin, caught by `tests/cases/081`. The hand-written tables in
+`tools/page.bx` and `tools/errpage.bx` are gone, because `html_escape` now matches Python byte-for-byte —
+verified by the panel check rather than by reading. And `burxt run … -- args` works from 1.6.0 while the
+documented form stays build-then-run, because `docs/install.md`'s floor is 1.3.0: **a capability arriving
+is not permission to document it.**
 The habit has already paid once: both `.bx` files stated that `burxt run` cannot pass a program an
 argument, which was true of published 1.5.0 and is false from 1.6.0 — verified against the downloaded
 asset rather than on its author's word, after an earlier report of the same fix turned out to exist only
