@@ -401,6 +401,26 @@ jobs:
       # things under the same names, verified by running both and diffing; and it needed one capability
       # the fixture runner did not, `os_capture_status`, which keeps stdout and stderr apart so a
       # refusal asserted to START with `BMX-G001` cannot be prefixed by whatever the generator printed.
+      # **The escape table in the Burxt generators had no instrument pointed at it.** Both were verified
+      # byte-identical to the Python they replaced — once, by hand — and then the Python was deleted, so
+      # the only oracle went with it. The Burxt session found the same absence in their `html_escape`,
+      # which had no test at all, which is how a one-byte divergence from Python's `html.escape` sat
+      # unexamined: a byte-level choice with nothing measuring it is a choice nobody knows they made.
+      #
+      # `tools/*.html` are generated, committed, and used to make the screenshots, so they are the oracle.
+      # Generated into a temp directory rather than in place, because the generators write beside their
+      # input and would otherwise overwrite the files being judged.
+      - name: The site's rendered panels are what the generators produce
+        run: |
+          set -eu
+          d=$(mktemp -d)
+          burxt build tools/render.bx  -o "$d/bmxrender"
+          burxt build tools/page.bx    -o "$d/page"
+          burxt build tools/errpage.bx -o "$d/errpage"
+          cp tools/ex1.bmx tools/ex2.bmx tools/ex3.bmx tools/err1.bmx "$d/"
+          for n in ex1 ex2 ex3; do (cd "$d" && ./page "$n" x); cmp "$d/$n.html" "tools/$n.html"; done
+          (cd "$d" && ./errpage err1); cmp "$d/err1.html" "tools/err1.html"
+
       - name: A document becomes a view the compiler checks
         run: burxt run burxt/guarantees.bx
 

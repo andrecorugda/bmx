@@ -154,6 +154,36 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
     python3 tests/output.py "node reference/bmx.js --render" /tmp/check-render'
   run "the two renderers produce the same page" bash -c '
     burxt build tools/render.bx -o /tmp/check-render && python3 tests/renders.py /tmp/check-render'
+  # **The escape table in `page.bx` and `errpage.bx` had no instrument pointed at it.** Both were verified
+  # byte-identical to the Python they replaced — once, by hand — and then the Python was deleted, so the
+  # only oracle went with it. The Burxt session found the same absence in `lib/html_escape`, which had no
+  # test of any kind, which is how a one-byte divergence from Python's `html.escape` sat there unexamined:
+  # **a byte-level choice with nothing measuring it is a choice nobody knows they made.**
+  #
+  # The committed panels ARE the oracle: `tools/*.html` are generated, committed, and used to make the
+  # screenshots. So this regenerates them and compares. It also converts a discipline `tools/README.md`
+  # only asked for — *regenerate whenever the renderer output changes* — into something that fails.
+  #
+  # **Generated into a temp directory, never in place.** The generators write beside their input, so
+  # running them here would overwrite the very files being judged — the sibling-repair shape that made a
+  # stale `.vsix` pass on a second run. Inputs are copied out instead, and the tree is untouched: verified
+  # by checking `git status` is clean after a run.
+  run "the site's rendered panels are what the generators produce" bash -c '
+    set -e
+    d=$(mktemp -d)
+    burxt build tools/render.bx  -o "$d/bmxrender" >/dev/null
+    burxt build tools/page.bx    -o "$d/page"      >/dev/null
+    burxt build tools/errpage.bx -o "$d/errpage"   >/dev/null
+    cp tools/ex1.bmx tools/ex2.bmx tools/ex3.bmx tools/err1.bmx "$d/"
+    bad=0
+    for n in ex1 ex2 ex3; do
+      (cd "$d" && ./page "$n" x >/dev/null)
+      cmp -s "$d/$n.html" "tools/$n.html" || { echo "$n.html is not what tools/page.bx produces"; bad=1; }
+    done
+    (cd "$d" && ./errpage err1 >/dev/null)
+    cmp -s "$d/err1.html" "tools/err1.html" || { echo "err1.html is not what tools/errpage.bx produces"; bad=1; }
+    rm -rf "$d"
+    exit $bad'
   run "a document becomes a view the compiler checks" bash -c '
     burxt run burxt/guarantees.bx'
   run "every documented name is reachable, and every public name is documented" bash -c '

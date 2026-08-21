@@ -11,6 +11,14 @@
 // spells it `&#x27;`. Both are correct HTML and they are not the same bytes, so using the library would
 // have changed a committed page the moment any source document contained an apostrophe — a difference
 // that would have appeared later, in a screenshot, with no test able to see it.
+//
+// **Dated: Burxt has moved `html_escape` to `&#x27;`, so this table will become redundant.** It is in
+// their 1.7.0 suite and **not in published 1.6.0**, which is what `ci.yml` pins. When the pin moves, check
+// whether `html_escape` produces these bytes and delete this function if it does — *a library avoided over
+// one byte is a library that failed at the only thing it was for*, which is their sentence and the right
+// one. The reason they moved rather than me: this spelling is already committed in every downstream
+// artefact here, and theirs was committed nowhere, so the churn was zero on their side and would not have
+// been on mine.
 use "std/os.bx";
 use "std/files.bx";
 use "std/string.bx";

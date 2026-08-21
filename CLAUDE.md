@@ -283,6 +283,9 @@ Three layers of the same error, each one believed to be the ground: the installe
 tells them apart — `burxt --version` prints the same string for all of them.
 
 **Raising the pin has a second job: re-test the dated claims.** Grep for `Dated` before bumping `BURXT`.
+Three sit there now: `burxt run … -- args` in the two `.bx` runners, and the hand-written HTML escape table
+in `tools/page.bx` and `tools/errpage.bx`, which becomes redundant once `html_escape` spells the apostrophe
+`&#x27;`.
 The habit has already paid once: both `.bx` files stated that `burxt run` cannot pass a program an
 argument, which was true of published 1.5.0 and is false from 1.6.0 — verified against the downloaded
 asset rather than on its author's word, after an earlier report of the same fix turned out to exist only
