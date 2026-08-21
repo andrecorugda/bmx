@@ -79,8 +79,6 @@ run "the parser imports where there is no Node" bash -c '
   node tests/embeds.mjs && node tests/embeds.mjs --prove-it'
 run "every file that is not Burxt says why it is not" bash -c '
   python3 tests/languages.py && python3 tests/languages.py --prove-it'
-run "no runner advertises a control it does not read" bash -c '
-  python3 tests/controls.py && python3 tests/controls.py --prove-it'
 
 echo
 echo "the editor surface"
@@ -243,6 +241,9 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
     burxt build tests/invitation.bx -o /tmp/check-invitation &&
     BMX_HARNESS=/tmp/check-harness /tmp/check-invitation &&
     BMX_HARNESS=/tmp/check-harness /tmp/check-invitation --prove-it'
+  run "no runner advertises a control it does not read" bash -c '
+    burxt build tests/controls.bx -o /tmp/check-controls &&
+    /tmp/check-controls && /tmp/check-controls --prove-it'
   run "every version the documentation states agrees with SPEC.md" bash -c '
     burxt build tests/version.bx -o /tmp/check-version &&
     /tmp/check-version && /tmp/check-version --prove-it'

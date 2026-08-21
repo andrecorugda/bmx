@@ -66,12 +66,12 @@ a claim no implementation has to honour, and this repository's history is largel
 converting such claims into checks.
 
 Beyond conformance, `tests/` holds meta-checks over the repository itself — `agree.bx`,
-`branding.py`, `controls.py`, `extension.py`, `invitation.bx`, `languages.py`, `messages.bx`,
+`branding.py`, `controls.bx`, `extension.py`, `invitation.bx`, `languages.py`, `messages.bx`,
 `migration.bx`, `output.bx`, `portability.bx`, `renders.bx`, `roundtrip.bx`, `surface.bx`,
 `version.bx`. **The list is `ls tests/`, not a curated selection** — it was six names for a long time
 and three checks had been added since. Most take **`--prove-it`, a negative control** that asserts the
 check can fail; CI runs both halves, because a check nobody has watched fail is a check nobody has
-tested. Add the control when you add a check, and `tests/controls.py` is what notices if you do not.
+tested. Add the control when you add a check, and `tests/controls.bx` is what notices if you do not.
 
 `tests/probe.py` (`speaks(command, "ast"|"page")`) is why runners diagnose a wrong binary instead of
 blaming every document — call it from any new runner that takes a command.
@@ -223,7 +223,7 @@ already gone: `burxt/test.py` (now `burxt/guarantees.bx`), `editors/lsp/bmx-lsp.
 `tools/fmt.py`, `tools/migrate-0.7.py`, and the runners `harness`, `agree`, `output`, `renders`,
 `roundtrip`, `portability`, `messages`, `invitation` and `surface`. What is left is
 `tests/branding.py`, `tests/extension.py`, `tests/languages.py`,
-`tests/controls.py` and `editors/vscode/pack.py`; `docs/assets/code.js` could be Burxt through wasm but
+`editors/vscode/pack.py`; `docs/assets/code.js` could be Burxt through wasm but
 would cost the documented promise that Helix and Neovim need *only Node*; `tools/shot.mjs` is blocked on
 Burxt having no browser driver. The check prints the gap and caps nothing — a threshold is a number somebody raises
 when it is inconvenient.

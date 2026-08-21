@@ -1,0 +1,446 @@
+// tests/controls.bx — every runner that advertises `--prove-it` actually reads it.
+//
+//     burxt build tests/controls.bx -o controls
+//     ./controls
+//     ./controls --prove-it     # the negative control
+//
+// **A control that cannot fail reports success forever, and it is the most expensive kind of dead code in
+// a test suite** — every other check announces its own absence by not being in the output. The star-burxt
+// session found one in their tree: a runner whose header advertised `--prove-it` while the flag was a
+// hardcoded `false`. It ran, printed its success line, and exited 0, having tested nothing about itself.
+// Nine other controls there were live; that one had never been watched fail.
+//
+// So: the header of a runner is a promise, and this is the one promise no other check can see. `check.sh`
+// and `ci.yml` run each control once and would notice a control that *crashes* — they cannot notice one
+// that quietly does nothing, because doing nothing looks exactly like passing.
+//
+// **Static rather than dynamic, and the reason is a hand-maintained list this would otherwise need.** The
+// honest dynamic test is *run it twice and require the output to differ*, which is what found the dead one
+// over there. Here, `tests/surface.bx` and anything else needing the Burxt toolchain produces identical
+// output both ways when the toolchain is absent — so a dynamic check would report a dead control on a
+// machine with no `burxt`, and telling the two apart needs a list of which runners need what. **A list of
+// exceptions is the scope this repository keeps getting wrong**, so this asks the narrower question it can
+// answer everywhere: does the flag reach the arguments at all.
+//
+// The dynamic half is worth running by hand when a control is added, and the sweep is one line:
+//
+//     diff <(./<runner> 2>&1) <(./<runner> --prove-it 2>&1)
+//
+// **Two questions, because the star-burxt session's dead control had a signature the first one misses.**
+// Theirs read its flag correctly and `check-all.sh` never passed it — it ran the tool and not the tool
+// `--prove-it`. **A live control the suite never invokes is exactly as dead as one that ignores its flag**,
+// and either question alone names only half the class. So this also asserts that `tools/check.sh` runs each
+// control with the flag.
+//
+// **And *offering* a control is not *mentioning* one.** The first version matched the flag anywhere in a
+// file, which counted `tools/check.sh` itself — a script that passes `--prove-it` to a dozen other runners
+// and offers none. It then "passed" that question because `run()` reads `$1`. Using versus mentioning, in
+// the check written the same day as three other instances of it.
+//
+// **The rule that replaced it is about whose NAME is on the line, and the header said otherwise for
+// weeks.** It read *"advertising is positional: the flag must appear in the first 20 lines"* long after
+// `offers` had stopped working that way — a window tight enough to exclude `check.sh` was tight enough to
+// exclude `tests/roundtrip.py`, whose usage block starts on line 29, so the rule changed and the paragraph
+// describing it did not. The file whose subject is a header that lies about the code below it.
+//
+// ---- the port ------------------------------------------------------------------------------------
+//
+// Ported from `tests/controls.py`. Byte-identical on the real tree, on the control, and on planted defects
+// of both kinds.
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+const FLAG: String = "--prove-it";
+const CHECK_SH: String = "tools/check.sh";
+
+class Built { source: String, binary: String }
+
+// How each language reads an argument. A runner may spell it differently; add the spelling rather than
+// exempting the file, because an exemption is how a dead control gets to stay.
+function reads() -> [String] {
+    let mutable out: [String] = [];
+    let a: Int = push(out, "sys.argv");      // python
+    let b: Int = push(out, "process.argv");  // node
+    let c: Int = push(out, "$@");            // shell
+    let d: Int = push(out, "$1");
+    let e: Int = push(out, "$*");
+    let f: Int = push(out, "os_arg");        // burxt
+    return out;
+}
+
+function extensions() -> [String] {
+    let mutable out: [String] = [];
+    let a: Int = push(out, ".py");
+    let b: Int = push(out, ".mjs");
+    let c: Int = push(out, ".js");
+    let d: Int = push(out, ".sh");
+    let e: Int = push(out, ".bx");
+    return out;
+}
+
+pure function has(items: [String], needle: String) -> Bool {
+    let mutable i: Int = 0;
+    while i < len(items) {
+        if items[i] == needle {
+            return true;
+        }
+        i += 1;
+    }
+    return false;
+}
+
+pure function reads_an_argument(text: String, spellings: [String]) -> Bool {
+    let mutable i: Int = 0;
+    while i < len(spellings) {
+        if string_contains(text, spellings[i]) {
+            return true;
+        }
+        i += 1;
+    }
+    return false;
+}
+
+// `[\w./-]+\.(?:py|mjs|js|sh|bx)` — the class a path is made of.
+pure function is_pathish_byte(b: Int) -> Bool {
+    return (b >= 48 && b <= 57) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 95
+            || b == 46 || b == 47 || b == 45;
+}
+
+// Every path-shaped token on a line: the leftmost extension, expanded left as far as the class allows,
+// which is where a regex's greedy-then-backtrack lands.
+pure function paths_on(line: String, exts: [String]) -> [String] {
+    let mutable found: [String] = [];
+    let mutable from: Int = 0;
+    while from < len(line) {
+        let mutable best: Int = -1;
+        let mutable best_len: Int = 0;
+        let mutable e: Int = 0;
+        while e < len(exts) {
+            let at: Int = string_find_from(line, exts[e], from);
+            if at >= 0 && (best < 0 || at < best) {
+                best = at;
+                best_len = len(exts[e]);
+            }
+            e += 1;
+        }
+        if best < 0 {
+            from = len(line);
+        } else {
+            let mutable start: Int = best;
+            while start > 0 && is_pathish_byte(byte_at(line, start - 1)) {
+                start -= 1;
+            }
+            if start < best {
+                let a: Int = push(found, substring(line, start, best + best_len - start));
+            }
+            from = best + best_len;
+        }
+    }
+    return found;
+}
+
+// `burxt\s+build\s+(\S+\.bx)\s+-o\s+(\S+)`
+pure function skip_spaces(line: String, from: Int) -> Int {
+    let mutable i: Int = from;
+    while i < len(line) && string_is_space(byte_at(line, i)) {
+        i += 1;
+    }
+    return i;
+}
+
+pure function word_end(line: String, from: Int) -> Int {
+    let mutable i: Int = from;
+    while i < len(line) && !string_is_space(byte_at(line, i)) {
+        i += 1;
+    }
+    return i;
+}
+
+pure function builds_on(line: String) -> [Built] {
+    let mutable out: [Built] = [];
+    let mutable from: Int = 0;
+    while true {
+        let at: Int = string_find_from(line, "burxt", from);
+        if at < 0 {
+            break;
+        }
+        from = at + 1;
+        let mutable i: Int = at + 5;
+        let after_burxt: Int = skip_spaces(line, i);
+        if after_burxt == i {
+            continue;
+        }
+        if !string_matches_at(line, "build", after_burxt) {
+            continue;
+        }
+        i = after_burxt + 5;
+        let source_at: Int = skip_spaces(line, i);
+        if source_at == i {
+            continue;
+        }
+        let source_end: Int = word_end(line, source_at);
+        let source: String = substring(line, source_at, source_end - source_at);
+        if !string_ends_with(source, ".bx") {
+            continue;
+        }
+        let dash_at: Int = skip_spaces(line, source_end);
+        if dash_at == source_end || !string_matches_at(line, "-o", dash_at) {
+            continue;
+        }
+        let binary_at: Int = skip_spaces(line, dash_at + 2);
+        if binary_at == dash_at + 2 {
+            continue;
+        }
+        let binary_end: Int = word_end(line, binary_at);
+        if binary_end == binary_at {
+            continue;
+        }
+        let a: Int = push(out, Built { source: source,
+                binary: substring(line, binary_at, binary_end - binary_at) });
+        from = binary_end;
+    }
+    return out;
+}
+
+// Does this file document a control of its OWN, rather than invoke somebody else's?
+//
+// **By whose name is on the line, not by where the line is.** A line carrying the flag offers a control
+// when it names *this* file, or names no file at all. Every such line in `check.sh` names one of the other
+// runners, and never itself.
+//
+// **A line that fires a COMPILED runner names a binary, not a path**, and `/tmp/check-portability` has no
+// extension to recognise — so `check.sh` read as naming no file at all, which is the shape of a file
+// offering its OWN control, and it accused itself of advertising a `--prove-it` nothing fires. The `-o` map
+// is already built for the other half of this check; consulting it here is the same fact used twice.
+function offers(rel: String, text: String, builds: [Built], exts: [String]) -> Bool {
+    let mutable own: String = rel;
+    let slash: Int = file_last_slash(rel);
+    if slash >= 0 {
+        own = substring(rel, slash + 1, len(rel) - slash - 1);
+    }
+    let lines: [String] = string_split(text, "\n");
+    let mutable i: Int = 0;
+    while i < len(lines) {
+        let line: String = lines[i];
+        if string_contains(line, FLAG) {
+            let mutable named: [String] = paths_on(line, exts);
+            let mutable b: Int = 0;
+            while b < len(builds) {
+                if string_contains(line, builds[b].binary) {
+                    let a: Int = push(named, builds[b].source);
+                }
+                b += 1;
+            }
+            if len(named) == 0 {
+                return true;
+            }
+            let mutable n: Int = 0;
+            while n < len(named) {
+                if string_ends_with(named[n], own) {
+                    return true;
+                }
+                n += 1;
+            }
+        }
+        i += 1;
+    }
+    return false;
+}
+
+pure function suffix_of(path: String) -> String {
+    let mutable i: Int = len(path);
+    while i > 0 {
+        let b: Int = byte_at(path, i - 1);
+        if b == 46 {
+            return substring(path, i - 1, len(path) - i + 1);
+        }
+        if b == 47 {
+            return "";
+        }
+        i -= 1;
+    }
+    return "";
+}
+
+// ---- the program ---------------------------------------------------------------------------------
+
+let mutable prove: Bool = false;
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    if os_arg(a) == FLAG {
+        prove = true;
+    }
+    a += 1;
+}
+
+let spellings: [String] = reads();
+let exts: [String] = extensions();
+
+let mutable runner_lines: [String] = [];
+match file_read_maybe(CHECK_SH) {
+    None => {
+        print_error("cannot read " + CHECK_SH + " — run this from the repository root");
+        exit(2);
+    }
+    Some(text) => {
+        runner_lines = string_split(text, "\n");
+    }
+}
+
+let mutable builds: [Built] = [];
+let mutable r: Int = 0;
+while r < len(runner_lines) {
+    let found: [Built] = builds_on(runner_lines[r]);
+    let mutable f: Int = 0;
+    while f < len(found) {
+        let b: Int = push(builds, found[f]);
+        f += 1;
+    }
+    r += 1;
+}
+
+let mutable advertise: [String] = [];
+let mutable dead: [String] = [];
+let mutable unrun: [String] = [];
+
+match file_walk(".") {
+    None => {
+        print_error("cannot walk the tree — run this from the repository root");
+        exit(2);
+    }
+    Some(entries) => {
+        let mutable i: Int = 0;
+        while i < len(entries) {
+            let mutable rel: String = entries[i];
+            if string_starts_with(rel, "./") {
+                rel = substring(rel, 2, len(rel) - 2);
+            }
+            // **`.bx` was missing, and every runner ported to Burxt left this check's sight silently.**
+            // The count printed below went on saying eleven while the suite grew: a gate whose scope is a
+            // hand-written list of file extensions stops covering the tree the moment the tree changes
+            // language, and it reports success the whole way down. Same defect as `tests/version.bx`'s
+            // literal list of six files, one language over.
+            let keep: Bool = has(exts, suffix_of(rel)) && file_is_file(rel)
+                    && !string_starts_with(rel, ".git/")
+                    && !string_contains(rel, "/node_modules/")
+                    && !string_starts_with(rel, "node_modules/")
+                    && !string_starts_with(rel, "editors/vscode/reference/");
+            if keep {
+                match file_read_maybe(rel) {
+                    None => { }
+                    Some(raw) => {
+                        if offers(rel, raw, builds, exts) {
+                            // **Advertising means naming the flag in prose, not merely reading it.** A
+                            // runner that reads the flag and never documents it is not making a promise;
+                            // one that documents it and never reads it is.
+                            let ad: Int = push(advertise, rel);
+
+                            // The second question: does anything actually pass it? One line must name both
+                            // the runner and the flag — which is how `check.sh` writes every one of them,
+                            // including the two that take an argument first.
+                            //
+                            // **A COMPILED runner is not invoked under its own name**, and that is how this
+                            // half went blind the moment a runner became Burxt: `check.sh` says `burxt
+                            // build tests/roundtrip.bx -o /tmp/check-roundtrip` on one line and
+                            // `/tmp/check-roundtrip … --prove-it` on the next, so no single line carries
+                            // both the source path and the flag. The check reported two live controls as
+                            // never fired — a false alarm, which is the failure mode that gets a check
+                            // deleted rather than fixed. So follow the `-o`: whatever a build names the
+                            // binary is another name for the source.
+                            let mutable named: Bool = false;
+                            let mutable b: Int = 0;
+                            while b < len(builds) && !named {
+                                if builds[b].source == rel {
+                                    let mutable l: Int = 0;
+                                    while l < len(runner_lines) && !named {
+                                        if string_contains(runner_lines[l], builds[b].binary)
+                                                && string_contains(runner_lines[l], FLAG) {
+                                            named = true;
+                                        }
+                                        l += 1;
+                                    }
+                                }
+                                b += 1;
+                            }
+                            if !named {
+                                let mutable l: Int = 0;
+                                while l < len(runner_lines) && !named {
+                                    if string_contains(runner_lines[l], rel)
+                                            && string_contains(runner_lines[l], FLAG) {
+                                        named = true;
+                                    }
+                                    l += 1;
+                                }
+                            }
+                            if prove && rel == "tests/version.bx" {
+                                named = false;
+                            }
+                            if !named {
+                                let u: Int = push(unrun, rel);
+                            }
+                            let mutable text: String = raw;
+                            if prove && rel == "tests/portability.bx" {
+                                // The control: the defect as star-burxt had it — the flag named in the
+                                // header, and nothing anywhere that reads an argument. Simulated by
+                                // stripping the reads from a copy of the text.
+                                let lines: [String] = string_split(raw, "\n");
+                                let mutable kept: [String] = [];
+                                let mutable k: Int = 0;
+                                while k < len(lines) {
+                                    if !reads_an_argument(lines[k], spellings) {
+                                        let p: Int = push(kept, lines[k]);
+                                    }
+                                    k += 1;
+                                }
+                                text = string_join(kept, "\n");
+                            }
+                            if !reads_an_argument(text, spellings) {
+                                let d: Int = push(dead, rel);
+                            }
+                        }
+                    }
+                }
+            }
+            i += 1;
+        }
+    }
+}
+
+let mutable k: Int = 0;
+while k < len(dead) {
+    print("  FAIL  " + dead[k] + " advertises " + FLAG
+            + " and never reads an argument — its control cannot fire");
+    k += 1;
+}
+let mutable u: Int = 0;
+while u < len(unrun) {
+    print("  FAIL  " + unrun[u] + " offers a control and " + CHECK_SH + " never passes " + FLAG
+            + " — nothing ever fires it");
+    u += 1;
+}
+print("  " + to_string(len(advertise)) + " runners offer " + FLAG + "; "
+        + to_string(len(advertise) - len(dead)) + " read an argument and "
+        + to_string(len(advertise) - len(unrun)) + " are run with it");
+
+if prove {
+    if len(dead) > 0 || len(unrun) > 0 {
+        print("");
+        print("the control failed as it must — an advertised " + FLAG + " that is never read is caught");
+        exit(0);
+    }
+    print("");
+    print("THE CONTROL DID NOT FAIL, so this check cannot see a dead control");
+    exit(1);
+}
+if len(advertise) == 0 {
+    print("");
+    print("no runner advertises " + FLAG + " at all, which means this check has stopped seeing them");
+    exit(1);
+}
+if len(dead) > 0 || len(unrun) > 0 {
+    exit(1);
+}
+print("");
+print("every offered control reads its flag and is run with it");
+exit(0);

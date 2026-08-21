@@ -127,10 +127,7 @@ jobs:
       # The star-burxt session found one in their tree — a runner whose header advertised `--prove-it` while
       # the flag was a hardcoded `false`. It ran, printed its success line, exited 0, and had never been
       # watched fail. Nine of their ten were live; that is the ratio that makes this worth a step.
-      - name: No runner advertises a control it does not read
-        run: |
-          python3 tests/controls.py
-          python3 tests/controls.py --prove-it
+
 
       # **Every failure mode of a language server is a silence.** A wrong Content-Length, a frame
       # split across two chunks, a request answered with nothing — the editor does not error, it just
@@ -179,6 +176,17 @@ jobs:
       # **Three status claims were stale at once, one of them nine releases behind** — and a stale
       # NOT-DONE is found by nobody, because a reader who is told a feature is absent believes it and
       # leaves. The version lives in `SPEC.md`'s title; this checks every page against it.
+      # A control that cannot fail reports success forever, and it is the one promise no other check
+      # can see: they would notice a control that crashes, and doing nothing looks exactly like passing.
+      # The star-burxt session found one in their tree — a runner whose header advertised `--prove-it`
+      # while the flag was a hardcoded `false`. It ran, printed its success line, exited 0, and had never
+      # been watched fail. Nine of their ten were live; that is the ratio that makes this worth a step.
+      - name: No runner advertises a control it does not read
+        run: |
+          burxt build tests/controls.bx -o /tmp/controls
+          /tmp/controls
+          /tmp/controls --prove-it
+
       - name: Every version the documentation states agrees with SPEC.md
         run: |
           burxt build tests/version.bx -o /tmp/version
