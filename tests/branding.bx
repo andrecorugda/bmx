@@ -457,6 +457,17 @@ function append_chunk(mutable out: [Int], named: [Int]) -> Int {
 
 // ---- the measurements ----------------------------------------------------------------------------
 
+// **`top` starts at -1 and an image with no ink answers 0**, which is 70 percentage points from the
+// family's margin and therefore a failure. That is the same choice the LSP driver's frame finders make and
+// for the same reason: **the value an unexamined image leaves behind has to be the failing one.**
+//
+// Measured rather than asserted, because the first version of this note described the wrong mechanism.
+// Blinding the decoder so it appends nothing does not reach this function at all — the read walks off the
+// end of the pixel buffer and the process aborts with exit 70, which is loud but is a crash rather than a
+// verdict. The case this sentinel actually covers is the quieter one: a decoder that produces the right
+// number of pixels and gets the ALPHA wrong. Planted (`push(pixels, 0)`), every icon reports
+// *"fills 0% of its height"* and the run exits 1. A function answering `TARGET_INK` for "nothing measured"
+// would have passed that.
 pure function ink_percent(pixels: [Int], width: Int, height: Int) -> Int {
     let mutable top: Int = 0 - 1;
     let mutable bottom: Int = 0 - 1;

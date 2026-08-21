@@ -199,6 +199,18 @@ function frames_in(stream: String, mutable into: [Json]) -> Int {
     return len(into);
 }
 
+// ---- the sentinels, and why -1 rather than an Option ---------------------------------------------
+//
+// **The two finders below answer -1 for "never arrived", and every caller tests `>= 0`, so the state a
+// frame that never came leaves behind is the FAILING state.** That is deliberate rather than convenient:
+// an `Option` would be equally correct and would put the decision at the call site, where a `match` with
+// an empty `None` arm reads like handling the case and is how a missing frame becomes a pass. A sentinel
+// that cannot be silently accepted is the cheaper guarantee here.
+//
+// The rule generalises past this file: **choose the untouched value so that untouched fails.** comet has
+// the same shape in its own `.vsix` checker, where an unexercised plant leaves a counter at 0 and the
+// assertion is `< 0` — safe by accident until it was written down, which is what this paragraph is.
+
 // The first frame answering `id`, or -1.
 pure function reply_index(frames: [Json], id: Int) -> Int {
     let mutable i: Int = 0;
