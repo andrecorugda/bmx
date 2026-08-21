@@ -23,7 +23,7 @@ that is expensive to change is a version that does not change** — so the filen
 That fix removes the friction. This file removes the option:
 
 - **The extension's `major.minor` must equal `SPEC.md`'s.** `SPEC.md`'s title is already the one place
-  the version is decided — `tests/version.py` checks every prose claim against it. This is the same rule
+  the version is decided — `tests/version.bx` checks every prose claim against it. This is the same rule
   reaching the one claim that check cannot see, because it is JSON inside a zip.
 - **The patch is free**, so a packaging fix does not need a format release. What is not free is a format
   release that leaves the extension behind, which is the thing that happened.
@@ -201,7 +201,7 @@ def main():
     # to reword prose to get green, which is the wrong direction — a check should not constrain what the
     # documentation may say about its own past.
     #
-    # The same use-versus-mention failure took a file out of `tests/version.py`'s scope the same day, when
+    # The same use-versus-mention failure took a file out of `tests/version.bx`'s scope the same day, when
     # `CLAUDE.md` opted itself out by *describing* the opt-out marker. Both fixes are structural: there,
     # a declaration must stand alone at the top of a file; here, a promise must stand in a command.
     #

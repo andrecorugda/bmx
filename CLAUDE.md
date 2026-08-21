@@ -68,7 +68,7 @@ converting such claims into checks.
 Beyond conformance, `tests/` holds meta-checks over the repository itself — `agree.bx`,
 `branding.py`, `controls.py`, `extension.py`, `invitation.bx`, `languages.py`, `messages.bx`,
 `migration.bx`, `output.bx`, `portability.bx`, `renders.bx`, `roundtrip.bx`, `surface.bx`,
-`version.py`. **The list is `ls tests/`, not a curated selection** — it was six names for a long time
+`version.bx`. **The list is `ls tests/`, not a curated selection** — it was six names for a long time
 and three checks had been added since. Most take **`--prove-it`, a negative control** that asserts the
 check can fail; CI runs both halves, because a check nobody has watched fail is a check nobody has
 tested. Add the control when you add a check, and `tests/controls.py` is what notices if you do not.
@@ -78,7 +78,7 @@ blaming every document — call it from any new runner that takes a command.
 
 ## Versioning rules that bite
 
-- **The version lives in exactly one place: the title of `SPEC.md`.** `tests/version.py` greps every
+- **The version lives in exactly one place: the title of `SPEC.md`.** `tests/version.bx` greps every
   status claim in the docs, `docs/_config.yml`'s `bmx_version`, and the site layout against it. If
   you invent a new phrasing for "BMX is version X", add its shape to that script or it goes
   unchecked. Its scope is now **every `.md` in the tree**, not a list — it was a literal list of six
@@ -101,7 +101,7 @@ blaming every document — call it from any new runner that takes a command.
 - **`burxt.package` declares `version 0.12.2`, which is the format's**, and says so in a comment so
   no reader takes it for an API promise. (No tool reads it: `burxt review --semver` takes two source
   paths and a `--require` operand — verified, after I asserted the opposite from the command's name.)
-  `tests/version.py` checks it by path — not as a prose pattern, since `docs/install.md` shows a
+  `tests/version.bx` checks it by path — not as a prose pattern, since `docs/install.md` shows a
   *consumer's* manifest whose `version 0.1.0` a generic pattern would flag.
 - **The VS Code extension's version must equal the format's** (`tests/extension.py`), and the
   committed `bmx.vsix` must be the packed one. The version is not in the filename, on purpose.
@@ -201,7 +201,7 @@ Three of the reasons are properties of BMX being a *format*, and they are not ne
 covered sixteen files on the strength of `ci.yml`'s sentence — *the format must be testable without its
 first host installed* — and **that sentence is about the format, not about this repository's CI.** The
 format's claim needs the fixtures, which are data, plus a runner a stranger can run: that is `neutral`.
-`tests/version.py`, `tests/branding.py`, `editors/vscode/pack.py` and twelve others check *this
+`tests/branding.py`, `tests/extension.py`, `editors/vscode/pack.py` and twelve others check *this
 repository*. In Burxt they cost a contributor without a toolchain some local checks and cost the
 portability claim nothing. Fifteen files moved to `gap`; **the gap went from 708 lines to 3,086.** The
 number had been wrong in the flattering direction.
@@ -222,7 +222,7 @@ from the question into its two halves, found their own instance the same day.
 already gone: `burxt/test.py` (now `burxt/guarantees.bx`), `editors/lsp/bmx-lsp.mjs` (now `bmx-lsp.bx`),
 `tools/fmt.py`, `tools/migrate-0.7.py`, and the runners `harness`, `agree`, `output`, `renders`,
 `roundtrip`, `portability`, `messages`, `invitation` and `surface`. What is left is
-`tests/branding.py`, `tests/extension.py`, `tests/version.py`, `tests/languages.py`,
+`tests/branding.py`, `tests/extension.py`, `tests/languages.py`,
 `tests/controls.py` and `editors/vscode/pack.py`; `docs/assets/code.js` could be Burxt through wasm but
 would cost the documented promise that Helix and Neovim need *only Node*; `tools/shot.mjs` is blocked on
 Burxt having no browser driver. The check prints the gap and caps nothing — a threshold is a number somebody raises

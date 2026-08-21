@@ -1,7 +1,7 @@
 # Versioning — the conformance suite is the semver
 
 <!-- version-claims: historical -->
-<!-- Read by `tests/version.py`, which checks every STATUS claim in the tree against `SPEC.md`'s title.
+<!-- Read by `tests/version.bx`, which checks every STATUS claim in the tree against `SPEC.md`'s title.
      This file is the changelog, so it is full of version numbers that are deliberately NOT status: an
      illustration below says a host may "target BMX 0.1", and the write-ups quote past claims
      like "as of 0.2" in order to say they were wrong. Both match the shapes that check looks for.
@@ -469,7 +469,7 @@ The same sweep here found three status claims stale at once, and the third is th
   page would not have known a one-line block can carry a body**, which is exactly the readers-turned-away
   failure, in the document whose own first sentence warns about it.
 
-Fixing three sentences is not the work. `tests/version.py` is: the version lives in **one** place, the
+Fixing three sentences is not the work. `tests/version.bx` is: the version lives in **one** place, the
 title of `SPEC.md`, and every status claim in the documentation is checked against it. Its control adds a
 claim naming a version that is not current and requires the check to fail.
 

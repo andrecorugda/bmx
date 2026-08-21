@@ -181,8 +181,9 @@ jobs:
       # leaves. The version lives in `SPEC.md`'s title; this checks every page against it.
       - name: Every version the documentation states agrees with SPEC.md
         run: |
-          python3 tests/version.py
-          python3 tests/version.py --prove-it
+          burxt build tests/version.bx -o /tmp/version
+          /tmp/version
+          /tmp/version --prove-it
 
       - name: Every doc page closes its raw tag
         run: |

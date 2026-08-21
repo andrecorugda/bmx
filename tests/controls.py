@@ -64,7 +64,7 @@ def runners():
         # **`.bx` was missing, and every runner ported to Burxt left this check's sight silently.**
         # The count printed below went on saying eleven while the suite grew: a gate whose scope is a
         # hand-written list of file extensions stops covering the tree the moment the tree changes
-        # language, and it reports success the whole way down. Same defect as `tests/version.py`'s
+        # language, and it reports success the whole way down. Same defect as `tests/version.bx`'s
         # literal list of six files, one language over.
         if path.suffix not in (".py", ".mjs", ".js", ".sh", ".bx") or not path.is_file():
             continue
@@ -158,7 +158,7 @@ def main():
                 break
         else:
             named = any(rel in line and FLAG in line for line in runner)
-        if prove and rel == "tests/version.py":
+        if prove and rel == "tests/version.bx":
             named = False
         if not named:
             unrun.append(rel)

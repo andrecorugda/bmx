@@ -41,7 +41,7 @@ use "std/os.bx";
 use "std/string.bx";
 
 // The prose floor: the suite's size, stated in words on the pages that describe it rather than as a
-// number anybody maintains. **Discovered, not listed** — `tests/version.py` held a literal list of six
+// number anybody maintains. **Discovered, not listed** — `tests/version.bx` held a literal list of six
 // pages and a new page escaped its gate in silence, which is how `docs/index.md` came to claim 0.4 for
 // eight minors. A check whose scope is hand-written has the same blind spot as the claim it guards.
 const FLOOR: Int = 90;

@@ -22,7 +22,7 @@ fail=0
 # **What was NOT run, because the summary line said only what was.** A fresh clone of this repository
 # reports `26 checks passed` where a complete tree reports 29 — the three grammar tests need an `npm
 # install` that a clone does not have — and a reader comparing that number against CI's has no way to see
-# the difference. The skips were printed, four lines apart from a total that ignored them; `tests/version.py`
+# the difference. The skips were printed, four lines apart from a total that ignored them; `tests/version.bx`
 # carries the same defect written up as *a runner whose summary contradicts its own exit code*, and this is
 # its milder cousin: a summary that is true about what ran and silent about what did not.
 #
@@ -117,8 +117,6 @@ run "the extension's version is the format's, and the committed package is the p
 
 echo
 echo "the documentation"
-run "every version the documentation states agrees with SPEC.md" bash -c '
-  python3 tests/version.py && python3 tests/version.py --prove-it'
 run "every doc page closes its raw tag" bash -c '
   bad=0
   for f in docs/*.md docs/guide/*.md; do
@@ -245,6 +243,9 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
     burxt build tests/invitation.bx -o /tmp/check-invitation &&
     BMX_HARNESS=/tmp/check-harness /tmp/check-invitation &&
     BMX_HARNESS=/tmp/check-harness /tmp/check-invitation --prove-it'
+  run "every version the documentation states agrees with SPEC.md" bash -c '
+    burxt build tests/version.bx -o /tmp/check-version &&
+    /tmp/check-version && /tmp/check-version --prove-it'
   run "no refusal tells an author to write what the format refuses" bash -c '
     burxt build tests/messages.bx -o /tmp/check-messages &&
     /tmp/check-messages && /tmp/check-messages --prove-it'

@@ -1,0 +1,458 @@
+// tests/version.bx — every place the documentation states what version BMX is, checked against `SPEC.md`.
+//
+//     burxt build tests/version.bx -o version
+//     ./version
+//     ./version --prove-it     # the negative control
+//
+// **Three status claims were stale at once, and one of them was nine releases behind.** `README.md` said
+// the format was 0.4, `docs/promise.md` said 0.2, and `docs/building-on.md` listed *"what DOES exist, as of
+// 0.2"* — a capability list frozen before offsets, named closers, insignificant indentation and delimited
+// heads existed. A framework author reading that page would not have known a one-line block can carry a
+// body.
+//
+// **That is the shape star-burxt named and it is worse than an out-of-date number:** nobody re-tests what
+// they are told is absent. A stale DONE gets found the first time somebody tries the thing; a stale
+// NOT-DONE is found by nobody, because the reader believes it and leaves.
+//
+// So the version lives in **one** place — the title of `SPEC.md`, which is the normative document — and
+// every status claim is checked against it.
+//
+// **Why it matches shapes rather than a list of files.** A list of known sites cannot see a claim added
+// somewhere new, which is the failure mode of every registry. The shapes below match how a *status* claim
+// is phrased; historical references are worded differently on purpose — *"0.6 nested by fence length"*,
+// *"until 0.5.1"*, *"every version through 0.7"* — and must keep working, so the check would be wrong to
+// flag them. That distinction is the one thing here a person has to maintain: **if you write a new way of
+// saying "BMX is version X", add its shape below or the check cannot see it.**
+//
+// ---- the port ------------------------------------------------------------------------------------
+//
+// Ported from `tests/version.py`. Byte-identical on the real tree, on the control, and on planted claims
+// of every shape.
+//
+// **The nine regexes are nine literal shapes**, and writing them out as data made the one thing they have
+// in common explicit: each is some text, then a `major.minor`, then more text — with three variations that
+// existed only inside regex syntax (a line anchor, up to two `*` before the number, and an optional word
+// after it). A shape that cannot be written down as one of those is a shape this file has to grow a field
+// for, which is a better place for that conversation than a regex nobody rereads.
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+// How a STATUS claim is phrased. Each must name the current version.
+//
+//   anchored  the `^` of a `re.M` pattern: the claim starts a line
+//   before    the text in front of the version
+//   stars     `\*{0,2}` — up to two asterisks between `before` and the version
+//   afters    what must follow, first alternative first, as the regex engine tries them
+//   boundary  the `\b` of `as of (\d+\.\d+)\b`: the byte after the version may not be a word byte
+class Shape { anchored: Bool, before: String, stars: Bool, afters: [String], boundary: Bool }
+class Hit { found: Bool, at: Int, version: String, whole: String, next: Int }
+
+pure function shape(anchored: Bool, before: String, stars: Bool, afters: [String],
+        boundary: Bool) -> Shape {
+    return Shape { anchored: anchored, before: before, stars: stars, afters: afters,
+                   boundary: boundary };
+}
+
+function claims() -> [Shape] {
+    let mutable out: [Shape] = [];
+    let a: Int = push(out, shape(false, "BMX is ", true, [""], false));
+    let b: Int = push(out, shape(false, "as of ", false, [""], true));
+    let c: Int = push(out, shape(false, "target BMX ", false, [""], false));
+    let d: Int = push(out, shape(false, "Every construct BMX ", false, [" has"], false));
+    let e: Int = push(out, shape(true, "## What ", false,
+            [" deliberately does not have", " does not have"], false));
+    let f: Int = push(out, shape(true, "**", false, [". Two implementations"], false));
+    let g: Int = push(out, shape(false, "which ", false, [" does not have"], false));
+    // the site footer, hard-coded
+    let h: Int = push(out, shape(true, "BMX ", false, [" — a format of"], false));
+    // and the variable that replaced it
+    let i: Int = push(out, shape(true, "bmx_version: \"", false, ["\""], false));
+    return out;
+}
+
+// The two non-`.md` files a glob for prose cannot reach. **The footer said "BMX 0.2" on every page of the
+// site, six minors stale**, and it was invisible twice over: the list held only `.md` files, and
+// `BMX 0.2 —` matches none of the shapes above. The version is `site.bmx_version` now, checked below — and
+// the layout is scanned so a hard-coded one added later is caught. **The most-viewed claim on the site was
+// the last one checked, because a template is not a document.**
+function templates() -> [String] {
+    let mutable out: [String] = [];
+    let a: Int = push(out, "docs/_layouts/default.html");
+    let b: Int = push(out, "docs/_config.yml");
+    return out;
+}
+
+// **This was a hand-written list of six pages, and a new page escaped it in silence.**
+// `docs/implementing.md` was added carrying "BMX is 0.12"; the phrasing matched the first shape above
+// perfectly, and the check still passed with `0.11` written on it, because the file was not on the list.
+// **That is the registry failure mode this file's own header names two paragraphs up** — *"a list of known
+// sites cannot see a claim added somewhere new"* — and it was written about the SHAPES while the FILES sat
+// in a literal list underneath. A rule applied to one half of a check and not the other. Globbing it
+// caught `docs/index.md` claiming 0.4 on the landing page, eight minors stale and the most-viewed claim on
+// the site.
+//
+// **So every `.md` in the tree is read, and the one exception lives in the file it describes rather than
+// here.** `VERSIONING.md` is the changelog: it says *"a host may be at 3.0 and target BMX 0.1"* as an
+// illustration and quotes *"as of 0.2"* as a mistake it is writing up, both of which match the shapes
+// above and neither of which is a status claim. Excluding it by name would rebuild the list one exception
+// at a time — which is the thing being removed — so a file opts out with a marker IN ITSELF, and a future
+// changelog declares itself instead of being remembered here.
+const OPT_OUT: String = "<!-- version-claims: historical -->";
+
+// **A DECLARATION, not a mention — and the difference was found by this check quietly losing a file.**
+// The first version tested for the marker anywhere, so `CLAUDE.md` opted itself out the moment it
+// *described* the marker in a sentence about how the opt-out works. The page count fell 25 → 24 and
+// nothing said so; it was noticed only because the number was read. **A file can be dropped from a check
+// by writing prose about the check**, which is the same shape as a gate reading its own control literal.
+//
+// So the marker must be alone on its line and in the file's header, where a declaration lives. A sentence
+// quoting it, a table describing it, or a fenced example showing it are all mentions and stay in scope.
+const OPT_OUT_WITHIN: Int = 20;
+
+pure function opts_out(text: String) -> Bool {
+    let lines: [String] = string_split(text, "\n");
+    let mutable i: Int = 0;
+    while i < len(lines) && i < OPT_OUT_WITHIN {
+        if string_trim(lines[i]) == OPT_OUT {
+            return true;
+        }
+        i += 1;
+    }
+    return false;
+}
+
+pure function is_digit(b: Int) -> Bool {
+    return b >= 48 && b <= 57;
+}
+
+pure function is_word(b: Int) -> Bool {
+    return is_digit(b) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 95;
+}
+
+// `major.minor` at `from`, or -1 for where it ends. Greedy on both halves, which is what `\d+\.\d+` is.
+pure function version_end(text: String, from: Int) -> Int {
+    let mutable i: Int = from;
+    while i < len(text) && is_digit(byte_at(text, i)) {
+        i += 1;
+    }
+    if i == from || i >= len(text) || byte_at(text, i) != 46 {
+        return -1;
+    }
+    let dot: Int = i;
+    i += 1;
+    let after_dot: Int = i;
+    while i < len(text) && is_digit(byte_at(text, i)) {
+        i += 1;
+    }
+    if i == after_dot {
+        return -1;
+    }
+    return i;
+}
+
+// The next match at or after `from`, scanning the way `finditer` does: try each position, advance one byte
+// when the tail fails, and resume from the END of a match that succeeds.
+pure function next_hit(text: String, s: Shape, from: Int) -> Hit {
+    let absent: Hit = Hit { found: false, at: 0, version: "", whole: "", next: 0 };
+    let mutable at: Int = from;
+    while true {
+        let start: Int = string_find_from(text, s.before, at);
+        if start < 0 {
+            return absent;
+        }
+        at = start + 1;
+        if s.anchored && start > 0 && byte_at(text, start - 1) != 10 {
+            continue;
+        }
+        let mutable i: Int = start + len(s.before);
+        if s.stars {
+            let mutable seen: Int = 0;
+            while seen < 2 && i < len(text) && byte_at(text, i) == 42 {
+                i += 1;
+                seen += 1;
+            }
+        }
+        let ends: Int = version_end(text, i);
+        if ends < 0 {
+            continue;
+        }
+        let version: String = substring(text, i, ends - i);
+        let mutable matched: Int = -1;
+        let mutable a: Int = 0;
+        while a < len(s.afters) && matched < 0 {
+            if string_matches_at(text, s.afters[a], ends) {
+                matched = len(s.afters[a]);
+            }
+            a += 1;
+        }
+        if matched < 0 {
+            continue;
+        }
+        let stop: Int = ends + matched;
+        if s.boundary && stop < len(text) && is_word(byte_at(text, stop)) {
+            continue;
+        }
+        return Hit { found: true, at: start, version: version,
+                     whole: substring(text, start, stop - start), next: stop };
+    }
+    return absent;
+}
+
+pure function line_of(text: String, offset: Int) -> Int {
+    let mutable line: Int = 1;
+    let mutable i: Int = 0;
+    while i < offset {
+        if byte_at(text, i) == 10 {
+            line += 1;
+        }
+        i += 1;
+    }
+    return line;
+}
+
+pure function first_chars(text: String, width: Int) -> String {
+    let mutable at: Int = 0;
+    let mutable seen: Int = 0;
+    while seen < width && at < len(text) {
+        at = next_char(text, at);
+        seen += 1;
+    }
+    return substring(text, 0, at);
+}
+
+// **`burxt.package`'s version is checked on its own rather than as a shape, and the reason is a false
+// positive I nearly shipped.** The obvious pattern is `^version\s+(\d+\.\d+)` — and `docs/install.md` shows
+// a *consumer's* manifest, `name my-app` / `version 0.1.0`, which that pattern reads as a stale BMX claim.
+// It is somebody else's version, in an example, and flagging it would be the `\.at\(` mistake
+// `tests/portability.bx` records: a shape that matches text which is not the thing. So the manifest is read
+// by path, and the shapes above stay for prose.
+//
+// It compares major.minor, because the manifest carries a patch (`0.12.2`) and `SPEC.md`'s title does not.
+// That is the same rule `tests/extension.py` applies to the extension, for the same reason: a packaging fix
+// must not need a format release.
+const MANIFEST: String = "burxt.package";
+
+// `^version\s+(\d+\.\d+)`, over the whole file.
+pure function manifest_version(text: String) -> String {
+    let lines: [String] = string_split(text, "\n");
+    let mutable i: Int = 0;
+    while i < len(lines) {
+        let line: String = lines[i];
+        if string_starts_with(line, "version") {
+            let mutable j: Int = 7;
+            while j < len(line) && string_is_space(byte_at(line, j)) {
+                j += 1;
+            }
+            if j > 7 {
+                let ends: Int = version_end(line, j);
+                if ends > 0 {
+                    return substring(line, j, ends - j);
+                }
+            }
+        }
+        i += 1;
+    }
+    return "(no version line)";
+}
+
+// ---- the pages -----------------------------------------------------------------------------------
+
+function pages() -> [String] touches commands, files, input {
+    let mutable found: [String] = [];
+    match file_walk(".") {
+        None => {
+            print_error("cannot walk the tree — run this from the repository root");
+            exit(2);
+        }
+        Some(entries) => {
+            let mutable i: Int = 0;
+            while i < len(entries) {
+                let full: String = entries[i];
+                let mutable path: String = full;
+                if string_starts_with(path, "./") {
+                    path = substring(path, 2, len(path) - 2);
+                }
+                let skip: Bool = string_starts_with(path, ".git/") || path == ".git"
+                        || string_contains(path, "/node_modules/")
+                        || string_starts_with(path, "node_modules/");
+                if !skip && string_ends_with(path, ".md") {
+                    match file_read_maybe(path) {
+                        None => { }
+                        Some(text) => {
+                            if !opts_out(text) {
+                                let a: Int = push(found, path);
+                            }
+                        }
+                    }
+                }
+                i += 1;
+            }
+        }
+    }
+    let others: [String] = templates();
+    let mutable t: Int = 0;
+    while t < len(others) {
+        let b: Int = push(found, others[t]);
+        t += 1;
+    }
+    return found;
+}
+
+// The one place the version is decided: the normative document's title.
+function current() -> String touches files {
+    let mutable first: String = "";
+    match file_read_maybe("SPEC.md") {
+        None => {
+            print_error("cannot read SPEC.md — run this from the repository root");
+            exit(2);
+        }
+        Some(text) => {
+            let lines: [String] = string_split(text, "\n");
+            if len(lines) > 0 {
+                first = lines[0];
+            }
+        }
+    }
+    let at: Int = string_find(first, "BMX ");
+    if at >= 0 {
+        let ends: Int = version_end(first, at + 4);
+        if ends > 0 {
+            return substring(first, at + 4, ends - at - 4);
+        }
+    }
+    print_error("SPEC.md's first line does not name a version, so nothing can be checked against it");
+    exit(1);
+    return "";
+}
+
+// ---- the program ---------------------------------------------------------------------------------
+
+let mutable prove: Bool = false;
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    if os_arg(a) == "--prove-it" {
+        prove = true;
+    }
+    a += 1;
+}
+
+let want: String = current();
+print("  SPEC.md says the format is " + want);
+
+let mutable stale: [String] = [];
+let mutable checked: Int = 0;
+let shapes: [Shape] = claims();
+let all: [String] = pages();
+
+// The manifest, before the prose: a consumer FETCHES it, so it travels further than any page here.
+// **Not "a consumer's tool reads it", which is what this comment said first.** I had asserted that
+// `burxt review --semver` reads a declared version; verified in Burxt's tree, it does not — two source
+// paths and a `--require` operand, no manifest anywhere in `review.rs`. Inferred from the command's name.
+// The check is still worth having for the reason below, which does not need a tool to exist.
+// **Appended to `stale` rather than printed on its own**, because printing a FAIL that does not reach the
+// exit code is the lying-summary defect recorded at the bottom of this very file.
+let mutable have_manifest: Bool = false;
+let mutable declared: String = "";
+match file_read_maybe(MANIFEST) {
+    None => { have_manifest = false; }
+    Some(text) => {
+        have_manifest = true;
+        declared = manifest_version(text);
+    }
+}
+if prove && have_manifest {
+    declared = "0.1";
+}
+if !have_manifest {
+    print("  --    no " + MANIFEST + ", so nothing declares a package version");
+} else {
+    if declared == want {
+        checked += 1;
+        print("  ok    " + MANIFEST + " declares " + declared + ", which is SPEC.md's");
+    } else {
+        checked += 1;
+        let s: Int = push(stale, MANIFEST + " declares " + declared + ", SPEC.md says " + want
+                + " — a consumer fetches this file, so it is the claim with the widest reach");
+    }
+}
+
+let mutable p: Int = 0;
+while p < len(all) {
+    let page: String = all[p];
+    match file_read_maybe(page) {
+        None => {
+            print_error("cannot read " + page);
+            exit(2);
+        }
+        Some(raw) => {
+            let mutable text: String = raw;
+            if prove && page == "README.md" {
+                // The control: a status claim naming a version that is not the current one. Without it, a
+                // check that finds every claim already correct proves only that it ran.
+                text = text + "\n\nBMX is 0.1 and this sentence is the control.\n";
+            }
+            let mutable s: Int = 0;
+            while s < len(shapes) {
+                let mutable from: Int = 0;
+                let mutable scanning: Bool = true;
+                while scanning {
+                    let hit: Hit = next_hit(text, shapes[s], from);
+                    if !hit.found {
+                        scanning = false;
+                    } else {
+                        checked += 1;
+                        if hit.version != want {
+                            let f: Int = push(stale, page + ":" + to_string(line_of(text, hit.at))
+                                    + " claims " + hit.version + ", SPEC.md says " + want + ": "
+                                    + first_chars(hit.whole, 60));
+                        }
+                        from = hit.next;
+                    }
+                }
+                s += 1;
+            }
+        }
+    }
+    p += 1;
+}
+
+let mutable k: Int = 0;
+while k < len(stale) {
+    print("  FAIL  " + stale[k]);
+    k += 1;
+}
+print("  " + to_string(checked) + " status claims checked across " + to_string(len(all)) + " pages");
+
+if prove {
+    if len(stale) > 0 {
+        print("");
+        print("the control failed as it must — a stale status claim is caught");
+        exit(0);
+    }
+    print("");
+    print("THE CONTROL DID NOT FAIL, so this check cannot see a stale version");
+    exit(1);
+}
+if checked == 0 {
+    print("");
+    print("no status claim matched at all, which means the patterns have stopped seeing them");
+    exit(1);
+}
+// **This printed the success line unconditionally, above a failing exit.** So a reader piping the output —
+// or reading the last line, which is what a summary is for — saw *every version agrees* while the verdict
+// was failure. That is the fourth face of a lying measurement (a runner whose summary contradicts its own
+// exit code), inside the check written the same day to catch stale claims. The success sentence is earned
+// rather than printed.
+if len(stale) > 0 {
+    let mutable plural: String = "s";
+    if len(stale) == 1 {
+        plural = "";
+    }
+    print("");
+    print(to_string(len(stale)) + " status claim" + plural + " disagree with SPEC.md");
+    exit(1);
+}
+print("");
+print("every version the documentation states agrees with SPEC.md");
+exit(0);

@@ -43,7 +43,7 @@ one exists* is stronger.
 files on the strength of `ci.yml`'s sentence — *the format must be testable without its first host
 installed* — and **that sentence is about the format, not about this repository's CI.** What the format's
 claim actually needs is the fixtures, which are data, plus a runner a stranger can execute: that is
-`neutral`, and it is genuinely permanent. `tests/version.py`, `tests/branding.py`,
+`neutral`, and it is genuinely permanent. `tests/version.bx`, `tests/branding.py`,
 `editors/vscode/pack.py` and the rest check *this repository*. In Burxt they would make the conformance
 job need a toolchain — which costs a contributor without one some checks, and **costs the format's
 portability claim nothing at all.**
@@ -71,7 +71,7 @@ has no equivalent, so BMX's remainder is not debt"* — and asked that it be wri
 printed rather than left to inference.
 
 **The marker must be a DECLARATION, not a mention** — beginning a comment line, inside the file's
-first 20 lines, with its reason free to follow on the same line. `tests/version.py` learned that the hard way the same day: its opt-out marker was matched
+first 20 lines, with its reason free to follow on the same line. `tests/version.bx` learned that the hard way the same day: its opt-out marker was matched
 anywhere in a file, so `CLAUDE.md` opted itself out of the version gate by *describing* how opting out
 works, and the page count fell silently. A file can be removed from a check by writing prose about the
 check, so this one is positional.
