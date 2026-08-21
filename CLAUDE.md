@@ -66,7 +66,7 @@ a claim no implementation has to honour, and this repository's history is largel
 converting such claims into checks.
 
 Beyond conformance, `tests/` holds meta-checks over the repository itself — `version.py`,
-`messages.py`, `portability.bx`, `branding.py`, `extension.py`, `surface.py`,
+`messages.bx`, `portability.bx`, `branding.py`, `extension.py`, `surface.py`,
 `output.py`, `invitation.py`. Most take **`--prove-it`, a negative control** that asserts the check can fail; CI runs
 both halves, because a check nobody has watched fail is a check nobody has tested. Add the control
 when you add a check.

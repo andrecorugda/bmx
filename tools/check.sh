@@ -68,8 +68,6 @@ run() {
 }
 
 echo "the format, and both implementations of it"
-run "no refusal tells an author to write what the format refuses" bash -c '
-  python3 tests/messages.py && python3 tests/messages.py --prove-it'
 # **This line said `tests/cases` and `-ge 20` while CI said both folders and `-ge 39`** — so the file
 # whose header promises to mirror `ci.yml` was checking a different set against a different floor, and
 # the local run was the weaker of the two. Found while adding the implementer page, which states the
@@ -238,6 +236,9 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   # **Out of the documentation group, because measuring a Node floor now needs a Burxt compiler.** The
   # trade is the one every port in this file has made: the check is written in the language this
   # repository is becoming, and a contributor without a toolchain loses it — which the summary says.
+  run "no refusal tells an author to write what the format refuses" bash -c '
+    burxt build tests/messages.bx -o /tmp/check-messages &&
+    /tmp/check-messages && /tmp/check-messages --prove-it'
   run "the reference parser needs nothing newer than the Node it promises" bash -c '
     burxt build tests/portability.bx -o /tmp/check-portability &&
     /tmp/check-portability && /tmp/check-portability --prove-it'

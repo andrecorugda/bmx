@@ -1,0 +1,323 @@
+// tests/messages.bx — every message either implementation can emit, checked for advice the format no
+// longer accepts.
+//
+//     burxt build tests/messages.bx -o messages
+//     ./messages
+//     ./messages --prove-it     # the negative control
+//
+// **A message is the compiler talking, so a message that tells you to write something illegal is worse
+// than a message that says nothing** — you do as you are told, get a second refusal, and the two tools
+// contradict each other. The star-burxt session shipped four of exactly that: refusals instructing the
+// author to write `::: props name: Type` after the fence had been respelled. This repository had none,
+// and finding that out took two tries.
+//
+// **Why it reads the SOURCE rather than triggering the refusals.** There are 21 codes across two
+// implementations and no test exercises all of them; a check that fires only the refusals somebody
+// remembered is the shape that let star's four through. Reading every message site cannot be selective
+// about which ones it thinks of.
+//
+// **And why it scans a WINDOW rather than matching a string literal.** The first version pulled quoted
+// strings out with a regex and reported *0 of 35 messages mention the old fence* — a zero over incomplete
+// text, because three of the messages are template literals and the regex captured only up to the first
+// interpolation. It found one message containing the new fence where three do, which is what gave it away:
+// **a positive control that finds something is not the same as one that finds everything.** So the scan
+// anchors on the CALL and reads forward until the parentheses close, which cannot be wrong about a message
+// form it was never taught.
+//
+// Three assertions, and the third is star-burxt's correction to my second:
+//
+//   * no message mentions a superseded fence
+//   * **two independent extractions agree on the count.** My first version asserted a FLOOR — at least 30
+//     sites — against real numbers of 35 and 32. Loose enough that a scan silently capturing 30 of 35
+//     would pass, which is the same defect as the regex it replaced, one level up: **a floor is a boolean
+//     control with extra steps.** Two methods required to agree cannot both be wrong in the same
+//     direction without saying so.
+//   * the count is non-zero, because two extractions that both find nothing agree perfectly.
+//
+// ---- the port ------------------------------------------------------------------------------------
+//
+// Ported from `tests/messages.py`, verdict- and byte-identical on both sources, on the control, and on a
+// planted message.
+//
+// **The Python had two `return 1` statements in a row** at the end of its control branch, the second
+// unreachable, printing a sentence about a control that did not fail — left over from before the control
+// checked both halves. Dead code in the file whose subject is text nobody reads carefully.
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+// `kind` 0: the needle anywhere. 1: the needle not preceded by a word character — the `\b` in `\bwarn\(`.
+class Opener { needle: String, kind: Int }
+class Source { path: String, openers: [Opener] }
+class Site { line: Int, text: String }
+
+pure function is_word(b: Int) -> Bool {
+    return (b >= 48 && b <= 57) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 95;
+}
+
+pure function opens(line: String, openers: [Opener]) -> Bool {
+    let mutable i: Int = 0;
+    while i < len(openers) {
+        let o: Opener = openers[i];
+        let mutable from: Int = 0;
+        let mutable looking: Bool = true;
+        while looking {
+            let at: Int = string_find_from(line, o.needle, from);
+            if at < 0 {
+                looking = false;
+            } else {
+                if o.kind == 0 || at == 0 || !is_word(byte_at(line, at - 1)) {
+                    return true;
+                }
+                from = at + 1;
+            }
+        }
+        i += 1;
+    }
+    return false;
+}
+
+// `" ".join(text.split())` — every run of whitespace becomes one space, and the ends lose theirs.
+pure function collapse(text: String) -> String {
+    let mutable words: [String] = [];
+    let mutable i: Int = 0;
+    while i < len(text) {
+        while i < len(text) && string_is_space(byte_at(text, i)) {
+            i += 1;
+        }
+        let start: Int = i;
+        while i < len(text) && !string_is_space(byte_at(text, i)) {
+            i += 1;
+        }
+        if i > start {
+            let a: Int = push(words, substring(text, start, i - start));
+        }
+    }
+    return string_join(words, " ");
+}
+
+pure function count_of(text: String, byte: Int) -> Int {
+    let mutable n: Int = 0;
+    let mutable i: Int = 0;
+    while i < len(text) {
+        if byte_at(text, i) == byte {
+            n += 1;
+        }
+        i += 1;
+    }
+    return n;
+}
+
+// The first `width` CHARACTERS, because Python slices a str by codepoint and a message with an em dash
+// in it would otherwise be cut mid-sequence and printed as broken bytes.
+pure function first_chars(text: String, width: Int) -> String {
+    let mutable at: Int = 0;
+    let mutable seen: Int = 0;
+    while seen < width && at < len(text) {
+        at = next_char(text, at);
+        seen += 1;
+    }
+    return substring(text, 0, at);
+}
+
+// Every message site, read from the call to its balanced close. Eight lines is the window; the depth
+// count is over the WHOLE line, parentheses before the call included, which is what the retired check
+// did and what keeps a `if (x) throw new BmxError(` from closing early.
+pure function sites(lines: [String], openers: [Opener]) -> [Site] {
+    let mutable out: [Site] = [];
+    let mutable i: Int = 0;
+    while i < len(lines) {
+        if opens(lines[i], openers) {
+            let mutable text: String = "";
+            let mutable depth: Int = 0;
+            let mutable j: Int = i;
+            let mutable done: Bool = false;
+            while j < len(lines) && j < i + 8 && !done {
+                text = text + lines[j] + " ";
+                depth += count_of(lines[j], 40) - count_of(lines[j], 41);
+                if depth <= 0 && len(string_trim(text)) > 0 {
+                    done = true;
+                }
+                j += 1;
+            }
+            let a: Int = push(out, Site { line: i + 1, text: collapse(text) });
+        }
+        i += 1;
+    }
+    return out;
+}
+
+// A second, dumber count: how many LINES open a message. Deliberately a different method.
+//
+// It exists to disagree. If the reader above starts skipping a message form — the way the regex it
+// replaced skipped template literals — these two numbers separate, and the check says so instead of
+// reporting a confident zero over two thirds of the messages.
+pure function count_by_hand(lines: [String], openers: [Opener]) -> Int {
+    let mutable n: Int = 0;
+    let mutable i: Int = 0;
+    while i < len(lines) {
+        if opens(lines[i], openers) {
+            n += 1;
+        }
+        i += 1;
+    }
+    return n;
+}
+
+// A superseded spelling, and the patterns that match the fence by SHAPE. The rest are here because
+// `grep ':::'` never found the editor config that broke code folding for two releases: it held `:{3,}`.
+// The braces are `\{` because an unescaped `{` in a Burxt string starts an interpolation. The needles
+// are the same four bytes the retired check held.
+pure function superseded() -> [String] {
+    let mutable out: [String] = [];
+    let a: Int = push(out, ":::");
+    let b: Int = push(out, ":\{3");
+    let c: Int = push(out, ":\{2,");
+    let d: Int = push(out, ":\{1,");
+    return out;
+}
+
+function sources() -> [Source] {
+    let mutable out: [Source] = [];
+    let mutable js: [Opener] = [];
+    let a: Int = push(js, Opener { needle: "new BmxError(", kind: 0 });
+    let b: Int = push(js, Opener { needle: "warn(", kind: 1 });
+    let c: Int = push(out, Source { path: "reference/bmx.js", openers: js });
+    let mutable bx: [Opener] = [];
+    let d: Int = push(bx, Opener { needle: "bmx_error(", kind: 0 });
+    let e: Int = push(out, Source { path: "burxt/bmx.bx", openers: bx });
+    return out;
+}
+
+pure function pad_left(text: String, width: Int) -> String {
+    let mutable out: String = text;
+    while char_count(out) < width {
+        out = " " + out;
+    }
+    return out;
+}
+
+let mutable prove: Bool = false;
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    if os_arg(a) == "--prove-it" {
+        prove = true;
+    }
+    a += 1;
+}
+
+let mutable failures: [String] = [];
+let mutable total: Int = 0;
+let old: [String] = superseded();
+let all: [Source] = sources();
+let mutable s: Int = 0;
+while s < len(all) {
+    let source: Source = all[s];
+    match file_read_maybe(source.path) {
+        None => {
+            print_error("cannot read " + source.path + " — run this from the repository root");
+            exit(2);
+        }
+        Some(text) => {
+            let lines: [String] = string_split(text, "\n");
+            let mutable found: [Site] = sites(lines, source.openers);
+            let expected: Int = count_by_hand(lines, source.openers);
+            total += len(found);
+            let is_js: Bool = string_ends_with(source.path, ".js");
+
+            if prove {
+                // **The control exercises BOTH assertions, one per source**, because a control that only
+                // reaches one leaves the other unproven — and the unproven one here is the newer of the
+                // two. star-burxt watched theirs fail in both ways it claims to detect; a check whose
+                // second assertion has never fired is a claim, not a check.
+                if is_js {
+                    // a message instructing the old syntax, in the shape star actually shipped
+                    let p: Int = push(found, Site { line: 0,
+                            text: "error(\"BMX-E999\", 0, \"add `::: props name: Type` at the top\")" });
+                } else {
+                    // a reader that has quietly stopped seeing two thirds of the messages
+                    // `len(found) // 3` in the retired check: floor division, on a count that is never negative.
+                    let keep: Int = divide_floor(len(found), 3);
+                    let t: Int = truncate(found, keep);
+                }
+            }
+
+            let mutable i: Int = 0;
+            while i < len(found) {
+                let site: Site = found[i];
+                let mutable o: Int = 0;
+                let mutable named: Bool = false;
+                while o < len(old) && !named {
+                    if string_contains(site.text, old[o]) {
+                        let f: Int = push(failures, source.path + ":" + to_string(site.line)
+                                + " instructs a superseded fence: " + first_chars(site.text, 88));
+                        named = true;
+                    }
+                    o += 1;
+                }
+                i += 1;
+            }
+
+            // The two extractions must agree, and there must be some. Either alone can pass over a set
+            // that has quietly shrunk; together they cannot without disagreeing.
+            let mutable counted: Int = expected;
+            if prove && is_js {
+                counted += 1;
+            }
+            if len(found) != counted {
+                let f: Int = push(failures, source.path + ": the reader found " + to_string(len(found))
+                        + " messages and there are " + to_string(counted)
+                        + " sites — one method has stopped seeing a form the other can, so nothing here"
+                        + " can be believed");
+            } else {
+                if len(found) == 0 {
+                    let f: Int = push(failures, source.path
+                            + ": no message sites at all, which two methods will agree about");
+                } else {
+                    print("  " + pad_left(to_string(len(found)), 3) + " message sites read from "
+                            + source.path + ", and " + to_string(counted) + " counted independently");
+                }
+            }
+        }
+    }
+    s += 1;
+}
+
+let mutable k: Int = 0;
+while k < len(failures) {
+    print("  FAIL  " + failures[k]);
+    k += 1;
+}
+
+if prove {
+    // Both kinds, not just one: a bad message caught, AND a shrunken extraction caught.
+    let mutable instructed: Bool = false;
+    let mutable shrunken: Bool = false;
+    let mutable n: Int = 0;
+    while n < len(failures) {
+        if string_contains(failures[n], "instructs a superseded fence") {
+            instructed = true;
+        }
+        if string_contains(failures[n], "one method has stopped seeing") {
+            shrunken = true;
+        }
+        n += 1;
+    }
+    if instructed && shrunken {
+        print("");
+        print("the control failed both ways it must — a bad message, and an extraction gone quiet");
+        exit(0);
+    }
+    print("");
+    print("THE CONTROL IS INCOMPLETE: bad message caught=" + to_string(instructed)
+            + ", shrunken scan caught=" + to_string(shrunken));
+    exit(1);
+}
+
+print("");
+print("no message in " + to_string(total) + " sites tells an author to write something the format"
+        + " refuses");
+if len(failures) > 0 {
+    exit(1);
+}
+exit(0);
