@@ -35,9 +35,6 @@ jobs:
         with:
           node-version: '20'
           package-manager-cache: false
-      - name: The reference implementation passes the suite
-        run: python3 tests/harness.py "node reference/bmx.js"
-
       # A suite that finds no cases passes silently, which is the shape of every ratchet failure
       # worth having a name for.
       # **The check that found 0.8, kept rather than thrown away.** It indents every document that
@@ -99,20 +96,6 @@ jobs:
       # elements, whose bodies must be empty by contract.
       - name: The linter fires where it should and stays quiet where it should
         run: node tests/lints.mjs
-
-      # **`README.md` promised "any language can implement BMX" and `docs/` never named the harness.**
-      # The suite takes an arbitrary command, so a stranger genuinely can conform in an afternoon — and
-      # the only place that was written down was this repository, which a reader of the site never opens.
-      # `install.md` then sent them to Building on BMX, which says in its first line that it is for
-      # layers ABOVE the format. The reader 1.0 depends on met the wrong page and stopped.
-      #
-      # A page carrying a command is a claim, so the command is run. It deliberately does NOT pin the
-      # pass count: a gate that fires when somebody adds a conformance case argues against the thing
-      # this project wants to be frictionless.
-      - name: The invitation on the site is a command that works
-        run: |
-          python3 tests/invitation.py
-          python3 tests/invitation.py --prove-it
 
       # **`reference/bmx.js` could not be imported in a browser at all, and nothing here could see it.**
       # The CLI guard was a bare `process.argv[1]`, evaluated when the MODULE is evaluated, so a browser
@@ -347,7 +330,8 @@ jobs:
         run: |
           set -eux
           burxt build burxt/examples/parse.bx -o /tmp/bmx-parse
-          python3 tests/harness.py /tmp/bmx-parse
+          burxt build tests/harness.bx -o /tmp/harness
+          /tmp/harness /tmp/bmx-parse
 
       # **Level 1 is "renders", not "parses".** Two implementations can agree on every AST in the
       # corpus and still disagree about the page — a different heading tag, a different escape set,
@@ -359,7 +343,8 @@ jobs:
       - name: The two renderers produce the same page
         run: |
           burxt build tools/render.bx -o /tmp/bmxrender
-          python3 tests/renders.py /tmp/bmxrender
+          burxt build tests/renders.bx -o /tmp/renders
+          /tmp/renders /tmp/bmxrender
 
       # The question the suite cannot ask: do two implementations reach the same answer where
       # nothing was written down? That is where a specification's ambiguities live, and it is how
@@ -368,10 +353,14 @@ jobs:
       # both renderers refusing as agreement, so if both stopped refusing `javascript:` it would still
       # pass. This asserts the outcome per renderer.
       - name: No document can reach the output through a target or an info string
-        run: python3 tests/output.py "node reference/bmx.js --render" /tmp/bmxrender
+        run: |
+          burxt build tests/output.bx -o /tmp/output
+          /tmp/output "node reference/bmx.js --render" /tmp/bmxrender
 
       - name: The two implementations agree with each other
-        run: python3 tests/agree.py 'node reference/bmx.js' /tmp/bmx-parse
+        run: |
+          burxt build tests/agree.bx -o /tmp/agree
+          /tmp/agree 'node reference/bmx.js' /tmp/bmx-parse
 
       # **Level 2, which is the reason the format was worth defining.** `harness.py` above asks
       # whether this parser matches the spec; this asks whether a generated view carries the
@@ -411,6 +400,33 @@ jobs:
           burxt build tools/showcase.bx -o "$d/showcase"
           cp tools/shop.bmx "$d/"; mkdir -p "$d/../docs/_includes"
           (cd "$d" && ./showcase); cmp "$d/../docs/_includes/showcase.html" docs/_includes/showcase.html
+
+      # **`README.md` promised "any language can implement BMX" and `docs/` never named the harness.**
+      # The suite takes an arbitrary command, so a stranger genuinely can conform in an afternoon — and
+      # the only place that was written down was this repository, which a reader of the site never opens.
+      # `install.md` then sent them to Building on BMX, which says in its first line that it is for
+      # layers ABOVE the format. The reader 1.0 depends on met the wrong page and stopped.
+      #
+      # A page carrying a command is a claim, so the command is run. It deliberately does NOT pin the
+      # pass count: a gate that fires when somebody adds a conformance case argues against the thing
+      # this project wants to be frictionless.
+      - name: The invitation on the site is a command that works
+        run: |
+          python3 tests/invitation.py
+          python3 tests/invitation.py --prove-it
+
+      # Moved here with the harness: this step BUILDS the harness to prove the page's command runs, so it
+      # needs the same compiler. A check that verifies an invitation cannot be cheaper to run than the
+      # invitation is.
+
+      # **The conformance suite itself moved here, and it is the costliest of these moves.**
+      # `tests/harness.bx` needs a compiler, so the toolchain-free job no longer runs the suite at all.
+      # The FORMAT remains testable without Burxt — the fixtures are data, and `docs/implementing.md`
+      # spells out the page of code a stranger writes — but this repository has stopped demonstrating it.
+      - name: The reference implementation passes the suite
+        run: |
+          burxt build tests/harness.bx -o /tmp/harness
+          /tmp/harness "node reference/bmx.js"
 
       # **Both of these moved here from the Node-only job when their tools became Burxt.** `tools/fmt.bx`
       # decides the shape of every example on the site and `tests/roundtrip.bx` is what found 0.8 — and

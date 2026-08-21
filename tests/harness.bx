@@ -1,0 +1,120 @@
+// tests/harness.bx — run the BMX conformance suite against any implementation.
+//
+//     burxt build tests/harness.bx -o harness && ./harness '<command>'
+//
+// The command is run once per case with the document's path appended. It must print the AST as JSON on
+// stdout and exit 0, or print an error beginning with a `BMX-Ennn` code and exit non-zero.
+//
+// **This file is not part of the specification.** Its only job is to demonstrate the claim the format
+// makes about itself: the suite is DATA, so conformance costs an afternoon in any language rather than a
+// port. **If this harness is inconvenient for your language, throw it away and write your own** — the
+// cases in `cases/` and `errors/` are the specification's executable half, not this program. It was
+// thirty lines of Python for exactly that reason, and it is Burxt now for a different one: this
+// repository builds its own tooling in the language it serves. Neither choice is a claim on yours.
+//
+// **The comparison is order-insensitive**, via `support.bx`'s `canonical` — the specification says nothing
+// about the order of keys in an object, so a reader that emits them differently is conforming and this
+// must not fail it.
+use "support.bx";
+use "std/json.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+let mutable command: String = "";
+if os_arg_count() > 1 {
+    command = os_arg(1);
+}
+if len(command) == 0 {
+    print_error("usage: harness '<command>'   — run once per case with the document's path appended");
+    exit(2);
+}
+
+// Ask whether this is a BMX reader at all, before blaming every document for one wrong argument.
+let probed: Int = speaks(command, "ast");
+
+let mutable failures: [String] = [];
+let mutable total: Int = 0;
+
+let cases: [String] = documents_in("tests/cases");
+let mutable i: Int = 0;
+while i < len(cases) {
+    let name: String = cases[i];
+    let doc: String = "tests/cases/" + name;
+    let stem: String = substring(name, 0, len(name) - 4);
+    total += 1;
+    match file_read_maybe("tests/cases/" + stem + ".json") {
+        None => {
+            let a: Int = push(failures, name + ": no .json beside it");
+        }
+        Some(expected_text) => {
+            let r: Capture = os_capture_status(command + " " + file_quote(doc));
+            if r.code != 0 {
+                let b: Int = push(failures, name + ": expected an AST, got " + string_trim(r.errors));
+            } else {
+                match json_parse(r.output) {
+                    Error(why) => {
+                        let c: Int = push(failures, name + ": stdout is not JSON (" + why + ")");
+                    }
+                    Ok(actual) => {
+                        match json_parse(expected_text) {
+                            Error(why) => {
+                                let d: Int = push(failures, name + ": its .json is not JSON (" + why + ")");
+                            }
+                            Ok(expected) => {
+                                // Compared canonically, printed faithfully — see `render_spaced`.
+                                if json_render(canonical(expected)) != json_render(canonical(actual)) {
+                                    let e: Int = push(failures, name + ":\n  expected "
+                                                + render_spaced(expected) + "\n  actual   "
+                                            + render_spaced(actual));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    i += 1;
+}
+
+let errors: [String] = documents_in("tests/errors");
+let mutable j: Int = 0;
+while j < len(errors) {
+    let name: String = errors[j];
+    let doc: String = "tests/errors/" + name;
+    let stem: String = substring(name, 0, len(name) - 4);
+    total += 1;
+    match file_read_maybe("tests/errors/" + stem + ".error") {
+        None => {
+            let a: Int = push(failures, name + ": no .error beside it");
+        }
+        Some(raw) => {
+            let expected: String = string_trim(raw);
+            let r: Capture = os_capture_status(command + " " + file_quote(doc));
+            if r.code == 0 {
+                let b: Int = push(failures, name + ": expected " + expected + ", but it parsed");
+            } else {
+                let mutable said: String = string_trim(r.errors);
+                if len(said) == 0 {
+                    said = string_trim(r.output);
+                }
+                if !string_starts_with(said, expected) {
+                    let c: Int = push(failures, name + ": expected " + expected + ", got '" + said + "'");
+                }
+            }
+        }
+    }
+    j += 1;
+}
+
+let mutable k: Int = 0;
+while k < len(failures) {
+    print(failures[k]);
+    k += 1;
+}
+print(to_string(total) + " cases, " + to_string(total - len(failures)) + " passed, "
+        + to_string(len(failures)) + " failed");
+if len(failures) > 0 {
+    exit(1);
+}
+exit(0);

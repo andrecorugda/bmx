@@ -55,7 +55,6 @@ run() {
 }
 
 echo "the format, and both implementations of it"
-run "the reference implementation passes the suite" python3 tests/harness.py "node reference/bmx.js"
 run "no refusal tells an author to write what the format refuses" bash -c '
   python3 tests/messages.py && python3 tests/messages.py --prove-it'
 # **This line said `tests/cases` and `-ge 20` while CI said both folders and `-ge 39`** — so the file
@@ -141,13 +140,18 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   # them has a bug and the fixtures are the arbiter.
   run "the suite runs on Burxt, over the Burxt implementation" bash -c '
     burxt build burxt/conformance.bx -o /tmp/check-conformance && /tmp/check-conformance'
-  run "it passes the format's own suite" python3 tests/harness.py /tmp/check-parse
-  run "the two implementations agree with each other" python3 tests/agree.py 'node reference/bmx.js' /tmp/check-parse
+  run "it passes the format's own suite" bash -c '
+    burxt build tests/harness.bx -o /tmp/check-harness && /tmp/check-harness /tmp/check-parse'
+  run "the two implementations agree with each other" bash -c '
+    burxt build tests/agree.bx -o /tmp/check-agree &&
+    /tmp/check-agree "node reference/bmx.js" /tmp/check-parse'
   run "no document can reach the output through a target or an info string" bash -c '
     burxt build tools/render.bx -o /tmp/check-render 2>/dev/null &&
-    python3 tests/output.py "node reference/bmx.js --render" /tmp/check-render'
+    burxt build tests/output.bx -o /tmp/check-output &&
+    /tmp/check-output "node reference/bmx.js --render" /tmp/check-render'
   run "the two renderers produce the same page" bash -c '
-    burxt build tools/render.bx -o /tmp/check-render && python3 tests/renders.py /tmp/check-render'
+    burxt build tools/render.bx -o /tmp/check-render &&
+    burxt build tests/renders.bx -o /tmp/check-renders && /tmp/check-renders /tmp/check-render'
   # **The escape table in `page.bx` and `errpage.bx` had no instrument pointed at it.** Both were verified
   # byte-identical to the Python they replaced — once, by hand — and then the Python was deleted, so the
   # only oracle went with it. The Burxt session found the same absence in `lib/html_escape`, which had no
@@ -184,6 +188,15 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
       || { echo "showcase.html is not what tools/showcase.bx produces"; bad=1; }
     rm -rf "$d"
     exit $bad'
+  # **And this is the one that costs the most, so it is named rather than slipped in.** The conformance
+  # suite itself is run by `tests/harness.bx` now, so nothing in the toolchain-free section runs it. The
+  # FORMAT is still testable without Burxt — the fixtures are data and a stranger writes a page of code,
+  # which `docs/implementing.md` spells out — but **this repository no longer demonstrates that**, and a
+  # property nothing demonstrates is a property nobody can check.
+  run "the reference implementation passes the suite" bash -c '
+    burxt build tests/harness.bx -o /tmp/check-harness &&
+    /tmp/check-harness "node reference/bmx.js"'
+
   # **Three more checks moved out of the Node-only section as their tools became Burxt**, and the cost is
   # the same one every time: a contributor without a toolchain loses them, and the summary says which
   # groups it skipped rather than printing a smaller total as though it were the suite.

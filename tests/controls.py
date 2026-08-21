@@ -25,7 +25,7 @@ answer everywhere: does the flag reach `argv` at all.
 
 The dynamic half is worth running by hand when a control is added, and the sweep is one line:
 
-    diff <(python3 tests/<r>.py 2>&1) <(python3 tests/<r>.py --prove-it 2>&1)
+    diff <(./<runner> 2>&1) <(./<runner> --prove-it 2>&1)
 
 **Two questions, because the star-burxt session's dead control had a signature the first one misses.**
 Theirs read its flag correctly and `check-all.sh` never passed it — it ran the tool and not the tool

@@ -1,0 +1,184 @@
+// tests/output.bx — what a document must not be able to make the output do.
+//
+//     burxt build tests/output.bx -o output && ./output '<renderer>' ['<renderer>' …]
+//
+// **The part of `ESCAPING.md` nothing tested.** That document said "the conformance suite tests this" and
+// pointed at a path that had gone away with a migration — so the security-critical half of the escaping
+// contract was asserted by a sentence naming a file that no longer existed.
+//
+// `tests/renders.bx` was the nearest thing and it is not enough: it compares two renderers and treats
+// **both refusing** as agreement. If both stopped refusing `javascript:`, it would still pass.
+// **Agreement is a check on drift, never on correctness.**
+//
+// So this asserts the OUTCOME, per renderer: a target renders or refuses, and a document cannot put an
+// attribute into the output through a code fence's info string. It also pins the case folding, because a
+// URI scheme is case-insensitive (RFC 3986 §3.1) and `HTTPS://example.com` was refused until 0.11 — a
+// false refusal of correct input, which is the class a conformance suite cannot hold.
+//
+// **The info-string half was found by grepping this project's own prose for verbs.** `docs/styling.md`
+// says the info string is checked as a name before it becomes a class, which is TRUE and was asserted by
+// nothing. Every fixture used `burxt` or `js`.
+use "support.bx";
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+class Target { text: String, must_render: Bool }
+class Info { text: String, wants_class: Bool }
+
+function targets() -> [Target] {
+    let mutable out: [Target] = [];
+    let a: Int = push(out, Target { text: "https://a.example", must_render: true });
+    let b: Int = push(out, Target { text: "http://a.example", must_render: true });
+    let c: Int = push(out, Target { text: "mailto:a@b.c", must_render: true });
+    let d: Int = push(out, Target { text: "/relative/path", must_render: true });
+    let e: Int = push(out, Target { text: "../up", must_render: true });
+    // a colon that is not a scheme, because a slash precedes it
+    let f: Int = push(out, Target { text: "/has:colon/after/slash", must_render: true });
+    let g: Int = push(out, Target { text: "HTTPS://a.example", must_render: true });
+    let h: Int = push(out, Target { text: "Https://a.example", must_render: true });
+    let i: Int = push(out, Target { text: "MAILTO:a@b.c", must_render: true });
+    let j: Int = push(out, Target { text: "javascript:steal()", must_render: false });
+    let k: Int = push(out, Target { text: "JAVASCRIPT:steal()", must_render: false });
+    let l: Int = push(out, Target { text: "JaVaScRiPt:steal()", must_render: false });
+    let m: Int = push(out, Target { text: "data:text/html;base64,x", must_render: false });
+    let n: Int = push(out, Target { text: "vbscript:x", must_render: false });
+    let o: Int = push(out, Target { text: "file:///etc/passwd", must_render: false });
+    // an unknown scheme is refused, not stripped
+    let p: Int = push(out, Target { text: "a:b", must_render: false });
+    return out;
+}
+
+function infos() -> [Info] {
+    let mutable out: [Info] = [];
+    let a: Int = push(out, Info { text: "burxt", wants_class: true });
+    let b: Int = push(out, Info { text: "js", wants_class: true });
+    // the name rule allows `-`
+    let c: Int = push(out, Info { text: "c-sharp", wants_class: true });
+    // the attack this claim is about
+    let d: Int = push(out, Info { text: "x\" onload=\"steal()", wants_class: false });
+    let e: Int = push(out, Info { text: "a b", wants_class: false });
+    let f: Int = push(out, Info { text: "a<b>", wants_class: false });
+    let g: Int = push(out, Info { text: "../etc", wants_class: false });
+    // a name starts with a letter
+    let h: Int = push(out, Info { text: "1abc", wants_class: false });
+    return out;
+}
+
+// The text of the `<code` tag, which is where an injected attribute would land.
+pure function code_tag(out: String) -> String {
+    let at: Int = string_find(out, "<code");
+    if at < 0 {
+        return "";
+    }
+    let rest: String = substring(out, at + 5, len(out) - (at + 5));
+    let close: Int = string_find(rest, ">");
+    if close < 0 {
+        return rest;
+    }
+    return substring(rest, 0, close);
+}
+
+function check_info(renderer: String, scratch: String) -> Int touches commands, files, input {
+    let cases: [Info] = infos();
+    let mutable failures: Int = 0;
+    let mutable i: Int = 0;
+    while i < len(cases) {
+        let info: Info = cases[i];
+        let doc: String = scratch + "/bmx-info.bmx";
+        let w: Int = file_write(doc, "```" + info.text + "\ncode\n```\n");
+        let r: Capture = os_capture_status(renderer + " " + file_quote(doc));
+        let out: String = string_trim(r.output + r.errors);
+        let has_class: Bool = string_contains(out, "class=\"language-");
+        let tag: String = code_tag(out);
+        let mutable leaked: Bool = false;
+        if !info.wants_class {
+            if string_contains(tag, "\"") || string_contains(tag, "<") || string_contains(tag, ">")
+                    || string_contains(tag, " onload") {
+                leaked = true;
+            }
+        }
+        if has_class != info.wants_class || leaked {
+            failures += 1;
+            let mutable shown: String = tag;
+            if len(shown) > 40 {
+                shown = substring(shown, 0, 40);
+            }
+            print("    FAIL  info '" + info.text + "': class=" + to_string(has_class)
+                    + " want=" + to_string(info.wants_class) + " tag='" + shown + "'");
+        }
+        i += 1;
+    }
+    print("    " + to_string(len(cases)) + " info strings checked");
+    return failures;
+}
+
+let mutable renderers: [String] = [];
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    let r: Int = push(renderers, os_arg(a));
+    a += 1;
+}
+if len(renderers) == 0 {
+    print("usage: output <renderer> [<renderer> …]");
+    exit(1);
+}
+
+let mutable i: Int = 0;
+while i < len(renderers) {
+    let p: Int = speaks(renderers[i], "page");
+    i += 1;
+}
+
+match file_temp_directory("bmx-output") {
+    None => {
+        print_error("cannot make a scratch directory");
+        exit(2);
+    }
+    Some(scratch) => {
+        let mutable failures: Int = 0;
+        let cases: [Target] = targets();
+        let mutable n: Int = 0;
+        while n < len(renderers) {
+            let renderer: String = renderers[n];
+            print("  " + renderer);
+            let mutable t: Int = 0;
+            while t < len(cases) {
+                let target: Target = cases[t];
+                let doc: String = scratch + "/bmx-target.bmx";
+                let w: Int = file_write(doc, "[x](" + target.text + ")\n");
+                let r: Capture = os_capture_status(renderer + " " + file_quote(doc));
+                let out: String = string_trim(r.output + r.errors);
+                let refused: Bool = string_contains(out, "BMX-R001");
+                let rendered: Bool = string_contains(out, target.text) && !refused;
+                let mutable good: Bool = refused;
+                if target.must_render {
+                    good = rendered;
+                }
+                if !good {
+                    failures += 1;
+                    let mutable want: String = "refuse";
+                    if target.must_render {
+                        want = "render";
+                    }
+                    let mutable shown: String = out;
+                    if len(shown) > 70 {
+                        shown = substring(shown, 0, 70);
+                    }
+                    print("    FAIL  '" + target.text + "' must " + want + ", got: " + shown);
+                }
+                t += 1;
+            }
+            print("    " + to_string(len(cases)) + " targets checked");
+            failures = failures + check_info(renderer, scratch);
+            n += 1;
+        }
+        print("");
+        if failures > 0 {
+            print(to_string(failures) + " failed");
+            exit(1);
+        }
+        print("no document can reach the output through a target or an info string");
+        exit(0);
+    }
+}

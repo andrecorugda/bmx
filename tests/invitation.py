@@ -5,7 +5,7 @@
     python3 tests/invitation.py
     python3 tests/invitation.py --prove-it     # the negative control
 
-**`README.md` promised "any language can implement BMX" and `docs/` did not mention `tests/harness.py`
+**`README.md` promised "any language can implement BMX" and `docs/` did not mention the harness
 once.** Grepped by the star-burxt session across every page: zero hits, and nothing under `docs/`
 matched *implement BMX*, *your own implementation* or *another language* either. So the capability was
 real — the harness takes an arbitrary command string, and a stranger can conform in an afternoon — and
@@ -32,10 +32,12 @@ What it asserts, and why each one is a thing that would actually break:
 conformance case is a gate that argues against the thing this project wants to be frictionless.
 """
 
+import os
 import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -69,8 +71,12 @@ def main():
 
     # 1 + 2. The page names runners; a runner named on a page and absent from the tree is the
     # failure this file is named after, one level down.
-    named = sorted(set(re.findall(r"tests/([a-z_]+\.py)", page)))
-    check("the page tells a stranger which runner to use", "harness.py" in named,
+    # **`.bx` as well as `.py`, because the runner the page names is Burxt now.** This matched only
+    # `.py` and would have reported "the page tells a stranger which runner to use" as false the moment
+    # `harness.py` became `harness.bx` — a check keyed to a file extension, which is the same shape as
+    # the one keyed to a filename in `tests/extension.py`.
+    named = sorted(set(re.findall(r"tests/([a-z_]+\.(?:py|bx))", page)))
+    check("the page tells a stranger which runner to use", "harness.bx" in named,
           "the page names %r" % named)
     missing = [n for n in named if not (HERE / n).is_file()]
     check("every runner the page names exists", not missing, "named but absent: %s" % missing)
@@ -79,10 +85,18 @@ def main():
     # command that is not a BMX parser — the wrong-binary case `probe.py` exists for — so the shape
     # check has nothing to match and must say so.
     command = "node reference/bmx.js" if not broken else "node reference/bmx.js --render"
-    run = subprocess.run(
-        [sys.executable, str(HERE / "harness.py"), command],
-        capture_output=True, text=True, cwd=str(ROOT),
-    )
+    # **The harness is a Burxt program now**, so it is built before it is driven. `BMX_HARNESS` lets a
+    # caller pass a build it already has; without it, this builds one, because a check that needs a
+    # toolchain and does not say so is a check that fails confusingly on a machine without one.
+    harness = os.environ.get("BMX_HARNESS")
+    if not harness:
+        built = pathlib.Path(tempfile.mkdtemp(prefix="bmx-invitation-")) / "harness"
+        made = subprocess.run(["burxt", "build", str(HERE / "harness.bx"), "-o", str(built)],
+                              capture_output=True, text=True, cwd=str(ROOT))
+        if made.returncode != 0:
+            sys.exit(f"cannot build the harness this page names:\n{made.stdout}{made.stderr}")
+        harness = str(built)
+    run = subprocess.run([harness, command], capture_output=True, text=True, cwd=str(ROOT))
     last = [l for l in run.stdout.strip().splitlines() if l.strip()]
     tally = re.match(r"^(\d+) cases, (\d+) passed, (\d+) failed$", last[-1]) if last else None
     check("the harness still prints the count the page shows", tally is not None,

@@ -132,9 +132,14 @@ def main():
             reason = "vendored"
         else:
             reason = declared(path)
-        if prove and rel == "tests/harness.py":
+        if prove and rel == "tests/languages.py":
             # The control is a real file with its marker taken away — the defect as it would happen,
             # somebody adding a runner and not saying why it is not Burxt.
+            #
+            # **It named `tests/harness.py` until that file became `harness.bx`**, at which point the
+            # control silently stopped having a subject and reported success: a control keyed to a
+            # filename is a control that expires when the file is right to rename. It now names this
+            # file, which cannot be renamed without editing this line.
             reason = None
         if reason is None:
             missing.append(rel)

@@ -102,7 +102,8 @@ parses to this, and the fixtures look like it:
 ## Running the suite against your implementation
 
 ```sh
-python3 tests/harness.py '<your command>'
+burxt build tests/harness.bx -o harness
+./harness '<your command>'
 ```
 
 The command is run **once per case with the document's path appended**, and must either
@@ -113,9 +114,9 @@ The command is run **once per case with the document's path appended**, and must
 So most people point it at a two-line wrapper:
 
 ```sh
-python3 tests/harness.py 'node reference/bmx.js'
-python3 tests/harness.py './my-bmx --ast'
-python3 tests/harness.py 'python3 -m mybmx.cli'
+./harness 'node reference/bmx.js'
+./harness './my-bmx --ast'
+./harness 'python3 -m mybmx.cli'
 ```
 
 It prints one line per failure, then a count — which grows as cases are added, so treat the numbers
@@ -128,10 +129,17 @@ here as a shape rather than a target:
 92 cases, 91 passed, 1 failed
 ```
 
-**The harness is thirty lines of Python and is deliberately not part of the specification.** If
-Python is inconvenient where you are, throw it away and write your own — the cases are the
-specification, not the script that walks them. Nothing in BMX requires you to run our tooling to
-claim conformance.
+**The harness is not part of the specification, and it needs a Burxt compiler to build.** That is a
+prerequisite this page did not have when the harness was thirty lines of Python, and it is stated rather
+than buried: **this repository builds its own tooling in the language it serves, and that choice is not a
+claim on yours.**
+
+**So if a Burxt toolchain is inconvenient where you are, throw the harness away and write your own.** The
+loop is: for each `.bmx` in `cases/`, run your parser, compare the JSON to the `.json` beside it — as
+parsed values, because key order is not specified; for each `.bmx` in `errors/`, expect a non-zero exit and
+an error beginning with the code in the `.error` file. That is the whole contract, it is a page of code in
+any language, and **the cases are the specification, not the program that walks them.** Nothing in BMX
+requires you to run our tooling to claim conformance.
 
 ## The four things an implementation gets wrong
 
@@ -175,7 +183,8 @@ Passing the suite proves you match what was written down. It cannot prove that w
 covers everything, because a suite is made of the things somebody thought of.
 
 ```sh
-python3 tests/agree.py 'node reference/bmx.js' '<your command>'
+burxt build tests/agree.bx -o agree
+./agree 'node reference/bmx.js' '<your command>'
 ```
 
 Both commands are run over every document in `tests/cases` and `tests/errors`. Success must produce

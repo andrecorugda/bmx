@@ -1,0 +1,131 @@
+// tests/agree.bx — check that two BMX implementations agree, on documents nobody wrote a case for.
+//
+//     burxt build tests/agree.bx -o agree && ./agree '<command A>' '<command B>' [directory]
+//
+// Both commands are run over every `.bmx` file in the directory (default: `tests/cases` and
+// `tests/errors`). Success must produce the same AST; failure must produce the same error CODE. The
+// message after the code is each implementation's own words and is not compared.
+//
+// **Why this exists separately from the harness.** The conformance suite asks *does this implementation
+// match what we wrote down*. This asks the harder question: *do two implementations reach the same answer
+// where nothing was written down?* Those come apart exactly where a specification is ambiguous — and a
+// suite cannot find its own blind spots, because it is made of them.
+//
+// **Its limit, stated because it would otherwise be overclaimed:** agreement between two implementations
+// written by the same author is weaker evidence than agreement between two written by strangers. It
+// catches drift and regression; it does not prove the spec unambiguous.
+//
+// **A blind spot in the corpus, written down because it has already produced two real divergences.** No
+// fixture contained a control byte until one was measured, and none contained an apostrophe — the first
+// character in every escape table. Both were found by asking *what does the format permit that the corpus
+// has never once contained*, and both were places two implementations were free to disagree. That question
+// is the method; this runner is only the instrument.
+use "support.bx";
+use "std/json.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+class Answer { kind: String, detail: String }
+
+function answer_for(command: String, path: String) -> Answer touches commands, files, input {
+    let r: Capture = os_capture_status(command + " " + file_quote(path));
+    if r.code == 0 {
+        match json_parse(r.output) {
+            Error(why) => {
+                return Answer { kind: "broken", detail: string_trim(r.output) };
+            }
+            Ok(tree) => {
+                // Keys sorted, because the specification says nothing about their order — see `canonical`.
+                return Answer { kind: "ast", detail: json_render(canonical(tree)) };
+            }
+        }
+    }
+    let mutable said: String = string_trim(r.errors);
+    if len(said) == 0 {
+        said = string_trim(r.output);
+    }
+    // The CODE only: the prose after it is each implementation's own.
+    let cut: Int = string_find(said, " ");
+    if cut < 0 {
+        return Answer { kind: "error", detail: said };
+    }
+    return Answer { kind: "error", detail: substring(said, 0, cut) };
+}
+
+let mutable a_cmd: String = "";
+let mutable b_cmd: String = "";
+let mutable where: String = "";
+let mutable seen: Int = 0;
+let mutable i: Int = 1;
+while i < os_arg_count() {
+    let arg: String = os_arg(i);
+    if seen == 0 {
+        a_cmd = arg;
+    } else {
+        if seen == 1 {
+            b_cmd = arg;
+        } else {
+            where = arg;
+        }
+    }
+    seen += 1;
+    i += 1;
+}
+if len(a_cmd) == 0 || len(b_cmd) == 0 {
+    print_error("usage: agree '<command A>' '<command B>' [directory]");
+    exit(2);
+}
+
+let p1: Int = speaks(a_cmd, "ast");
+let p2: Int = speaks(b_cmd, "ast");
+
+let mutable roots: [String] = [];
+if len(where) > 0 {
+    let r: Int = push(roots, where);
+} else {
+    let r1: Int = push(roots, "tests/cases");
+    let r2: Int = push(roots, "tests/errors");
+}
+
+let mutable paths: [String] = [];
+let mutable r: Int = 0;
+while r < len(roots) {
+    let names: [String] = documents_in(roots[r]);
+    let mutable n: Int = 0;
+    while n < len(names) {
+        let a: Int = push(paths, roots[r] + "/" + names[n]);
+        n += 1;
+    }
+    r += 1;
+}
+if len(paths) == 0 {
+    print_error("no .bmx documents found — refusing to report agreement over nothing");
+    exit(2);
+}
+
+let mutable disagreements: [String] = [];
+let mutable k: Int = 0;
+while k < len(paths) {
+    let path: String = paths[k];
+    let left: Answer = answer_for(a_cmd, path);
+    let right: Answer = answer_for(b_cmd, path);
+    if left.kind != right.kind || left.detail != right.detail {
+        let names: [String] = string_split(path, "/");
+        let name: String = names[len(names) - 1];
+        let d: Int = push(disagreements, name + "\n  A " + left.kind + " " + left.detail
+                + "\n  B " + right.kind + " " + right.detail);
+    }
+    k += 1;
+}
+
+let mutable m: Int = 0;
+while m < len(disagreements) {
+    print(disagreements[m]);
+    m += 1;
+}
+print(to_string(len(paths)) + " documents, " + to_string(len(paths) - len(disagreements))
+        + " agree, " + to_string(len(disagreements)) + " differ");
+if len(disagreements) > 0 {
+    exit(1);
+}
+exit(0);

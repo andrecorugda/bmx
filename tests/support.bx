@@ -1,0 +1,194 @@
+// tests/support.bx — what more than one runner here needs, in one place.
+//
+// **One helper with five callers rather than five copies of a smoke test**, which is the lesson this
+// repository keeps re-learning: nine escape defects that were one recursion, five separator checks that
+// were one predicate, three consuming loops that wanted one refusal.
+use "std/files.bx";
+use "std/json.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+// ---- is this a BMX reader at all? ----------------------------------------------
+//
+// **Every runner here takes a binary path and used to take the WRONG one politely.** The Burxt session
+// pointed `harness` at the compiler instead of the parser it had just built, and got *87 cases, 87
+// failed*, with the compiler's usage text in every "got". The report was 87 defects when the fact was one
+// wrong argument.
+//
+// **A check that cannot tell "this is broken" from "you handed me the wrong thing" sends you to debug the
+// wrong thing**, and it does it confidently, which is worse than saying nothing.
+
+// A document every conforming reader must handle, chosen to be the least interesting one possible: if a
+// tool cannot answer for this, nothing it says about the other cases means anything.
+pure function trivial_document() -> String {
+    return "hello\n";
+}
+
+function speaks(command: String, kind: String) -> Int touches commands, files, input {
+    let mutable marker: String = "";
+    let mutable described: String = "";
+    if kind == "ast" {
+        marker = "\"type\":\"document\"";
+        described = "an AST — JSON whose root is \{\"type\":\"document\"\}";
+    } else {
+        marker = "<article";
+        described = "a rendered page — HTML beginning with <article";
+    }
+
+    match file_temp_directory("bmx-probe") {
+        None => {
+            print_error("cannot make a scratch directory to probe with");
+            exit(2);
+        }
+        Some(dir) => {
+            let doc: String = dir + "/probe.bmx";
+            let w: Int = file_write(doc, trivial_document());
+            let r: Capture = os_capture_status(command + " " + file_quote(doc));
+            let said: String = r.output + r.errors;
+            // Spaces removed on both sides, so a reader that pretty-prints its JSON still counts.
+            if string_contains(string_replace(said, " ", ""), string_replace(marker, " ", "")) {
+                return 0;
+            }
+            // The diagnosis, not just the refusal — the point is to name the likely mistake.
+            let lines: [String] = string_split(string_trim(said), "\n");
+            let mutable first: String = "(no output)";
+            if len(lines) > 0 && len(lines[0]) > 0 {
+                first = lines[0];
+                if len(first) > 90 {
+                    first = substring(first, 0, 90);
+                }
+            }
+            print_error("'" + command + "' does not answer with " + described + ".");
+            print_error("  it said: " + first);
+            let lowered: String = said;
+            if string_find_ignore_case(lowered, "usage") >= 0
+                    || string_find_ignore_case(lowered, "burxt") >= 0 {
+                print_error("  that looks like a COMPILER rather than the program it builds — did you pass"
+                        + " `burxt` where you meant the binary it produced?");
+            }
+            print_error("  nothing this suite reports about it would mean anything, so it is stopping here"
+                    + " rather than blaming every document for one wrong argument.");
+            exit(2);
+        }
+    }
+    return 0;
+}
+
+// ---- comparing two trees -------------------------------------------------------
+//
+// **Object keys are sorted before comparing, because the specification is order-insensitive.** The Python
+// this replaced compared parsed dictionaries, where `{"a":1,"b":2}` equals `{"b":2,"a":1}`; rendering both
+// sides and comparing strings would have been stricter than the suite requires, and a runner stricter than
+// the spec reports a conformance failure that is not one. `burxt/conformance.bx` carries the same note
+// about being deliberately stricter — it drives one implementation, and this drives anybody's.
+function canonical(node: Json) -> Json {
+    match node {
+        Object(fields) => {
+            let mutable taken: [Bool] = [];
+            let mutable i: Int = 0;
+            while i < len(fields) {
+                let t: Int = push(taken, false);
+                i += 1;
+            }
+            let mutable sorted: [Field] = [];
+            let mutable placed: Int = 0;
+            while placed < len(fields) {
+                let mutable best: Int = 0 - 1;
+                let mutable j: Int = 0;
+                while j < len(fields) {
+                    if !taken[j] {
+                        if best < 0 {
+                            best = j;
+                        } else {
+                            if string_compare(fields[j].name, fields[best].name) < 0 {
+                                best = j;
+                            }
+                        }
+                    }
+                    j += 1;
+                }
+                taken[best] = true;
+                let a: Int = push(sorted, json_field(fields[best].name, canonical(fields[best].value)));
+                placed += 1;
+            }
+            return json_object(sorted);
+        }
+        List(items) => {
+            let mutable kept: [Json] = [];
+            let mutable i: Int = 0;
+            while i < len(items) {
+                let a: Int = push(kept, canonical(items[i]));
+                i += 1;
+            }
+            return json_list(kept);
+        }
+        Null => { return node; }
+        Truth(b) => { return node; }
+        Number(d) => { return node; }
+        Text(s) => { return node; }
+    }
+}
+
+// The names in a directory, sorted, since `ls` already sorts and every runner wants a stable order.
+function documents_in(directory: String) -> [String] touches commands, files, input {
+    let mutable out: [String] = [];
+    match file_list_directory(directory) {
+        None => {
+            return out;
+        }
+        Some(entries) => {
+            let mutable i: Int = 0;
+            while i < len(entries) {
+                if string_ends_with(entries[i], ".bmx") {
+                    let a: Int = push(out, entries[i]);
+                }
+                i += 1;
+            }
+            return out;
+        }
+    }
+}
+
+// ---- rendering a tree the way a reader wants to see it -------------------------
+//
+// **`json_render` is compact and sorts nothing; a failure message wants neither.** The Python this
+// replaced printed `json.dumps`, which keeps the file's own key order and puts a space after every `:`
+// and `,` — so a reader comparing the two lines of a mismatch sees them in the shape the fixture is
+// written in. Comparing canonically and PRINTING canonically is a different thing, and the first version
+// of the port did that: the diff showed reordered keys, which is a second difference the reader then has
+// to discount.
+//
+// So: compare with `canonical`, print with this. The spacing matches `json.dumps`' defaults exactly, so a
+// failure from this runner is byte-identical to a failure from the Python it replaced.
+function render_spaced(node: Json) -> String {
+    match node {
+        Object(fields) => {
+            let mutable out: String = "\{";
+            let mutable i: Int = 0;
+            while i < len(fields) {
+                if i > 0 {
+                    out = out + ", ";
+                }
+                out = out + "\"" + json_escape(fields[i].name) + "\": " + render_spaced(fields[i].value);
+                i += 1;
+            }
+            return out + "\}";
+        }
+        List(items) => {
+            let mutable out: String = "[";
+            let mutable i: Int = 0;
+            while i < len(items) {
+                if i > 0 {
+                    out = out + ", ";
+                }
+                out = out + render_spaced(items[i]);
+                i += 1;
+            }
+            return out + "]";
+        }
+        Null => { return "null"; }
+        Truth(b) => { return json_render(node); }
+        Number(d) => { return json_render(node); }
+        Text(s) => { return json_render(node); }
+    }
+}

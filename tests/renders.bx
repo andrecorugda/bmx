@@ -1,0 +1,123 @@
+// tests/renders.bx — two renderers, one page: do they agree?
+//
+//     burxt build tests/renders.bx -o renders && ./renders '<render command>'
+//
+// `tests/harness.bx` asks whether an implementation parses to the right tree. This asks the level-1
+// question the tree cannot: **does it produce the same page?** Two implementations can agree on every AST
+// in the corpus and still disagree about what to do with it — a different heading tag, a different escape
+// set, a link scheme one allows and the other refuses.
+//
+// It exists because the claim came before the code. `README.md` listed `reference/bmx.js` as "1 — renders"
+// while that file exported only `parse`, and `BOUNDARY.md` defines level 1 as parsing *and* substituting
+// slot values with escaping applied.
+//
+// **Exact bytes for the page, stripped only for the refusal prefix.** Both sides used to be trimmed before
+// every comparison, which made a trailing-byte difference invisible while the check reported agreement —
+// the same defect the Burxt session found twice in their own harnesses. **Agreement between a lax check and
+// a lax check is not agreement about the output.** Measured before tightening: every document was already
+// byte-identical, so the strip was free.
+//
+// **This is stricter than `ESCAPING.md`**, which names the characters a host escapes and says the host
+// supplies the function — so two implementations may legitimately spell one entity differently and both be
+// conformant. Comparing pages byte-for-byte is a claim about two implementations meant to be
+// interchangeable, not a claim about the format. It caught the apostrophe transition for exactly that
+// reason, one commit before it would have shipped.
+//
+// **The shim it writes is JavaScript because the renderer it drives is.** `reference/bmx.js` exports
+// `render`, and calling it needs Node; that is the artefact under test rather than a language choice.
+use "support.bx";
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+// The bindings `tools/render.bx` declares. Both renderers must be handed the same ones, or this compares
+// two different questions.
+let BINDINGS: String = "\{\"name\": \"Ada\", \"customer.name\": \"Ada Lovelace\", \"order.reference\": \"R-4417\", \"order.total\": \"$59.97\", \"order.delivery\": \"Thursday\", \"order.paid_at\": \"16 August\"\}";
+
+let mutable command: String = "";
+if os_arg_count() > 1 {
+    command = os_arg(1);
+}
+if len(command) == 0 {
+    print_error("usage: renders '<render command>'");
+    exit(2);
+}
+let probed: Int = speaks(command, "page");
+
+match file_temp_directory("bmx-renders") {
+    None => {
+        print_error("cannot make a scratch directory");
+        exit(2);
+    }
+    Some(scratch) => {
+        let runner: String = scratch + "/renders.mjs";
+        let mutable cwd: String = ".";
+        match os_cwd() {
+            None => {
+                print_error("cannot read the working directory");
+                exit(2);
+            }
+            Some(here) => {
+                cwd = here;
+            }
+        }
+        let shim: String = "\nimport \{ render, BmxError \} from '" + "file://" + cwd + "/reference/bmx.js"
+                + "'\nimport \{ readFileSync \} from 'node:fs'\nconst bindings = " + BINDINGS + "\ntry \{\n  process.stdout.write(render(readFileSync(process.argv[2], 'utf8'), bindings) + '\\n')\n\} catch (e) \{\n  process.stdout.write((e instanceof BmxError ? e.message : String(e)) + '\\n')\n\}\n";
+        let w: Int = file_write(runner, shim);
+
+        let names: [String] = documents_in("tests/cases");
+        let mutable same: Int = 0;
+        let mutable refused: Int = 0;
+        let mutable differ: [String] = [];
+        let mutable i: Int = 0;
+        while i < len(names) {
+            let doc: String = "tests/cases/" + names[i];
+            let js_run: Capture = os_capture_status("node " + file_quote(runner) + " " + file_quote(doc));
+            let bx_run: Capture = os_capture_status(command + " " + file_quote(doc));
+            let js_page: String = js_run.output;
+            let bx_page: String = bx_run.output;
+            let js: String = string_trim(js_page);
+            let bx: String = string_trim(bx_page);
+            let mutable counted: Bool = false;
+            if string_starts_with(js, "BMX-R") && string_starts_with(bx, "BMX-R") {
+                let ja: [String] = string_split(js, ":");
+                let ba: [String] = string_split(bx, ":");
+                if ja[0] == ba[0] {
+                    refused += 1;
+                    counted = true;
+                }
+            }
+            if !counted {
+                if js_page == bx_page {
+                    same += 1;
+                } else {
+                    let mutable jshown: String = js;
+                    if len(jshown) > 200 { jshown = substring(jshown, 0, 200); }
+                    let mutable bshown: String = bx;
+                    if len(bshown) > 200 { bshown = substring(bshown, 0, 200); }
+                    let d: Int = push(differ, names[i] + "\n    reference: " + jshown
+                            + "\n    burxt:     " + bshown);
+                }
+            }
+            i += 1;
+        }
+        let deleted: Bool = file_delete(runner);
+
+        print(to_string(len(names)) + " valid documents in tests/cases: " + to_string(same)
+                + " rendered identically, " + to_string(refused) + " refused by both with the same code");
+        print("(tests/errors/ holds 22 more that do not parse — nothing to render)");
+        if len(differ) > 0 {
+            let mutable k: Int = 0;
+            while k < len(differ) && k < 5 {
+                print("");
+                print("  DIFFER " + differ[k]);
+                k += 1;
+            }
+            print("");
+            print(to_string(len(differ)) + " differ");
+            exit(1);
+        }
+        print("the two renderers agree on every document");
+        exit(0);
+    }
+}
