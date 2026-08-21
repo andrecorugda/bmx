@@ -891,10 +891,15 @@ match file_read_maybe(LOCKUP) {
     }
     Some(text) => { svg = text; }
 }
-let mutable white: Bool = has_white_rect(svg);
+// **The control plants a rect in the TEXT, not a `true` in the variable.** It set the flag directly —
+// which proves the reporting works and says nothing about whether the scanner still recognises a white
+// rect. That is the defect `tests/extension.bx` records one file over: *through the extractor, not
+// straight into the set*. The planted attribute order is deliberately not the order the real file uses,
+// because a scanner that only matches one attribute order is the thing being tested.
 if prove {
-    white = true;
+    svg = string_replace_first(svg, "<rect", "<rect y=\"0\" fill=\"#FFFFFF\" width=\"239\"/><rect");
 }
+let white: Bool = has_white_rect(svg);
 if white {
     failures += 1;
     print("  FAIL  " + LOCKUP + " has a white <rect>, which shows as a box on any tinted surface");

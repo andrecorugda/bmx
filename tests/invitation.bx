@@ -279,6 +279,7 @@ match file_read_maybe(PAGE) {
         // 2b. And every runner ANY page tells a reader to run.
         let mutable commanded: [String] = [];
         let mutable pages: [String] = [];
+        let mutable seen: Int = 0;
         match file_walk(".") {
             None => {
                 print_error("cannot walk the tree — run this from the repository root");
@@ -303,6 +304,7 @@ match file_read_maybe(PAGE) {
                             None => { }
                             Some(body) => {
                                 let named_here: [String] = runners_commanded(body);
+                                seen += len(named_here);
                                 let mutable n: Int = 0;
                                 while n < len(named_here) {
                                     if !file_is_file(named_here[n]) && !array_has(commanded,
@@ -319,17 +321,28 @@ match file_read_maybe(PAGE) {
                 }
             }
         }
-        if len(commanded) == 0 {
-            print("  ok    every runner a command on any page names exists ("
-                    + to_string(len(pages)) + " pages)");
-        } else {
+        // **The pages were counted and the PATHS were not, which is the hole one level down.** Breaking
+        // the command predicate printed *"every runner a command on any page names exists (24 pages)"* and
+        // exited 0, over zero paths examined: a count of what was searched is not a count of what was
+        // found. So the number that has to be non-zero is the one the assertion is about.
+        if seen == 0 {
             print("  FAIL  every runner a command on any page names exists");
-            let mutable c: Int = 0;
-            while c < len(commanded) {
-                print("          " + commanded[c] + " is not in the tree");
-                c += 1;
-            }
+            print("          no command on any of " + to_string(len(pages))
+                    + " pages names a runner at all, so this compared nothing against the tree");
             let f: Int = push(failures, "every runner a command on any page names exists");
+        } else {
+            if len(commanded) == 0 {
+                print("  ok    every runner a command on any page names exists (" + to_string(seen)
+                        + " named across " + to_string(len(pages)) + " pages)");
+            } else {
+                print("  FAIL  every runner a command on any page names exists");
+                let mutable c: Int = 0;
+                while c < len(commanded) {
+                    print("          " + commanded[c] + " is not in the tree");
+                    c += 1;
+                }
+                let f: Int = push(failures, "every runner a command on any page names exists");
+            }
         }
 
         // 3. The shape the page prints, from the runner rather than from memory. The control hands it a

@@ -700,10 +700,18 @@ while m < len(named) {
     }
     m += 1;
 }
-let k8: Int = push(claims, Claim { ok: len(missing_named) == 0,
+// **And it must have found some.** Proven by breaking the `install-extension` test: *"every .vsix the
+// documentation names exists ()"*, exit 0 — six pages of install commands compared against nothing. The
+// empty parenthesis was printed and read past. Same shape as a negative assertion over an absent string.
+let mutable named_trouble: String = "the documentation tells someone to install "
+        + string_join(missing_named, ", ") + ", which is not in the tree";
+if len(named) == 0 {
+    named_trouble = "no install line on any of the pages names a .vsix at all, so this compared nothing"
+            + " against the tree — the scan has stopped seeing them";
+}
+let k8: Int = push(claims, Claim { ok: len(missing_named) == 0 && len(named) > 0,
         ok_line: "every .vsix the documentation names exists (" + string_join(named, ", ") + ")",
-        fail_line: "the documentation tells someone to install " + string_join(missing_named, ", ")
-                + ", which is not in the tree" });
+        fail_line: named_trouble });
 
 // The path half of the same promise. A directory is not a file, so the check above cannot see it.
 let mutable bare: [String] = [];

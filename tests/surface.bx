@@ -312,10 +312,23 @@ match file_read_maybe(SOURCE) {
                             + " is `public` — reachable by any host — and appears in no documentation");
                     k += 1;
                 }
-                if len(undocumented) == 0 {
-                    print("  " + to_string(len(exported)) + " public functions, all of them written down");
+                // **Zero public functions is not "all of them written down".** Proven by breaking the
+                // declaration scan: *"0 public functions, all of them written down"*, exit 0 — the whole
+                // reverse direction gone, silently, while the forward one still passed because it reads
+                // the docs rather than the source. An assertion of ABSENCE is satisfied by an absent
+                // subject, which is the same shape as a negative assertion over an empty string, and the
+                // fix is the same: the count carries its own floor.
+                if len(exported) == 0 {
+                    failures += 1;
+                    print("  FAIL  no `public function` found in " + SOURCE + " at all, so the reverse"
+                            + " direction compared the documentation against nothing");
                 } else {
-                    print("  " + to_string(len(exported)) + " public functions");
+                    if len(undocumented) == 0 {
+                        print("  " + to_string(len(exported))
+                                + " public functions, all of them written down");
+                    } else {
+                        print("  " + to_string(len(exported)) + " public functions");
+                    }
                 }
 
                 if prove {
