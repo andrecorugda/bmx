@@ -599,7 +599,7 @@ function parseBlocks(rows, from, open, openRow) {
     // in 0.7 that most people will meet, so it says what to run.
     if (OLD_FENCE.test(text)) {
       throw new BmxError('BMX-E036', row.offset,
-        'this is the 0.6 fence: 0.7 opens with `:name:` and closes with `:!name:`. Run `python3 tools/migrate-0.7.py` over the file')
+        'this is the 0.6 fence: 0.7 opens with `:name:` and closes with `:!name:`. Run `burxt run tools/migrate-0.7.bx` over the file')
     }
 
     // ---- a closer: `:!name:` ----

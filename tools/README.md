@@ -8,7 +8,7 @@ the same defect as a spec sentence nobody ran.
     burxt build page.bx -o page && ./page ex2        # source + rendered, side by side
     burxt build errpage.bx -o errpage && ./errpage err1   # source + the refusal
     burxt build fmt.bx -o fmt && ./fmt ../docs/*.md   # indent every example, one per open block
-    python3 migrate-0.7.py FILE...          # 0.6 fences -> 0.7, tracking a stack
+    burxt build migrate-0.7.bx -o migrate-0.7 && ./migrate-0.7 FILE...   # 0.6 fences -> 0.7, tracking a stack
     burxt build showcase.bx -o showcase && ./showcase   # the landing page, LIVE HTML -> docs/_includes/
     node shot.mjs ex1 ex2 ex3 err1 editor skins        # -> PNG, 2x, cropped to the panels
 

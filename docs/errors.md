@@ -212,7 +212,7 @@ to delete.
 ```
 
 ```
-BMX-E036 at 0: this is the 0.6 fence: 0.7 opens with `:name:` and closes with `:!name:`. Run `python3 tools/migrate-0.7.py` over the file
+BMX-E036 at 0: this is the 0.6 fence: 0.7 opens with `:name:` and closes with `:!name:`. Run `burxt run tools/migrate-0.7.bx` over the file
 ```
 
 0.7 respelled the fence. The old one is recognised **only** so that it can be refused by name — a 0.6

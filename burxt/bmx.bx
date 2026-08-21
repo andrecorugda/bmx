@@ -1092,7 +1092,7 @@ function bmx_parse_blocks(lines: [BmxLine], from: Int, open: String, open_row: I
                 // ---- a 0.6 document, refused by name so nobody meets it as paragraph text --------
                 if bmx_is_old_fence(text) {
                     return Result.Error(bmx_error("BMX-E036", line.offset,
-                            "this is the 0.6 fence: 0.7 opens with `:name:` and closes with `:!name:`. Run `python3 tools/migrate-0.7.py` over the file"));
+                            "this is the 0.6 fence: 0.7 opens with `:name:` and closes with `:!name:`. Run `burxt run tools/migrate-0.7.bx` over the file"));
                 }
                 let closer: String = bmx_closer_name(text);
                 if len(closer) > 0 {

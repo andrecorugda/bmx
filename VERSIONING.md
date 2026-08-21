@@ -297,7 +297,7 @@ Three things rode along, and each was only cheap *because* a major was already h
   rendering as text is the exact silence this format exists to remove, and only the fixture caught it:
   `030-block-name-not-a-name` could not be migrated without the rule.
 
-**A migration is a tool, not a note.** `tools/migrate-0.7.py` rewrites documents and the `bmx` fences
+**A migration is a tool, not a note.** `tools/migrate-0.7.bx` rewrites documents and the `bmx` fences
 inside markdown, tracking a stack — because a bare `:::` carries no name, so what it becomes depends on
 what is open, so a `sed` cannot do it. Handing a consumer a regex would have handed them a silent
 mis-migration on their first nested component.

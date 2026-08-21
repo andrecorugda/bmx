@@ -466,6 +466,19 @@ jobs:
       - name: A document becomes a view the compiler checks
         run: burxt run burxt/guarantees.bx
 
+      # **`BMX-E036` names a tool, and the tool had no runner.** Its header promised that a closer with
+      # nothing open, an unterminated block and a longer fence each stop the file — and the code printed
+      # the message and then rewrote the file, because the write ran after the problems rather than
+      # instead of. A year of nobody noticing, in a docstring nothing checked. The last claim here is the
+      # one that generalises: a path inside a diagnostic is a promise to a stranger, and this is the
+      # second time one went stale (`BMX-W005` was the first).
+      - name: The migrator does what its own header says, and E036 names a file that is there
+        run: |
+          burxt build tools/migrate-0.7.bx -o /tmp/migrate-0.7
+          burxt build tests/migration.bx -o /tmp/migration
+          BMX_MIGRATE=/tmp/migrate-0.7 /tmp/migration "node reference/bmx.js"
+          BMX_MIGRATE=/tmp/migrate-0.7 /tmp/migration "node reference/bmx.js" --prove-it
+
       # A package is not usable because its own tests pass — star-burxt's suite was green through a
       # gap that made every symbol unreachable, because its only consumer lived inside the package.
       # So: a program OUTSIDE this repository, reaching BMX the way anyone else would.

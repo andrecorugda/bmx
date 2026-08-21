@@ -1,0 +1,314 @@
+// tests/migration.bx — the migrator does what its own header says it does.
+//
+//     burxt build tests/migration.bx -o migration
+//     ./migration 'node reference/bmx.js'
+//     ./migration 'node reference/bmx.js' --prove-it     # the negative control
+//
+// BMX_MIGRATE names the migrator to drive; it defaults to `./migrate-0.7`.
+//
+// **This check exists because the tool's docstring was false for its whole life.** It said a closer with
+// nothing open, an unterminated block and a longer fence each "stop the file with a message rather than
+// producing something plausible" — and then the code printed the message and rewrote the file anyway,
+// because `if new != text: write` ran after the problems were collected rather than instead of. Nobody
+// found it in a year, and nobody could have: the claim was in a docstring and the tool had no runner.
+//
+// So the assertions here are not a translation of the code. Each one is a sentence somebody wrote down:
+//
+//   * a closer learns its own name, and a NESTED closer learns the right one (the reason the tool is a
+//     program and not a `sed` line)
+//   * a ```bmx fence in the docs is a document; a ```python fence is somebody's code; and the line after
+//     a code fence closes is migrated again — the defect that made everything after the first fence in a
+//     file go unmigrated, and that accused `061-an-indented-code-fence-keeps-its-shape` of being broken
+//   * a bare ``` fence is a document only under `--plain-fences`
+//   * all three refusals refuse, and **the file is byte-for-byte what it was**
+//   * `--check` writes nothing
+//   * CRLF survives, because `019-crlf-is-a-line-ending` says it is one, and a lone CR is content,
+//     because `084-a-lone-cr-does-not-end-a-line` says it is not
+//   * what comes out parses, and what went in is refused as `BMX-E036` — the tool and the diagnostic
+//     that names it are the two halves of one promise
+//   * **the diagnostic names a file that exists**, in both implementations, with the same words. This is
+//     the assertion that had to be added: `BMX-W005` once named a tool that had been renamed, and the
+//     0.6 message named `tools/migrate-0.7.py` for exactly as long as that file existed.
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+class Ran { output: String, code: Int, after: String }
+class Claim { what: String, got: String, want: String }
+
+// ---- the control ---------------------------------------------------------------------------------
+//
+// Under `--prove-it` every observation is perturbed on its way in, so an assertion that cannot see its
+// subject fails loudly instead of passing quietly. A control that only perturbed the INPUT would prove
+// the migrator runs; this perturbs what is READ BACK, which is what each claim below actually looks at.
+//
+// **A claim may perturb its `got` or flip its `want`, never both.** Three claims did both on the first
+// run and passed the control: the perturbation made the observation false and the flip made false the
+// expected answer, so the two cancelled and the control reported them as working checks. A negative
+// control is itself a check, and this one needed watching fail before it was worth anything.
+
+pure function seen(text: String, prove: Bool) -> String {
+    if prove {
+        return string_replace(text, ":", ";");
+    }
+    return text;
+}
+
+pure function said(text: String, prove: Bool) -> String {
+    if prove {
+        return "";
+    }
+    return text;
+}
+
+pure function pathish(text: String, prove: Bool) -> String {
+    if prove {
+        return text + "-nope";
+    }
+    return text;
+}
+
+pure function yes(condition: Bool) -> String {
+    if condition {
+        return "yes";
+    }
+    return "no";
+}
+
+// Every claim is one string comparison, so one loop reports all of them and the control has one place
+// to break. `\n` and `\r` are shown as escapes because a diff of two documents that differ by a line
+// ending is unreadable otherwise — which is how the CRLF defect stayed invisible.
+pure function visible(text: String) -> String {
+    return string_replace(string_replace(text, "\n", "\\n"), "\r", "\\r");
+}
+
+// ---- driving it ---------------------------------------------------------------------------------
+
+function run_on(migrator: String, scratch: String, name: String, text: String, flags: String,
+        prove: Bool) -> Ran touches commands, files, input {
+    let path: String = scratch + "/" + name;
+    let w: Int = file_write(path, text);
+    let r: Capture = os_capture_status(migrator + " " + flags + " " + file_quote(path) + " 2>&1");
+    match file_read_maybe(path) {
+        None => {
+            return Ran { output: r.output, code: r.code, after: "" };
+        }
+        Some(back) => {
+            return Ran { output: r.output, code: r.code, after: seen(back, prove) };
+        }
+    }
+}
+
+// ---- the diagnostic that names this tool -------------------------------------------------------
+//
+// The message, lifted out of an implementation's source. Use-not-mention: it is not enough that the
+// repository contains the tool's name somewhere, it has to be the name the message hands a reader.
+function message_in(path: String) -> String touches files {
+    match file_read_maybe(path) {
+        None => { return ""; }
+        Some(source) => {
+            let at: Int = string_find(source, "this is the 0.6 fence");
+            if at < 0 {
+                return "";
+            }
+            let end: Int = string_find_from(source, " over the file", at);
+            if end < 0 {
+                return "";
+            }
+            return substring(source, at, end + 14 - at);
+        }
+    }
+}
+
+// Every token in the message that looks like a path in this repository.
+pure function paths_named(message: String) -> [String] {
+    let mutable found: [String] = [];
+    let words: [String] = string_split(string_replace(message, "`", " "), " ");
+    let mutable i: Int = 0;
+    while i < len(words) {
+        let word: String = string_trim(words[i]);
+        if string_contains(word, "/") && string_contains(word, ".") {
+            let a: Int = push(found, word);
+        }
+        i += 1;
+    }
+    return found;
+}
+
+// ---- arguments ---------------------------------------------------------------------------------
+
+let mutable command: String = "node reference/bmx.js";
+let mutable prove: Bool = false;
+let mutable a: Int = 1;
+let mutable positional: Int = 0;
+while a < os_arg_count() {
+    let arg: String = os_arg(a);
+    if arg == "--prove-it" {
+        prove = true;
+    } else {
+        if positional == 0 {
+            command = arg;
+            positional += 1;
+        }
+    }
+    a += 1;
+}
+let migrator: String = os_env_or("BMX_MIGRATE", "./migrate-0.7");
+
+match file_temp_directory("bmx-migration") {
+    None => {
+        print_error("cannot make a scratch directory");
+        exit(2);
+    }
+    Some(scratch) => {
+        let mutable claims: [Claim] = [];
+
+        // ---- a closer learns its own name, and a nested one learns the right one ----------------
+        let nested: Ran = run_on(migrator, scratch, "nested.bmx",
+                "::: note Heads up\nbody\n\n::: tip\ninner\n:::\n:::\n", "", prove);
+        let c1: Int = push(claims, Claim {
+                what: "a nested closer takes the name of the block it closes",
+                got: nested.after,
+                want: ":note: Heads up\nbody\n\n:tip:\ninner\n:!tip:\n:!note:\n" });
+        let c2: Int = push(claims, Claim { what: "a clean migration says it rewrote the file",
+                got: yes(string_contains(said(nested.output, prove), "rewrote")), want: "yes" });
+        let c3: Int = push(claims, Claim { what: "a clean migration exits 0",
+                got: yes(nested.code == 0), want: yes(!prove) });
+
+        // ---- the indent stays, the head loses its padding -----------------------------------
+        let padded: Ran = run_on(migrator, scratch, "padded.bmx",
+                "  ::: card   A head with padding   \n\tbody\n  :::\n", "", prove);
+        let c4: Int = push(claims, Claim { what: "the indent survives and the head is trimmed",
+                got: padded.after, want: "  :card: A head with padding\n\tbody\n  :!card:\n" });
+
+        // ---- markdown fences -----------------------------------------------------------------
+        let fenced: Ran = run_on(migrator, scratch, "fenced.md",
+                "before\n```bmx\n::: note\nin\n:::\n```\n```python\n::: not_a_block\n```\nafter\n"
+                        + "::: real\nx\n:::\n", "", prove);
+        let c5: Int = push(claims, Claim {
+                what: "a bmx fence is a document, a python fence is code, and the file goes on being"
+                        + " migrated after the fence closes",
+                got: fenced.after,
+                want: "before\n```bmx\n:note:\nin\n:!note:\n```\n```python\n::: not_a_block\n```\n"
+                        + "after\n:real:\nx\n:!real:\n" });
+
+        // ---- a bare fence is a document only when asked ---------------------------------------
+        let bare: Ran = run_on(migrator, scratch, "bare1.md", "```\n::: note\n:::\n```\n", "", prove);
+        let c6: Int = push(claims, Claim { what: "a bare fence is somebody's code by default",
+                got: bare.after, want: "```\n::: note\n:::\n```\n" });
+        let plain: Ran = run_on(migrator, scratch, "bare2.md", "```\n::: note\n:::\n```\n",
+                "--plain-fences", prove);
+        let c7: Int = push(claims, Claim { what: "--plain-fences makes a bare fence a document",
+                got: plain.after, want: "```\n:note:\n:!note:\n```\n" });
+
+        // ---- the three refusals, and the file each one leaves behind ---------------------------
+        let orphan_text: String = "text\n:::\nmore\n";
+        let orphan: Ran = run_on(migrator, scratch, "orphan.bmx", orphan_text, "", prove);
+        let c8: Int = push(claims, Claim { what: "a closer with nothing open is named with its line",
+                got: yes(string_contains(said(orphan.output, prove),
+                        "orphan.bmx:2: a closer with nothing open")), want: "yes" });
+        let c9: Int = push(claims, Claim { what: "a refused file is BYTE-FOR-BYTE what it was",
+                got: orphan.after, want: orphan_text });
+        let c10: Int = push(claims, Claim { what: "a refusal exits non-zero",
+                got: yes(orphan.code != 0), want: yes(!prove) });
+
+        let longer_text: String = "::: outer\nx\n::::\n";
+        let longer: Ran = run_on(migrator, scratch, "longer.bmx", longer_text, "", prove);
+        let c11: Int = push(claims, Claim {
+                what: "a longer fence closing a shorter one is a person's decision",
+                got: yes(string_contains(said(longer.output, prove),
+                        "by being longer, which 0.7 removes")), want: "yes" });
+        let c12: Int = push(claims, Claim { what: "the longer-fence file is untouched too",
+                got: longer.after, want: longer_text });
+
+        let open_text: String = "::: one\n::: two\nbody\n";
+        let unclosed: Ran = run_on(migrator, scratch, "unclosed.bmx", open_text, "", prove);
+        let c13: Int = push(claims, Claim { what: "blocks that never close are counted and named",
+                got: yes(string_contains(said(unclosed.output, prove),
+                        "2 block(s) never closed: one, two")), want: "yes" });
+        let c14: Int = push(claims, Claim { what: "the never-closed file is untouched too",
+                got: unclosed.after, want: open_text });
+
+        // ---- --check writes nothing ------------------------------------------------------------
+        let dry_text: String = "::: note\nx\n:::\n";
+        let dry: Ran = run_on(migrator, scratch, "dry.bmx", dry_text, "--check", prove);
+        let c15: Int = push(claims, Claim { what: "--check changes no bytes",
+                got: dry.after, want: dry_text });
+        let c16: Int = push(claims, Claim { what: "--check says what it would do",
+                got: yes(string_contains(said(dry.output, prove), "would rewrite")), want: "yes" });
+
+        // ---- the two carriage-return rules, each from the fixture that fixes it ----------------
+        let crlf: Ran = run_on(migrator, scratch, "crlf.bmx", "::: note\r\nx\r\n:::\r\n", "", prove);
+        let c17: Int = push(claims, Claim {
+                what: "CRLF is a line ending (019) and the CR comes out where it went in",
+                got: crlf.after, want: ":note:\r\nx\r\n:!note:\r\n" });
+        let lone_text: String = "::: note\rx\r:::\r";
+        let lone: Ran = run_on(migrator, scratch, "lone.bmx", lone_text, "", prove);
+        let c18: Int = push(claims, Claim {
+                what: "a lone CR does not end a line (084), so this is one unclosed block",
+                got: lone.after, want: lone_text });
+        let c19: Int = push(claims, Claim { what: "and it is reported rather than reflowed",
+                got: yes(string_contains(said(lone.output, prove), "never closed")), want: "yes" });
+
+        // ---- what goes in is refused, and what comes out parses --------------------------------
+        let pair: String = scratch + "/pair.bmx";
+        let w1: Int = file_write(pair, "::: note Heads up\nbody\n:::\n");
+        let refused: Capture = os_capture_status(command + " " + file_quote(pair) + " 2>&1");
+        let c20: Int = push(claims, Claim { what: "the parser refuses a 0.6 document as BMX-E036",
+                got: yes(string_contains(said(refused.errors + refused.output, prove), "BMX-E036")),
+                want: "yes" });
+        let done: Capture = os_capture_status(migrator + " " + file_quote(pair) + " 2>&1");
+        let accepted: Capture = os_capture_status(command + " " + file_quote(pair) + " 2>&1");
+        let c21: Int = push(claims, Claim { what: "and accepts what the migrator made of it",
+                got: yes(accepted.code == 0
+                        && string_contains(said(accepted.output, prove), "\"block\"")),
+                want: "yes" });
+
+        // ---- the diagnostic names a tool that exists ------------------------------------------
+        let js: String = message_in("reference/bmx.js");
+        let bx: String = message_in("burxt/bmx.bx");
+        let c22: Int = push(claims, Claim { what: "both implementations carry a BMX-E036 message",
+                got: yes(len(said(js, prove)) > 0 && len(bx) > 0), want: "yes" });
+        let c23: Int = push(claims, Claim { what: "and it is the same message in both",
+                got: said(js, prove), want: bx });
+        let named: [String] = paths_named(js);
+        let c24: Int = push(claims, Claim { what: "the message names a file",
+                got: yes(len(paths_named(said(js, prove))) > 0), want: "yes" });
+        let mutable n: Int = 0;
+        while n < len(named) {
+            let candidate: String = pathish(named[n], prove);
+            let c25: Int = push(claims, Claim { what: "BMX-E036 tells a reader to run `" + candidate
+                    + "`, which has to exist", got: yes(file_exists(candidate)), want: "yes" });
+            n += 1;
+        }
+
+        let mutable broken: Int = 0;
+        let mutable k: Int = 0;
+        while k < len(claims) {
+            let claim: Claim = claims[k];
+            if claim.got != claim.want {
+                broken += 1;
+                print("  FAIL  " + claim.what);
+                print("          got  " + visible(claim.got));
+                print("          want " + visible(claim.want));
+            }
+            k += 1;
+        }
+        print("");
+        print(to_string(len(claims) - broken) + "/" + to_string(len(claims))
+                + " claims the migrator makes about itself hold");
+
+        if prove {
+            if broken > 0 {
+                print("the control failed as it must — every claim here has a subject that varies");
+                exit(0);
+            }
+            print("THE CONTROL DID NOT FAIL, so this check cannot see anything");
+            exit(1);
+        }
+        if broken > 0 {
+            exit(1);
+        }
+        exit(0);
+    }
+}

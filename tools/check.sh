@@ -219,9 +219,17 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
     burxt run burxt/guarantees.bx'
   run "every documented name is reachable, and every public name is documented" bash -c '
     python3 tests/surface.py && python3 tests/surface.py --prove-it'
+  # **The tool `BMX-E036` names had no runner at all**, and its header claimed for a year that a refusal
+  # leaves the file alone while the code rewrote it anyway. This check is that claim, plus the one nobody
+  # writes down: that the path in a diagnostic is a path that exists.
+  run "the migrator does what its own header says, and E036 names a file that is there" bash -c '
+    burxt build tools/migrate-0.7.bx -o /tmp/check-migrate &&
+    burxt build tests/migration.bx -o /tmp/check-migration &&
+    BMX_MIGRATE=/tmp/check-migrate /tmp/check-migration "node reference/bmx.js" &&
+    BMX_MIGRATE=/tmp/check-migrate /tmp/check-migration "node reference/bmx.js" --prove-it'
 else
   skip 'the Burxt half needs `burxt` on PATH and BURXT_LIB set — see docs/install.md' \
-       'the Burxt half (9, no toolchain)'
+       'the Burxt half (10, no toolchain)'
 fi
 
 echo

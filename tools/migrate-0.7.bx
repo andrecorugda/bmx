@@ -1,0 +1,302 @@
+// tools/migrate-0.7.bx — rewrites BMX 0.6 fences to 0.7:
+// `::: name head` / `:::` becomes `:name: head` / `:!name:`.
+//
+//     burxt run tools/migrate-0.7.bx -- FILE...          # rewrites in place
+//     burxt run tools/migrate-0.7.bx -- --check FILE...  # reports, changes nothing
+//
+// **This exists because a closer has to learn its own name, and only the document knows it.** A `sed`
+// cannot do this job: `:::` carries no name, so the replacement depends on which opener is still open —
+// which means tracking a stack, which means a program. Handing star-burxt a regex would have handed it a
+// silent mis-migration on its first nested component.
+//
+// It rewrites markdown fences too (```bmx blocks in docs/), because the documentation's examples are
+// documents and a format change that leaves them behind is a format change that ships a lie.
+//
+// **What it deliberately does NOT do:** guess. A closer with no matching opener, an unterminated block,
+// or a `::::` longer fence whose meaning depended on the length rule 0.7 deletes — all three stop the
+// file with a message rather than producing something plausible. A migration that half-works is worse
+// than one that refuses, because you find out from the diff instead of from the parser.
+//
+// **It is live, which is why it was ported rather than retired.** `BMX-E036`'s message names it, so a
+// reader who feeds a 0.6 document to either implementation is told to run this. Retiring a tool named in
+// a diagnostic leaves the diagnostic pointing at nothing, which is the defect `BMX-W005` already was.
+//
+// Ported from `tools/migrate-0.7.py`, verified against it on the whole corpus below, and it differs from
+// it in exactly two places — both of them defects the port found:
+//
+//   * **The Python said it refused and rewrote anyway.** `if new != text: write` ran after the problems
+//     were printed, so a closer with nothing open produced a message AND a half-migrated file. A person
+//     who did not read stdout closely got the outcome the docstring promised could not happen. A file
+//     with any problem is now left exactly as it was. `tests/migration.bx` is the check that claim now
+//     has, because that is the difference between this paragraph and the one above it.
+//   * **The Python read in text mode, so Python normalised the newlines.** `open(path).read()` turns
+//     `\r\n` and a lone `\r` into `\n` before the migrator sees a byte, which is why a CRLF document
+//     came back LF-only — a whole-file diff on a change that was meant to touch the fences. Worse, it
+//     made a lone `\r` end a line, and `tests/cases/084-a-lone-cr-does-not-end-a-line` says it does not:
+//     the 0.6 tool disagreed with the format about where the lines were. Here a CR before an LF is
+//     carried through untouched and a lone CR is content, which is what the fixture says it is.
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+class Opened { name: String, fence: String }
+class Fenced { found: Bool, indent: String, fence: String, name: String, head: String }
+class Result { text: String, problems: [String] }
+
+pure function nothing() -> Fenced {
+    return Fenced { found: false, indent: "", fence: "", name: "", head: "" };
+}
+
+pure function is_name_start(b: Int) -> Bool {
+    return (b >= 65 && b <= 90) || (b >= 97 && b <= 122);
+}
+
+pure function is_name_byte(b: Int) -> Bool {
+    return is_name_start(b) || (b >= 48 && b <= 57) || b == 45 || b == 95;
+}
+
+// How many leading spaces and tabs. Both, because 0.6 documents were written by people.
+pure function lead(line: String) -> Int {
+    let mutable i: Int = 0;
+    while i < len(line) && (byte_at(line, i) == 32 || byte_at(line, i) == 9) {
+        i += 1;
+    }
+    return i;
+}
+
+// The backtick run of a markdown fence, or "" — the Python's `^[ \t]*(`{3,})`.
+pure function code_fence(line: String) -> String {
+    let start: Int = lead(line);
+    let mutable i: Int = start;
+    while i < len(line) && byte_at(line, i) == 96 {
+        i += 1;
+    }
+    if i - start < 3 {
+        return "";
+    }
+    return substring(line, start, i - start);
+}
+
+// `^([ \t]*)(:{3,})[ \t]*([A-Za-z][A-Za-z0-9_-]*)[ \t]*(.*)$` — the 0.6 opener.
+pure function opener(line: String) -> Fenced {
+    let indent_end: Int = lead(line);
+    let mutable i: Int = indent_end;
+    while i < len(line) && byte_at(line, i) == 58 {
+        i += 1;
+    }
+    if i - indent_end < 3 {
+        return nothing();
+    }
+    let fence: String = substring(line, indent_end, i - indent_end);
+    while i < len(line) && (byte_at(line, i) == 32 || byte_at(line, i) == 9) {
+        i += 1;
+    }
+    let name_at: Int = i;
+    if i >= len(line) || !is_name_start(byte_at(line, i)) {
+        return nothing();
+    }
+    while i < len(line) && is_name_byte(byte_at(line, i)) {
+        i += 1;
+    }
+    let name: String = substring(line, name_at, i - name_at);
+    while i < len(line) && (byte_at(line, i) == 32 || byte_at(line, i) == 9) {
+        i += 1;
+    }
+    return Fenced { found: true, indent: substring(line, 0, indent_end), fence: fence, name: name,
+                    head: substring(line, i, len(line) - i) };
+}
+
+// `^([ \t]*)(:{3,})[ \t]*$` — the 0.6 closer, which carries no name. That is the whole reason this
+// file is a program and not a `sed` line.
+pure function closer(line: String) -> Fenced {
+    let indent_end: Int = lead(line);
+    let mutable i: Int = indent_end;
+    while i < len(line) && byte_at(line, i) == 58 {
+        i += 1;
+    }
+    if i - indent_end < 3 {
+        return nothing();
+    }
+    let fence: String = substring(line, indent_end, i - indent_end);
+    while i < len(line) && (byte_at(line, i) == 32 || byte_at(line, i) == 9) {
+        i += 1;
+    }
+    if i != len(line) {
+        return nothing();
+    }
+    return Fenced { found: true, indent: substring(line, 0, indent_end), fence: fence, name: "",
+                    head: "" };
+}
+
+function migrate(text: String, path: String, plain: Bool) -> Result {
+    let mutable out: [String] = [];
+    let mutable problems: [String] = [];
+    let mutable stack: [Opened] = [];
+    let mutable in_code: String = "";
+    let mutable code_is_document: Bool = false;
+    let lines: [String] = string_split(text, "\n");
+    let mutable n: Int = 0;
+    while n < len(lines) {
+        let raw: String = lines[n];
+        // A CR that came before this LF is part of the line ending, and it goes back on whatever this
+        // line becomes. Recognition never sees it; the output always does.
+        let mutable body: String = raw;
+        let mutable eol: String = "";
+        if len(raw) > 0 && byte_at(raw, len(raw) - 1) == 13 {
+            body = substring(raw, 0, len(raw) - 1);
+            eol = "\r";
+        }
+        let mutable handled: Bool = false;
+
+        // A code fence's content is never parsed (SPEC 2.4), so it is never rewritten either — except
+        // that a ```bmx fence in the DOCS is a document, and those are exactly what has to change. The
+        // info string decides: `bmx` and `sbmx` are documents, anything else is somebody's code.
+        if len(in_code) > 0 {
+            if string_starts_with(string_trim(body), in_code) {
+                // **The closing fence has to stop here.** Without it the line falls through to the
+                // opener match below, which sees ``` and opens a NEW code block — so everything after
+                // the first code fence in the file was treated as code and left unmigrated. It
+                // reported `061-an-indented-code-fence-keeps-its-shape` as having an unclosed block,
+                // which is how it was caught: the tool accused a fixture that was fine.
+                in_code = "";
+                let a: Int = push(out, raw);
+                handled = true;
+            } else {
+                if !code_is_document {
+                    let b: Int = push(out, raw);
+                    handled = true;
+                }
+            }
+        }
+
+        if !handled && len(in_code) == 0 {
+            let found: String = code_fence(body);
+            if len(found) > 0 {
+                in_code = found;
+                let trimmed: String = string_trim(body);
+                let info: String = string_trim(substring(trimmed, len(found), len(trimmed) - len(found)));
+                // `--plain-fences` also treats an info-less fence as a document. SPEC.md and errors.md
+                // write their examples in bare ``` blocks, so without this the normative document keeps
+                // 0.6 syntax while the parser refuses it — the worst possible split.
+                code_is_document = info == "bmx" || info == "sbmx" || (plain && len(info) == 0);
+                let c: Int = push(out, raw);
+                handled = true;
+            }
+        }
+
+        if !handled {
+            let shut: Fenced = closer(body);
+            if shut.found {
+                if len(stack) == 0 {
+                    let d: Int = push(problems, path + ":" + to_string(n + 1)
+                        + ": a closer with nothing open — migrate this file by hand");
+                    let e: Int = push(out, raw);
+                } else {
+                    let top: Opened = stack[len(stack) - 1];
+                    let f: Int = truncate(stack, len(stack) - 1);
+                    if len(shut.fence) != len(top.fence) {
+                        // 0.7 has no fence-length rule: a `::::` that closed a `:::` did so BECAUSE it
+                        // was longer, and that reason no longer exists. Naming the closer changes the
+                        // meaning of the document, so this one is a person's decision.
+                        let g: Int = push(problems, path + ":" + to_string(n + 1) + ": `" + shut.fence
+                            + "` closed a `" + top.fence + "` by being longer, which 0.7 removes");
+                    }
+                    let h: Int = push(out, shut.indent + ":!" + top.name + ":" + eol);
+                }
+                handled = true;
+            }
+        }
+
+        if !handled {
+            let open: Fenced = opener(body);
+            if open.found {
+                let i2: Int = push(stack, Opened { name: open.name, fence: open.fence });
+                let head: String = string_trim_end(open.head);
+                let mutable rewritten: String = open.indent + ":" + open.name + ":";
+                if len(head) > 0 {
+                    rewritten = rewritten + " " + head;
+                }
+                let j: Int = push(out, rewritten + eol);
+                handled = true;
+            }
+        }
+
+        if !handled {
+            let k: Int = push(out, raw);
+        }
+        n += 1;
+    }
+    if len(stack) > 0 {
+        let mutable names: [String] = [];
+        let mutable m: Int = 0;
+        while m < len(stack) {
+            let a: Int = push(names, stack[m].name);
+            m += 1;
+        }
+        let b: Int = push(problems, path + ": " + to_string(len(stack)) + " block(s) never closed: "
+            + string_join(names, ", "));
+    }
+    return Result { text: string_join(out, "\n"), problems: problems };
+}
+
+let mutable check: Bool = false;
+let mutable plain: Bool = false;
+let mutable files: [String] = [];
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    let arg: String = os_arg(a);
+    if arg == "--check" {
+        check = true;
+    } else {
+        if arg == "--plain-fences" {
+            plain = true;
+        } else {
+            if !string_starts_with(arg, "--") {
+                let p: Int = push(files, arg);
+            }
+        }
+    }
+    a += 1;
+}
+if len(files) == 0 {
+    // The usage line, because the Python printed `__doc__.split("\n")[2]` and that is which line it is.
+    print("burxt run tools/migrate-0.7.bx -- FILE...          # rewrites in place");
+    exit(1);
+}
+
+let mutable bad: Int = 0;
+let mutable i: Int = 0;
+while i < len(files) {
+    let path: String = files[i];
+    match file_read_maybe(path) {
+        None => {
+            // The Python raised, which is a traceback rather than a sentence. A migration run over a
+            // glob that matched a directory should say which path it could not read.
+            print_error("cannot read " + path);
+            exit(2);
+        }
+        Some(text) => {
+            let result: Result = migrate(text, path, plain);
+            let mutable j: Int = 0;
+            while j < len(result.problems) {
+                print("  " + result.problems[j]);
+                bad = 1;
+                j += 1;
+            }
+            if len(result.problems) > 0 {
+                print("  " + path + " left unchanged");
+            } else {
+                if result.text != text {
+                    if check {
+                        print("  would rewrite " + path);
+                    } else {
+                        let w: Int = file_write(path, result.text);
+                        print("  rewrote " + path);
+                    }
+                }
+            }
+        }
+    }
+    i += 1;
+}
+exit(bad);
