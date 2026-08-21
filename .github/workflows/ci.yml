@@ -424,6 +424,9 @@ jobs:
           cp tools/ex1.bmx tools/ex2.bmx tools/ex3.bmx tools/err1.bmx "$d/"
           for n in ex1 ex2 ex3; do (cd "$d" && ./page "$n" x); cmp "$d/$n.html" "tools/$n.html"; done
           (cd "$d" && ./errpage err1); cmp "$d/err1.html" "tools/err1.html"
+          burxt build tools/showcase.bx -o "$d/showcase"
+          cp tools/shop.bmx "$d/"; mkdir -p "$d/../docs/_includes"
+          (cd "$d" && ./showcase); cmp "$d/../docs/_includes/showcase.html" docs/_includes/showcase.html
 
       # **This step lives in the Burxt job now, because the server it drives is a Burxt binary.** The
       # conformance job above lost a check, which is the cost the `standalone` reclassification predicted

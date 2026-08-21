@@ -181,6 +181,12 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
     done
     (cd "$d" && ./errpage err1 >/dev/null)
     cmp -s "$d/err1.html" "tools/err1.html" || { echo "err1.html is not what tools/errpage.bx produces"; bad=1; }
+    burxt build tools/showcase.bx -o "$d/showcase" >/dev/null
+    cp tools/shop.bmx "$d/"
+    mkdir -p "$d/../docs/_includes"
+    (cd "$d" && ./showcase >/dev/null)
+    cmp -s "$d/../docs/_includes/showcase.html" "docs/_includes/showcase.html" \
+      || { echo "showcase.html is not what tools/showcase.bx produces"; bad=1; }
     rm -rf "$d"
     exit $bad'
   # **Moved out of the Node-only section, because the server is a Burxt binary now.** That is a real cost

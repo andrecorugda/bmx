@@ -9,7 +9,7 @@ the same defect as a spec sentence nobody ran.
     burxt build errpage.bx -o errpage && ./errpage err1   # source + the refusal
     python3 fmt.py docs/*.md                # indent every example, one level per open block
     python3 migrate-0.7.py FILE...          # 0.6 fences -> 0.7, tracking a stack
-    python3 showcase.py                     # the landing page, as LIVE HTML -> docs/_includes/
+    burxt build showcase.bx -o showcase && ./showcase   # the landing page, LIVE HTML -> docs/_includes/
     node shot.mjs ex1 ex2 ex3 err1 editor skins        # -> PNG, 2x, cropped to the panels
 
 `shot.mjs` uses the puppeteer that is already on this machine rather than installing a second
@@ -17,7 +17,7 @@ browser. If the path in it goes stale, that is the one line to fix.
 
 ## The landing page is not a screenshot
 
-`showcase.py` generates `docs/_includes/showcase.html` — **live HTML**, and the only rendered thing on
+`showcase.bx` generates `docs/_includes/showcase.html` — **live HTML**, and the only rendered thing on
 the site that is not a picture. It is the one place a **split** has to be visible: the navigation,
 search and buttons are the SITE's furniture drawn in CSS, and only the page region is what the document
 produced. BMX has no syntax for a nav bar and none for an image (`SPEC.md` §7), so the generous reading

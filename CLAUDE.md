@@ -167,8 +167,8 @@ they drift.
   gate can see it. `site.css`/`site.js` are byte copies from burxt-lang.org — re-copy, don't edit.
 
 **`tools/`** generates every rendered panel on the site from real renderer output — `page.bx`,
-`errpage.bx` (both Burxt, ported from Python and verified byte-identical), `showcase.py` (live HTML for
-the landing page), `shot.mjs` (PNGs via the local puppeteer). Screenshots are the one artifact no test can catch going stale, so **regenerate them
+`errpage.bx` and `showcase.bx` (all Burxt, ported from Python and verified byte-identical against the
+committed artefacts), `shot.mjs` (PNGs via the local puppeteer). Screenshots are the one artifact no test can catch going stale, so **regenerate them
 whenever renderer output changes**; `tools/README.md` is the record of that pipeline and of what the
 format's real limits are (BMX has no attribute syntax — that, not navigation bars, is the wall).
 
