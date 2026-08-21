@@ -91,10 +91,14 @@ def main():
             continue
 
         copy = scratch / source.name
-        before_text = source.read_text()
-        copy.write_text(before_text)
+        # **Bytes, not text.** `read_text` applies universal-newline translation, so a lone CR became an
+        # LF before the formatter ever saw it — the harness corrupting the document it was measuring, and
+        # then reporting the formatter for it. Found by adding a fixture for a rule `SPEC.md` §1 states
+        # and no case covered.
+        before_text = source.read_bytes()
+        copy.write_bytes(before_text)
         subprocess.run(["python3", str(FMT), str(copy)], capture_output=True, text=True)
-        if copy.read_text() != before_text:
+        if copy.read_bytes() != before_text:
             touched += 1
 
         if prove:

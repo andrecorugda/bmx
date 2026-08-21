@@ -108,7 +108,15 @@ def main():
         return 1
     changed = 0
     for path in files:
-        text = open(path).read()
+        # **`newline=""`, because Python translates a lone CR to LF on read and this tool WRITES the
+        # file back.** Measured on `tests/cases/084-a-lone-cr-does-not-end-a-line`: a document reading
+        # `one` CR `two` — one paragraph, since SPEC §1 says a lone CR is an ordinary byte — came back as
+        # two paragraphs the moment the file also needed reindenting. **The formatter that exists because
+        # indentation is insignificant was changing what a document means.**
+        #
+        # It survived until now only by accident: with no reindenting to do, the translated text compared
+        # equal to itself and nothing was written. A document needing both is the one that loses.
+        text = open(path, newline="").read()
         new, problems = process(text, path)
         for p in problems:
             print("  " + p)
@@ -117,7 +125,7 @@ def main():
             if check:
                 print(f"  would reindent {path}")
             else:
-                open(path, "w").write(new)
+                open(path, "w", newline="").write(new)
                 print(f"  reindented {path}")
     return 1 if (check and changed) else 0
 

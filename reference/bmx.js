@@ -28,7 +28,63 @@ export class BmxError extends Error {
     super(`${code} at ${offset}: ${message}`)
     this.code = code
     this.offset = offset
+    // Kept so `parse` can restate the message after correcting the offset to a byte index — see
+    // `toByteOffsets`. Without it the wording would have to be re-derived from the composed string.
+    this.detail = message
   }
+}
+
+// ---- offsets are BYTES, and this file counts in JavaScript string units ------
+//
+// **`SPEC.md` §5 says an offset is the byte index of the first byte the author wrote, and this
+// implementation reported UTF-16 code-unit indices for eight releases.** They are the same number on
+// every ASCII document, which is why nothing noticed: `café **bold**` puts `**` at byte 6 and at
+// code unit 5, and this file said 5 while `burxt/bmx.bx` said 6. Burxt was right.
+//
+// **Nothing could see it.** No fixture contained a non-ASCII character before an inline construct, and
+// `tests/agree.py` compares error CODES rather than offsets, so neither runner was asking. Found by the
+// method the Burxt session named after this happened twice: *enumerate what the format permits, then ask
+// which of those the corpus has never once contained — those are the cases where two implementations are
+// free to disagree.* `SPEC.md` §1 permits any UTF-8; the corpus had none.
+//
+// The parser keeps working in string units, because rewriting it to index bytes would be a different
+// file. The conversion happens at the three exits instead: the tree `parse` returns, the offset a
+// `BmxError` carries, and the offset `at` is handed back.
+function byteMap(source) {
+  const map = new Array(source.length + 1)
+  let bytes = 0
+  for (let i = 0; i < source.length; i++) {
+    map[i] = bytes
+    const code = source.codePointAt(i)
+    if (code > 0xffff) {
+      // A surrogate pair is two string units and four bytes; both units start at the same byte.
+      map[i + 1] = bytes
+      bytes += 4
+      i++
+    } else if (code > 0x7ff) bytes += 3
+    else if (code > 0x7f) bytes += 2
+    else bytes += 1
+  }
+  map[source.length] = bytes
+  return map
+}
+
+function toByteOffsets(node, map) {
+  if (node === null || typeof node !== 'object') return node
+  if (Array.isArray(node)) {
+    for (const item of node) toByteOffsets(item, map)
+    return node
+  }
+  if (typeof node.offset === 'number') node.offset = map[node.offset] ?? node.offset
+  if (typeof node.head_offset === 'number') node.head_offset = map[node.head_offset] ?? node.head_offset
+  for (const key of ['children', 'items']) if (node[key]) toByteOffsets(node[key], map)
+  return node
+}
+
+/** The string index a byte offset falls on — the inverse, for `at`. */
+function toStringIndex(offset, map) {
+  for (let i = 0; i < map.length; i++) if (map[i] >= offset) return i
+  return map.length - 1
 }
 
 const SPACE = 0x20
@@ -454,13 +510,22 @@ const OLD_FENCE = /^:{3,}/
 const MALFORMED = /^:([^:\s]+):/
 
 export function parse(source) {
-  const rows = lines(source)
-  const [children, end] = parseBlocks(rows, 0, null, -1)
-  if (end !== rows.length) {
-    // parseBlocks only stops early on a closer, and at the top level nothing is open.
-    throw new BmxError('BMX-E032', rows[end].offset, 'a closer with no open block')
+  const map = byteMap(source)
+  let children, end
+  try {
+    const rows = lines(source)
+    ;[children, end] = parseBlocks(rows, 0, null, -1)
+    if (end !== rows.length) {
+      // parseBlocks only stops early on a closer, and at the top level nothing is open.
+      throw new BmxError('BMX-E032', rows[end].offset, 'a closer with no open block')
+    }
+  } catch (e) {
+    if (!(e instanceof BmxError)) throw e
+    // The offset a refusal carries is part of the conformance surface — `tests/errors/` compares the
+    // code, and a host points at the position. Corrected here rather than at 37 throw sites.
+    throw new BmxError(e.code, map[e.offset] ?? e.offset, e.detail)
   }
-  return { type: 'document', children }
+  return toByteOffsets({ type: 'document', children }, map)
 }
 
 // `open` is the name of the enclosing block, or null at the top level — a NAME rather than 0.6's
@@ -990,7 +1055,12 @@ export function lint(source, options = {}) {
 
 /** A byte offset as a line and a CHARACTER column, both one-based. */
 export function at(source, offset) {
-  const upto = source.slice(0, Math.max(0, Math.min(offset, source.length)))
+  // **The offset arriving here is a BYTE index**, because that is what `parse` and `lint` now report.
+  // Converted back to a string index before the line and column are counted, or every position after
+  // the first accent on a line would be wrong in the other direction.
+  const map = byteMap(source)
+  const index = toStringIndex(offset, map)
+  const upto = source.slice(0, Math.max(0, Math.min(index, source.length)))
   const line = upto.split('\n').length
   const lastBreak = upto.lastIndexOf('\n') + 1
   // Characters, not bytes — a byte column is right on every ASCII line and wrong on the first line

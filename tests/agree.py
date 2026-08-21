@@ -19,14 +19,14 @@ must be byte-identical, so a disagreement is a bug report rather than a preferen
 
 **A blind spot in the corpus, written down because it has already produced a real divergence.** No
 fixture contains a CONTROL BYTE, and `SPEC.md` §1 makes one legal: a document is a sequence of bytes and
-UTF-8 passes through unexamined. Measured 2026-08-21 on `a\x01b`:
+UTF-8 passes through unexamined. Measured 2026-08-21 on `a` byte-0x01 `b`:
 
     reference/bmx.js   {"type":"text","value":"a\u0001b"}     valid JSON
     burxt/bmx.bx       the byte emitted raw                    INVALID JSON — Python's json rejects it
 
-and on `a\x00b` the Burxt output is additionally **truncated mid-string**, because a Burxt String can
+and on `a` byte-0x00 `b` the Burxt output is additionally **truncated mid-string**, because a Burxt String can
 hold a zero byte (`len` counts it) while printing stops at it. Both are in Burxt's `std/json.bx`:
-`json_escape` escapes `"` `\` `\n` `\r` `\t` `\b` `\f` and leaves every other byte below 0x20 raw,
+`json_escape` escapes `"` `` `\n` `\r` `\t` `\b` `\f` and leaves every other byte below 0x20 raw,
 which RFC 8259 §7 forbids. **Reported upstream; not added as a fixture yet**, because a case this suite
 cannot pass would make CI red for a reason that is not this repository's — the same argument `ci.yml`
 makes about never building Burxt from a branch. It becomes a case the moment a release escapes them.
