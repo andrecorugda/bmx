@@ -58,10 +58,18 @@ let mutable failures: [String] = [];
 // ---- input -> expected AST --------------------------------------------------
 //
 // The fixture is normalised through the SAME printer as our own tree before comparing, so a fixture
-// reindented by a person still passes: what is being compared is the structure, not the bytes. Every
-// fixture happens to be byte-identical to this implementation's output today, and comparing bytes
-// directly would have quietly turned that coincidence into a requirement no other implementation
-// agreed to.
+// reindented by a person still passes. Every fixture happens to be byte-identical to this
+// implementation's output today, and comparing bytes directly would have quietly turned that
+// coincidence into a requirement no other implementation agreed to.
+//
+// **This is nonetheless STRICTER than the suite requires, and saying so matters.** Normalising through
+// one printer removes whitespace but preserves key ORDER, while `tests/harness.py` compares parsed
+// objects and `tests/agree.py` sorts keys — so the specification is order-insensitive and this runner is
+// not. A failure here can therefore mean *this implementation reordered its JSON keys*, which is not a
+// conformance failure. Being stricter is useful for a runner that drives one implementation; mistaking
+// it for the spec is not. **Agreement between a strict check and a lax one is not agreement about the
+// program** — the Burxt session's sentence, after finding two of their harnesses comparing trimmed
+// output while claiming exactness.
 match file_list_directory(cases_dir) {
     None => {
         print_error("cannot list " + cases_dir);

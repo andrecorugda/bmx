@@ -68,8 +68,18 @@ def main():
     documents = sorted((HERE / "cases").glob("*.bmx"))
     same, differ, refused = 0, [], 0
     for doc in documents:
-        js = subprocess.run(["node", str(runner), str(doc)], capture_output=True, text=True).stdout.strip()
-        bx = subprocess.run(burxt + [str(doc)], capture_output=True, text=True).stdout.strip()
+        # **Exact bytes for the page, stripped only for the refusal prefix below.** Both sides used to
+        # be `.strip()`ed before every comparison, which made a trailing-byte difference between two
+        # renderers invisible while the check reported agreement — the Burxt session found the identical
+        # defect twice in their own harnesses, comparing `trimmed()` on both sides so their runner was
+        # blind to the last byte while still agreeing fixture-for-fixture. **Agreement between a lax
+        # check and a lax check is not agreement about the output.**
+        #
+        # Measured before tightening: all 57 documents are byte-identical today, so the strip was free
+        # and removing it costs nothing — which is what makes it worth removing rather than arguing over.
+        js_page = subprocess.run(["node", str(runner), str(doc)], capture_output=True, text=True).stdout
+        bx_page = subprocess.run(burxt + [str(doc)], capture_output=True, text=True).stdout
+        js, bx = js_page.strip(), bx_page.strip()
         # **A page both refuse is agreement, and it is the interesting kind.** The corpus is full of
         # documents this renderer must decline — a block it did not declare, a `javascript:` target —
         # and two implementations refusing the same document for the same reason is exactly what
@@ -78,7 +88,7 @@ def main():
             if js.split(":")[0] == bx.split(":")[0]:
                 refused += 1
                 continue
-        if js == bx:
+        if js_page == bx_page:
             same += 1
         else:
             differ.append((doc.name, js, bx))
