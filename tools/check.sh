@@ -227,7 +227,8 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   run "a document becomes a view the compiler checks" bash -c '
     burxt run burxt/guarantees.bx'
   run "every documented name is reachable, and every public name is documented" bash -c '
-    python3 tests/surface.py && python3 tests/surface.py --prove-it'
+    burxt build tests/surface.bx -o /tmp/check-surface &&
+    /tmp/check-surface && /tmp/check-surface --prove-it'
   # **The tool `BMX-E036` names had no runner at all**, and its header claimed for a year that a refusal
   # leaves the file alone while the code rewrote it anyway. This check is that claim, plus the one nobody
   # writes down: that the path in a diagnostic is a path that exists.

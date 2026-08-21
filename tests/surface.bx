@@ -1,0 +1,363 @@
+// tests/surface.bx — every name the documentation tells a host to call, reached from a real dependent
+// package.
+//
+//     burxt build tests/surface.bx -o surface
+//     BURXT_LIB=<lib> ./surface
+//     BURXT_LIB=<lib> ./surface --prove-it     # the negative control
+//
+// **Six documented calls, five unreachable.** `docs/` told a host to call `bmx_to_html`, `bmx_bind`,
+// `bmx_json`, `bmx_html` and `bmx_emit_burxt`, and not one was `public`, so a dependent package could not
+// reach any of them. Somebody following the documentation writes the call and stops.
+//
+// **Why nothing caught it: the boundary is the PACKAGE, not the file.** `flag_public` is consulted only
+// where a declaration carries an owning package, so a non-`public` function called from another *file* in
+// the same tree compiles happily — which means **no test that stays inside this repository can see the
+// boundary at all.** `public` had been applied to whatever `burxt/examples/` needed, and those live inside
+// the package. CI's one consumer test called `bmx_parse`, which is the one name that worked.
+//
+// star-burxt found the identical defect in its own README the same day — three documented names, none
+// callable — and named the mechanism. This is their `tools/surface.bx`, and now in the same language.
+//
+// **It checks BOTH directions, and the second is the more dangerous one.** Six functions were `public`,
+// depended on by star-burxt, and mentioned nowhere in the documentation — so the compatibility promise in
+// `VERSIONING.md` covered half the surface a consumer was actually using, and any of them could have
+// changed in a patch release. **Reachable-and-unwritten is worse than written-and-unreachable**: the first
+// breaks a consumer silently at some later date, the second stops them at the keyboard today.
+//
+// **The list is derived from the documentation, not maintained here.** A hand-kept list is a second place
+// to forget a name, and the failure it would hide is precisely the one this file exists to catch: a name
+// the docs promise and nothing tests.
+//
+// **And it needs a control for the reason star's did.** Aimed at a name that does not exist, the compiler
+// answers `unknown function` — a refusal, convincing, and nothing to do with visibility. A renamed helper
+// would pass forever. So `--prove-it` takes a genuinely private function **discovered from the source**,
+// not invented, and requires the refusal to say ``not `public` `` — which is the only message that means
+// the boundary was actually consulted.
+//
+// ---- the port ------------------------------------------------------------------------------------
+//
+// Ported from `tests/surface.py`, byte-identical on the real tree, on the control, and on a planted
+// documented-but-private name.
+//
+// **The header of the retired file said `COULD be Burxt` and it was the only one that did** — every other
+// non-Burxt file in the tree had a reason that was about the file. This one's reason was that nobody had
+// got to it yet, which is not a reason, and it is why the ledger's `gap` category exists at all.
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+// The two directions need different notions of "documented", and conflating them produced two false
+// positives immediately. Widening the forward check to any mention flagged `bmx_parse_error` — which
+// appears inside a QUOTED COMPILER ERROR on the install page — and `bmx_target_allowed`, in a sentence
+// describing how BMX implements the scheme rule. Neither is an instruction to call anything.
+//
+//   forward  (the docs promise it -> a host must be able to reach it):  a promise is a CALL, `name(`
+//   reverse  (it is public -> the docs must say so):                    a MENTION is enough
+const SOURCE: String = "burxt/bmx.bx";
+
+pure function is_word(b: Int) -> Bool {
+    return (b >= 48 && b <= 57) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 95;
+}
+
+pure function is_name_byte(b: Int) -> Bool {
+    return (b >= 97 && b <= 122) || b == 95;
+}
+
+pure function has(items: [String], needle: String) -> Bool {
+    let mutable i: Int = 0;
+    while i < len(items) {
+        if items[i] == needle {
+            return true;
+        }
+        i += 1;
+    }
+    return false;
+}
+
+function sorted_unique(items: [String]) -> [String] {
+    let mutable out: [String] = [];
+    let mutable i: Int = 0;
+    while i < len(items) {
+        if !has(out, items[i]) {
+            let a: Int = push(out, items[i]);
+        }
+        i += 1;
+    }
+    let mutable m: Int = 0;
+    while m < len(out) {
+        let mutable best: Int = m;
+        let mutable n: Int = m + 1;
+        while n < len(out) {
+            if string_compare(out[n], out[best]) < 0 {
+                best = n;
+            }
+            n += 1;
+        }
+        let hold: String = out[m];
+        out[m] = out[best];
+        out[best] = hold;
+        m += 1;
+    }
+    return out;
+}
+
+// `\b(bmx_[a-z_]+)` and, when `called` is set, the `\(` that makes a mention a promise.
+pure function bmx_names(text: String, called: Bool) -> [String] {
+    let mutable found: [String] = [];
+    let mutable from: Int = 0;
+    while true {
+        let at: Int = string_find_from(text, "bmx_", from);
+        if at < 0 {
+            break;
+        }
+        from = at + 1;
+        if at > 0 && is_word(byte_at(text, at - 1)) {
+            continue;
+        }
+        let mutable i: Int = at + 4;
+        while i < len(text) && is_name_byte(byte_at(text, i)) {
+            i += 1;
+        }
+        if i == at + 4 {
+            continue;
+        }
+        if called && (i >= len(text) || byte_at(text, i) != 40) {
+            continue;
+        }
+        let a: Int = push(found, substring(text, at, i - at));
+    }
+    return found;
+}
+
+// `^public (?:pure )?function (\w+)\(` over the source, and the same without `public` for the control.
+pure function declared(text: String, want_public: Bool) -> [String] {
+    let mutable found: [String] = [];
+    let lines: [String] = string_split(text, "\n");
+    let mutable i: Int = 0;
+    while i < len(lines) {
+        let line: String = lines[i];
+        let mutable at: Int = 0;
+        let mutable is_public: Bool = false;
+        if string_starts_with(line, "public ") {
+            is_public = true;
+            at = 7;
+        }
+        if string_matches_at(line, "pure ", at) {
+            at += 5;
+        }
+        if string_matches_at(line, "function ", at) && is_public == want_public {
+            let start: Int = at + 9;
+            let mutable j: Int = start;
+            while j < len(line) && is_word(byte_at(line, j)) {
+                j += 1;
+            }
+            if j > start && j < len(line) && byte_at(line, j) == 40 {
+                let a: Int = push(found, substring(line, start, j - start));
+            }
+        }
+        i += 1;
+    }
+    return found;
+}
+
+// Reference `name` from a dependent package and answer the compiler's output.
+function reach(name: String, workdir: String, root: String) -> String
+        touches commands, files, input {
+    let w1: Int = file_write(workdir + "/burxt.package",
+            "name consumer\nversion 0.1.0\ndependency bmx " + root + "\n");
+    let w2: Int = file_write(workdir + "/probe.bx", "use \"bmx/burxt/bmx.bx\";\nmatch " + name
+            + "(\"a\") \{ Error(e) => \{ print(e); \} Ok(v) => \{ print(\"ok\"); \} \}\n");
+    let r: Capture = os_capture_status("cd " + file_quote(workdir) + " && burxt check probe.bx");
+    return string_trim(r.output + r.errors);
+}
+
+pure function first_line(text: String, width: Int) -> String {
+    let lines: [String] = string_split(text, "\n");
+    let mutable head: String = "";
+    if len(lines) > 0 {
+        head = lines[0];
+    }
+    let mutable at: Int = 0;
+    let mutable seen: Int = 0;
+    while seen < width && at < len(head) {
+        at = next_char(head, at);
+        seen += 1;
+    }
+    return substring(head, 0, at);
+}
+
+// ---- the pages -----------------------------------------------------------------------------------
+
+function pages() -> [String] touches commands, files, input {
+    let mutable out: [String] = [];
+    let mutable where: [String] = ["docs", "docs/guide"];
+    let mutable d: Int = 0;
+    while d < len(where) {
+        match file_list_directory(where[d]) {
+            None => { }
+            Some(entries) => {
+                let mutable i: Int = 0;
+                while i < len(entries) {
+                    if string_ends_with(entries[i], ".md") {
+                        let a: Int = push(out, where[d] + "/" + entries[i]);
+                    }
+                    i += 1;
+                }
+            }
+        }
+        d += 1;
+    }
+    let b: Int = push(out, "README.md");
+    return out;
+}
+
+// ---- the program ---------------------------------------------------------------------------------
+
+let mutable prove: Bool = false;
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    if os_arg(a) == "--prove-it" {
+        prove = true;
+    }
+    a += 1;
+}
+if len(os_env_or("BURXT_LIB", "")) == 0 {
+    print("skipped: needs BURXT_LIB and a burxt on PATH");
+    exit(0);
+}
+
+let mutable root: String = ".";
+match os_cwd() {
+    None => { root = "."; }
+    Some(where) => { root = where; }
+}
+
+let mutable promised_raw: [String] = [];
+let mutable mentioned_raw: [String] = [];
+let all: [String] = pages();
+let mutable p: Int = 0;
+while p < len(all) {
+    match file_read_maybe(all[p]) {
+        None => { }
+        Some(text) => {
+            let calls: [String] = bmx_names(text, true);
+            let mutable i: Int = 0;
+            while i < len(calls) {
+                let x: Int = push(promised_raw, calls[i]);
+                i += 1;
+            }
+            let names: [String] = bmx_names(text, false);
+            let mutable j: Int = 0;
+            while j < len(names) {
+                let y: Int = push(mentioned_raw, names[j]);
+                j += 1;
+            }
+        }
+    }
+    p += 1;
+}
+let names: [String] = sorted_unique(promised_raw);
+if len(names) == 0 {
+    print("no documented call matched at all, so the pattern has stopped seeing them");
+    exit(1);
+}
+
+match file_read_maybe(SOURCE) {
+    None => {
+        print_error("cannot read " + SOURCE + " — run this from the repository root");
+        exit(2);
+    }
+    Some(source) => {
+        let exported: [String] = sorted_unique(declared(source, true));
+        match file_temp_directory("bmx-surface") {
+            None => {
+                print_error("cannot make a scratch directory");
+                exit(2);
+            }
+            Some(work) => {
+                let mutable failures: Int = 0;
+                let mutable i: Int = 0;
+                while i < len(names) {
+                    let out: String = reach(names[i], work, root);
+                    if string_contains(out, "not `public`") {
+                        failures += 1;
+                        print("  FAIL  " + names[i]
+                                + " is promised by the documentation and is not `public`");
+                    } else {
+                        if string_contains(out, "unknown function") {
+                            failures += 1;
+                            print("  FAIL  " + names[i]
+                                    + " is promised by the documentation and does not exist");
+                        }
+                    }
+                    i += 1;
+                }
+                print("  " + to_string(len(names))
+                        + " documented names reached from a dependent package");
+
+                // **The other direction.** A `public` name absent from the documentation is a surface a
+                // consumer can already depend on and this project has promised nothing about.
+                let mutable undocumented: [String] = [];
+                let mutable e: Int = 0;
+                while e < len(exported) {
+                    if !has(mentioned_raw, exported[e]) {
+                        let u: Int = push(undocumented, exported[e]);
+                    }
+                    e += 1;
+                }
+                let mutable k: Int = 0;
+                while k < len(undocumented) {
+                    failures += 1;
+                    print("  FAIL  " + undocumented[k]
+                            + " is `public` — reachable by any host — and appears in no documentation");
+                    k += 1;
+                }
+                if len(undocumented) == 0 {
+                    print("  " + to_string(len(exported)) + " public functions, all of them written down");
+                } else {
+                    print("  " + to_string(len(exported)) + " public functions");
+                }
+
+                if prove {
+                    let unexported: [String] = declared(source, false);
+                    if len(unexported) == 0 {
+                        print_error("no non-public function found, so the control has nothing to aim at");
+                        exit(1);
+                    }
+                    let hidden: String = unexported[0];
+                    let out: String = reach(hidden, work, root);
+                    // The message must name VISIBILITY. Anything else means the control proved the
+                    // compiler ran.
+                    if string_contains(out, "not `public`") {
+                        print("");
+                        print("the control failed as it must — `" + hidden
+                                + "` is refused for not being `public`");
+                        exit(0);
+                    }
+                    let mutable said: String = "(no output)";
+                    if len(out) > 0 {
+                        said = first_line(out, 80);
+                    }
+                    print("");
+                    print("THE CONTROL DID NOT FAIL on `" + hidden + "`: " + said);
+                    print("so this check cannot tell a visibility refusal from any other refusal");
+                    exit(1);
+                }
+
+                if failures > 0 {
+                    let mutable plural: String = "s";
+                    if failures == 1 {
+                        plural = "";
+                    }
+                    print("");
+                    print(to_string(failures) + " documented name" + plural
+                            + " cannot be reached by a host");
+                    exit(1);
+                }
+                print("");
+                print("every name the documentation promises is reachable from another package");
+                exit(0);
+            }
+        }
+    }
+}

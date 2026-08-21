@@ -500,8 +500,9 @@ jobs:
       # worked. This builds a dependent package for every name, both directions.
       - name: Every documented name is reachable, and every public name is documented
         run: |
-          python3 tests/surface.py
-          python3 tests/surface.py --prove-it
+          burxt build tests/surface.bx -o /tmp/surface
+          /tmp/surface
+          /tmp/surface --prove-it
 
       - name: Somebody else's program can reach `bmx_parse`
         run: |

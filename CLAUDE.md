@@ -67,7 +67,7 @@ converting such claims into checks.
 
 Beyond conformance, `tests/` holds meta-checks over the repository itself — `agree.bx`,
 `branding.py`, `controls.py`, `extension.py`, `invitation.bx`, `languages.py`, `messages.bx`,
-`migration.bx`, `output.bx`, `portability.bx`, `renders.bx`, `roundtrip.bx`, `surface.py`,
+`migration.bx`, `output.bx`, `portability.bx`, `renders.bx`, `roundtrip.bx`, `surface.bx`,
 `version.py`. **The list is `ls tests/`, not a curated selection** — it was six names for a long time
 and three checks had been added since. Most take **`--prove-it`, a negative control** that asserts the
 check can fail; CI runs both halves, because a check nobody has watched fail is a check nobody has
@@ -130,7 +130,7 @@ blaming every document — call it from any new runner that takes a command.
 - `burxt/bmx.bx` — the Burxt implementation, for Burxt programs. Level 1 today; level 2 (a document
   becomes a `pure function … -> Html` whose slots the compiler type-checks) is its road, exercised by
   `burxt/guarantees.bx`. Its `public` surface is a compatibility promise checked in **both** directions by
-  `tests/surface.py`: every documented name must be reachable from an outside package, and every
+  `tests/surface.bx`: every documented name must be reachable from an outside package, and every
   public name must be documented.
 
 The two must agree — `agree.py` (ASTs, including on documents no case covers, which is where a
@@ -218,11 +218,14 @@ changes nothing about them. The second is how `docs/assets/code.js` sat in `plat
 needs JavaScript, months after Burxt reached a browser through wasm. The Burxt session, who sharpened this
 from the question into its two halves, found their own instance the same day.
 
-**`gap` is the only category that should ever shrink**, and it is named rather than defended:
-`tests/surface.py` **already requires the Burxt toolchain**, so it has no standalone defence and is
-the real remaining gap — as did `burxt/test.py`, now `burxt/guarantees.bx`, and `editors/lsp/bmx-lsp.mjs`, now `bmx-lsp.bx`; `docs/assets/code.js` could be Burxt through wasm but would cost the
-documented promise that Helix and Neovim need *only Node*; `tools/shot.mjs` is blocked on Burxt having
-no browser driver. The check prints the gap and caps nothing — a threshold is a number somebody raises
+**`gap` is the only category that should ever shrink**, and it is named rather than defended. What has
+already gone: `burxt/test.py` (now `burxt/guarantees.bx`), `editors/lsp/bmx-lsp.mjs` (now `bmx-lsp.bx`),
+`tools/fmt.py`, `tools/migrate-0.7.py`, and the runners `harness`, `agree`, `output`, `renders`,
+`roundtrip`, `portability`, `messages`, `invitation` and `surface`. What is left is
+`tests/branding.py`, `tests/extension.py`, `tests/version.py`, `tests/languages.py`,
+`tests/controls.py` and `editors/vscode/pack.py`; `docs/assets/code.js` could be Burxt through wasm but
+would cost the documented promise that Helix and Neovim need *only Node*; `tools/shot.mjs` is blocked on
+Burxt having no browser driver. The check prints the gap and caps nothing — a threshold is a number somebody raises
 when it is inconvenient.
 
 **`burxt/conformance.bx` is that move, and it exists now.** A Burxt program driving `burxt/bmx.bx`
@@ -240,10 +243,11 @@ needed one capability the fixture runner did not: `os_capture_status`, which kee
 apart, so a refusal asserted to *start with* `BMX-G001` cannot be prefixed by whatever the generator
 printed first. `burxt run burxt/guarantees.bx`.
 
-The remaining gap of that shape is **`tests/surface.py`** — the ledger prints its size, deliberately not
-repeated here — which needs a third capability again: it writes a dependent package into a temp directory and builds it, to prove every documented
-name is reachable from *outside* this package. `docs/assets/code.js` is a decision rather than a task
-— it would cost the documented promise that Helix and Neovim need *only Node*.
+**`tests/surface.bx` needed a third capability again**: it writes a dependent package into a temp
+directory and builds it, to prove every documented name is reachable from *outside* this package —
+which no test that stays inside the tree can see, because `public` is consulted at the package boundary
+and not the file. `docs/assets/code.js` is a decision rather than a task — it would cost the documented
+promise that Helix and Neovim need *only Node*.
 
 ## The sibling repositories, and the one mistake to expect
 
