@@ -106,8 +106,6 @@ run "the preview does what the button promises" bash -c '
   mkdir -p editors/vscode/reference &&
   cp reference/bmx.js editors/vscode/reference/bmx.mjs &&
   node editors/vscode/test/preview.js'
-run "every brand asset carries the family's margin and its own crop" bash -c '
-  python3 tests/branding.py && python3 tests/branding.py --prove-it'
 
 echo
 echo "the documentation"
@@ -245,6 +243,9 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   # `ci.yml` must run the same checks under the same names. It is in the Burxt group because it is a Burxt
   # program, which means a contributor without a toolchain cannot see the drift — and CI can, which is the
   # half that matters for a file whose subject is CI.
+  run "every brand asset carries the family's margin and its own crop" bash -c '
+    burxt build tests/branding.bx -o /tmp/check-branding &&
+    /tmp/check-branding && /tmp/check-branding --prove-it'
   run "check.sh and ci.yml run the same checks" bash -c '
     burxt build tests/mirror.bx -o /tmp/check-mirror &&
     /tmp/check-mirror && /tmp/check-mirror --prove-it'

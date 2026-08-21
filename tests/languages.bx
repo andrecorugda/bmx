@@ -48,8 +48,8 @@
 // files on the strength of `ci.yml`'s sentence — *the format must be testable without its first host
 // installed* — and **that sentence is about the format, not about this repository's CI.** What the format's
 // claim actually needs is the fixtures, which are data, plus a runner a stranger can execute: that is
-// `neutral`, and it is genuinely permanent. `tests/branding.py` and the rest
-// check *this repository*. In Burxt they make the conformance job need a toolchain — which costs a
+// `neutral`, and it is genuinely permanent. Everything that was in
+// `gap` checked *this repository*. In Burxt they make the conformance job need a toolchain — which costs a
 // contributor without one some checks, and **costs the format's portability claim nothing at all.**
 //
 // Conflating those two is how a real property lent its authority to a choice. Reclassified 2026-08-21:

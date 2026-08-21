@@ -149,6 +149,69 @@ pure function tally_of(line: String) -> Tally {
     return Tally { found: true, total: numbers[0], passed: numbers[1], failed: numbers[2] };
 }
 
+
+// ---- every runner any page hands a reader -------------------------------------------------------
+//
+// **The scope of the check above was ONE page, and four stale commands sat outside it.** `CLAUDE.md`,
+// `README.md` and `docs/building-on.md` told a reader to run `python3 tests/harness.py`,
+// `tests/agree.py`, `tests/renders.py` and `tests/output.py` — every one of them retired, for weeks, in
+// the repository whose `BMX-E036` message was fixed for exactly this. The check that would have caught
+// them existed and looked at `docs/implementing.md` alone, which is the question CLAUDE.md tells you to
+// ask of any new check: **what is its own scope hand-maintained on?**
+//
+// **A promise stands in a COMMAND**, which is the predicate `tests/extension.bx` arrived at for `.vsix`
+// names and for the same reason: a page must stay free to say `tests/harness.py` was retired without
+// that sentence becoming a broken promise. So a path counts when the line it sits on begins with
+// something a reader would type.
+pure function is_command(line: String) -> Bool {
+    let trimmed: String = string_trim(line);
+    return string_starts_with(trimmed, "python3 ") || string_starts_with(trimmed, "node ")
+            || string_starts_with(trimmed, "burxt ") || string_starts_with(trimmed, "./")
+            || string_starts_with(trimmed, "diff ") || string_starts_with(trimmed, "BMX_")
+            || string_starts_with(trimmed, "BURXT_LIB=") || string_starts_with(trimmed, "cd ");
+}
+
+pure function is_path_byte(b: Int) -> Bool {
+    return (b >= 48 && b <= 57) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 95 || b == 46
+            || b == 47 || b == 45;
+}
+
+// Every `tests/…`, `tools/…` or `editors/…` path a command on this page names.
+pure function runners_commanded(page: String) -> [String] {
+    let mutable found: [String] = [];
+    let lines: [String] = string_split(page, "\n");
+    let mutable i: Int = 0;
+    while i < len(lines) {
+        let line: String = lines[i];
+        if is_command(line) {
+            let mutable at: Int = 0;
+            while at < len(line) {
+                while at < len(line) && !is_path_byte(byte_at(line, at)) {
+                    at += 1;
+                }
+                let start: Int = at;
+                while at < len(line) && is_path_byte(byte_at(line, at)) {
+                    at += 1;
+                }
+                if at > start {
+                    let token: String = substring(line, start, at - start);
+                    let named: Bool = string_starts_with(token, "tests/")
+                            || string_starts_with(token, "tools/")
+                            || string_starts_with(token, "editors/");
+                    let runnable: Bool = string_ends_with(token, ".py")
+                            || string_ends_with(token, ".bx") || string_ends_with(token, ".mjs")
+                            || string_ends_with(token, ".js") || string_ends_with(token, ".sh");
+                    if named && runnable && !array_has(found, token) {
+                        let _p: Int = push(found, token);
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+    return found;
+}
+
 // ---- the program ---------------------------------------------------------------------------------
 
 let mutable broken: Bool = false;
@@ -211,6 +274,62 @@ match file_read_maybe(PAGE) {
             print("  FAIL  every runner the page names exists");
             print("          named but absent: " + repr_list(missing));
             let f: Int = push(failures, "every runner the page names exists");
+        }
+
+        // 2b. And every runner ANY page tells a reader to run.
+        let mutable commanded: [String] = [];
+        let mutable pages: [String] = [];
+        match file_walk(".") {
+            None => {
+                print_error("cannot walk the tree — run this from the repository root");
+                exit(2);
+            }
+            Some(entries) => {
+                let mutable e: Int = 0;
+                while e < len(entries) {
+                    let mutable path: String = entries[e];
+                    if string_starts_with(path, "./") {
+                        path = substring(path, 2, len(path) - 2);
+                    }
+                    // **A dot-directory is tooling configuration, not this project's documentation.**
+                    // `.claude/` holds the operator's own rules file — untracked, addressed to whoever is
+                    // working here rather than to a reader of BMX — and a check about the promises this
+                    // repository makes to a stranger has no business grading it. Stated as a category
+                    // rather than a filename, because a list of excused files is the scope this check was
+                    // just widened to stop having.
+                    if string_ends_with(path, ".md") && !string_starts_with(path, ".")
+                            && !string_contains(path, "/node_modules/") {
+                        match file_read_maybe(path) {
+                            None => { }
+                            Some(body) => {
+                                let named_here: [String] = runners_commanded(body);
+                                let mutable n: Int = 0;
+                                while n < len(named_here) {
+                                    if !file_is_file(named_here[n]) && !array_has(commanded,
+                                            path + ": " + named_here[n]) {
+                                        let _p: Int = push(commanded, path + ": " + named_here[n]);
+                                    }
+                                    n += 1;
+                                }
+                                let _q: Int = push(pages, path);
+                            }
+                        }
+                    }
+                    e += 1;
+                }
+            }
+        }
+        if len(commanded) == 0 {
+            print("  ok    every runner a command on any page names exists ("
+                    + to_string(len(pages)) + " pages)");
+        } else {
+            print("  FAIL  every runner a command on any page names exists");
+            let mutable c: Int = 0;
+            while c < len(commanded) {
+                print("          " + commanded[c] + " is not in the tree");
+                c += 1;
+            }
+            let f: Int = push(failures, "every runner a command on any page names exists");
         }
 
         // 3. The shape the page prints, from the runner rather than from memory. The control hands it a

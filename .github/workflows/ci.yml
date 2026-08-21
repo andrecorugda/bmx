@@ -149,14 +149,6 @@ jobs:
       #
       # It runs in the Burxt job, because the packer is Burxt.
 
-      # **The other check that ran locally and in no CI job.** Every brand asset is generated, and a
-      # screenshot is the one artefact no test can catch going stale — so this one being absent from CI
-      # meant the icons were checked by whoever last ran `check.sh`.
-      - name: Every brand asset carries the family's margin and its own crop
-        run: |
-          python3 tests/branding.py
-          python3 tests/branding.py --prove-it
-
       - name: Every doc page closes its raw tag
         run: |
           bad=0
@@ -526,6 +518,16 @@ jobs:
       # skipping, three steps needing a compiler in the job that does not install one (red twice), and two
       # checks that ran locally and in no CI job at all. Two lists of thirty names are not comparable by
       # eye, which is exactly the kind of comparison a program should be doing.
+      # **The other check that ran locally and in no CI job.** Every brand asset is generated, and a
+      # screenshot is the one artefact no test can catch going stale — so this one being absent from CI
+      # meant the icons were checked by whoever last ran `check.sh`. It is in this job because it decodes
+      # PNGs with `lib/inflate.bx` now.
+      - name: Every brand asset carries the family's margin and its own crop
+        run: |
+          burxt build tests/branding.bx -o /tmp/branding
+          /tmp/branding
+          /tmp/branding --prove-it
+
       - name: check.sh and ci.yml run the same checks
         run: |
           burxt build tests/mirror.bx -o /tmp/mirror

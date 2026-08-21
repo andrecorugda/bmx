@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 BMX is a **markup format**, not an application: a normative grammar plus a conformance suite, with
 two implementations of it living alongside. There is no build step and no package manifest at the
-root — the toolchain is `python3` (tests and tools) and `node` (the reference parser and the editor
-tests). The Burxt half additionally needs a released `burxt` on `PATH` and `BURXT_LIB` set.
+root — the toolchain is `burxt` (every test and tool) and `node` (the reference parser and three editor
+tests). **There is no Python in this repository any more**; `burxt` on `PATH` with `BURXT_LIB` set is
+what a full run needs, and `tools/check.sh` skips the groups it cannot run and says which.
 
 Nothing here is compiled or installed to be worked on. Editing a `.md` normative document, a test
 case, or `reference/bmx.js` is the whole loop.
@@ -20,7 +21,7 @@ tools/check.sh
 BURXT_LIB=<burxt>/lib PATH=<burxt>:$PATH tools/check.sh    # includes the Burxt half
 
 # The conformance suite against any implementation
-python3 tests/harness.py 'node reference/bmx.js'
+burxt build tests/harness.bx -o /tmp/harness && /tmp/harness 'node reference/bmx.js'
 
 # One case, by hand — the harness has no filter flag
 node reference/bmx.js tests/cases/024-block-simple.bmx        # prints the AST as JSON
@@ -29,10 +30,10 @@ node reference/bmx.js --render tools/ex1.bmx                   # level-1 HTML
 
 # Two implementations must agree, on ASTs and on pages
 burxt build burxt/examples/parse.bx -o /tmp/bmx-parse
-python3 tests/agree.py 'node reference/bmx.js' /tmp/bmx-parse
+burxt build tests/agree.bx -o /tmp/agree && /tmp/agree 'node reference/bmx.js' /tmp/bmx-parse
 burxt build tools/render.bx -o /tmp/bmxrender
-python3 tests/renders.py /tmp/bmxrender
-python3 tests/output.py 'node reference/bmx.js --render' /tmp/bmxrender
+burxt build tests/renders.bx -o /tmp/renders && /tmp/renders /tmp/bmxrender
+burxt build tests/output.bx -o /tmp/output && /tmp/output 'node reference/bmx.js --render' /tmp/bmxrender
 
 # Level 2 (Burxt only): a document becomes a view the compiler checks
 burxt run burxt/guarantees.bx
@@ -66,7 +67,7 @@ a claim no implementation has to honour, and this repository's history is largel
 converting such claims into checks.
 
 Beyond conformance, `tests/` holds meta-checks over the repository itself — `agree.bx`,
-`branding.py`, `controls.bx`, `extension.bx`, `invitation.bx`, `languages.bx`, `messages.bx`,
+`branding.bx`, `controls.bx`, `extension.bx`, `invitation.bx`, `languages.bx`, `messages.bx`,
 `migration.bx`, `output.bx`, `portability.bx`, `renders.bx`, `roundtrip.bx`, `surface.bx`,
 `version.bx`. **The list is `ls tests/`, not a curated selection** — it was six names for a long time
 and three checks had been added since. Most take **`--prove-it`, a negative control** that asserts the
@@ -201,7 +202,7 @@ Three of the reasons are properties of BMX being a *format*, and they are not ne
 covered sixteen files on the strength of `ci.yml`'s sentence — *the format must be testable without its
 first host installed* — and **that sentence is about the format, not about this repository's CI.** The
 format's claim needs the fixtures, which are data, plus a runner a stranger can run: that is `neutral`.
-`tests/branding.py` and twelve others check *this
+`tools/shot.mjs` and a handful of others check *this
 repository*. In Burxt they cost a contributor without a toolchain some local checks and cost the
 portability claim nothing. Fifteen files moved to `gap`; **the gap went from 708 lines to 3,086.** The
 number had been wrong in the flattering direction.
@@ -222,7 +223,7 @@ from the question into its two halves, found their own instance the same day.
 already gone: `burxt/test.py` (now `burxt/guarantees.bx`), `editors/lsp/bmx-lsp.mjs` (now `bmx-lsp.bx`),
 `tools/fmt.py`, `tools/migrate-0.7.py`, and the runners `harness`, `agree`, `output`, `renders`,
 `roundtrip`, `portability`, `messages`, `invitation` and `surface`. What is left is
-`tests/branding.py`; `docs/assets/code.js` could be Burxt through wasm but
+nothing; `docs/assets/code.js` could be Burxt through wasm but
 would cost the documented promise that Helix and Neovim need *only Node*; `tools/shot.mjs` is blocked on
 Burxt having no browser driver. The check prints the gap and caps nothing — a threshold is a number somebody raises
 when it is inconvenient.

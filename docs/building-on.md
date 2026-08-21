@@ -305,7 +305,7 @@ Sometimes the answer really is a format change. Then:
    `git diff --diff-filter=M tests/` decides it mechanically rather than by judgement.
 3. **Error codes are permanent.** Once assigned, a code means that thing forever; retire it rather
    than reuse it, because a host may be keyed on it.
-4. **Both implementations must agree.** `python3 tests/agree.py 'node reference/bmx.js' '<yours>'`
+4. **Both implementations must agree.** `burxt build tests/agree.bx -o agree && ./agree 'node reference/bmx.js' '<yours>'`
    asks the question the suite cannot: *do two implementations reach the same answer where nothing
    was written down?* That is where a spec's ambiguities live.
 {% endraw %}

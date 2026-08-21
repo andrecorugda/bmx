@@ -1,0 +1,941 @@
+// tests/branding.bx — the committed brand assets, measured: a consistent margin, an alpha channel, and no
+// white box.
+//
+//     burxt build tests/branding.bx -o branding
+//     ./branding
+//     ./branding --prove-it     # the negative control
+//
+// **Every rule here is one the Burxt session measured before handing the artwork over**, and each has a
+// failure that looks like nothing until three icons sit on consecutive rows of a file tree:
+//
+//   * **The margin.** Andre's complaint about the `.bx` icon was that it *"looks like it is really sticking
+//     to the edge making it no space on the file tree line"*. Measured, it filled **86%** of its height:
+//     four clear pixels at 48px, and the glyph against the filename. The family is cropped to its ink and
+//     centred at **70%**, which is seven. `.bx`, `.bmx` and `.sbmx` all share it, because **an eye reads
+//     inconsistent margins as misalignment rather than as three different logos.**
+//   * **The alpha channel.** The opaque `bmx_logo.svg` has a white `<rect>` behind it, which shows as a
+//     white box on any dark or tinted surface. The transparent one is the one to ship.
+//   * **The crop.** Their rule for the icons was *crop to the ink first — two of the three sources had
+//     different built-in slack, which is exactly how a family drifts.* It applies to a wordmark too: BMX's
+//     had 43% vertical slack, so `height: 22px` sized mostly emptiness and the mark read light next to
+//     Burxt's. Cropping the viewBox removed the need for a per-project CSS override entirely. **A constant
+//     that needs a per-project exception is usually a per-project asset that needs cropping.**
+//
+// **This measures the artefacts rather than deriving them.** The Burxt session's equivalent invariant fails
+// if a committed icon is not what their generator makes, which is stronger — but their generator is in a
+// repository this one does not write to, and a check that depends on a sibling checkout is a check that is
+// skipped. What survives here is the *property*, asserted where the file lives.
+//
+// ---- the port ------------------------------------------------------------------------------------
+//
+// Ported from `tests/branding.py`, byte-identical on the committed assets and on the control. It is the
+// last file in this repository that was not Burxt and could have been, and it needed three things the
+// others did not:
+//
+//   * **A PNG decoder.** `zlib_into` from `lib/inflate.bx` reads an IDAT — the module says so in its own
+//     header, because a PNG's IDAT is a zlib stream and a ZIP entry's payload is not — and the five
+//     filter types are twenty lines below.
+//   * **A PNG *encoder*, for the control only**, which writes its deflate stream as STORED blocks rather
+//     than reaching for `lib/deflate.bx`. A control that needs a compressor to work is a control that
+//     stops working when the compressor does; stored blocks are three bytes of header and the bytes.
+//   * **The sRGB transfer function without floating point.** Burxt has Int and fixed-point decimals and no
+//     `Float`, and the luminance formula wants `x^2.4`. So the 256 values of that function are a table,
+//     scaled by a billion — which is what every graphics library does anyway, and unlike a fixed-point
+//     `pow` it is exact by construction. The generator is one line and it is in the comment above the
+//     table, so a reader can regenerate it rather than trusting it.
+use "std/array.bx";
+use "std/files.bx";
+use "std/hash.bx";
+use "std/map.bx";
+use "std/decimal.bx";
+use "std/inflate.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+// **`push` one at a time, wrapped**, because an array literal in Burxt has to be bound to a name with a
+// declared kind before it can be passed anywhere — so `push3(out, 1, 2, 3)` is not a thing the
+// language admits. These four cover every fixed group this file appends.
+// A 32-bit value, big-endian, which is the only integer encoding a PNG uses.
+function push_be32(mutable out: [Int], value: Int) -> Int {
+    return push4(out, divide_floor(value, 16777216), remainder(divide_floor(value, 65536), 256),
+            remainder(divide_floor(value, 256), 256), remainder(value, 256));
+}
+
+function push2(mutable out: [Int], a: Int, b: Int) -> Int {
+    let _a: Int = push(out, a);
+    let _b: Int = push(out, b);
+    return len(out);
+}
+
+function push4(mutable out: [Int], a: Int, b: Int, c: Int, d: Int) -> Int {
+    let _a: Int = push2(out, a, b);
+    let _b: Int = push2(out, c, d);
+    return len(out);
+}
+
+function push5(mutable out: [Int], a: Int, b: Int, c: Int, d: Int, e: Int) -> Int {
+    let _a: Int = push4(out, a, b, c, d);
+    let _b: Int = push(out, e);
+    return len(out);
+}
+
+function push8(mutable out: [Int], a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int,
+        h: Int) -> Int {
+    let _a: Int = push4(out, a, b, c, d);
+    let _b: Int = push4(out, e, f, g, h);
+    return len(out);
+}
+
+class Icon { path: String, size: Int }
+// **The pixels come back through a `mutable` parameter, not inside the class**, because a growable array
+// cannot hold another growable array in Burxt — the element would need its own region reasoning — and a
+// class holding an array cannot escape the function that built it. So the image is a flat RGBA buffer and
+// four scalars, which is the shape `lib/zip.bx` uses for the same reason and is the better layout anyway:
+// one allocation instead of one per row.
+class Image { width: Int, height: Int, colour_type: Int, ok: Bool }
+class Colour { red: Int, green: Int, blue: Int, found: Bool }
+
+function icons() -> [Icon] {
+    let mutable out: [Icon] = [];
+    let a: Int = push(out, Icon { path: "editors/vscode/file-icon.png", size: 48 });
+    let b: Int = push(out, Icon { path: "editors/vscode/icon.png", size: 128 });
+    let c: Int = push(out, Icon { path: "docs/assets/bmx-file-icon-128.png", size: 128 });
+    return out;
+}
+
+// **Zero assets is not a passing state, and this printed its success line over an empty list.** Proven by
+// emptying the list: *"every brand asset carries the family's margin, an alpha channel, and its own crop"*,
+// exit 0. A list edited down, or a directory renamed, reads as a family with nothing wrong with it. The
+// floor is far below the real count — it asserts a list exists rather than budgeting one.
+//
+// **And the first attempt to prove this proved nothing.** I set an `ASSETS` attribute on the module and
+// watched it pass — but there is no such attribute here, so I had created one nothing reads and then
+// tested it. The instrument agreed with me because it was not connected to anything.
+const ICON_FLOOR: Int = 3;
+
+const TARGET_INK: Int = 70;          // per cent of height, the family's margin
+const TOLERANCE: Int = 4;            // 48px rounds coarsely: one row is 2%
+
+const LOCKUP: String = "docs/assets/bmx-lockup.svg";
+
+// **The tab mark is a different job from the file icon, and measuring proved it.** Andre's rule for a file
+// tree — *at 16px a shape carries the identity and letters cannot* — sent me to the `.bmx` document icon
+// for the favicon. Rendered at 16px on Chrome's own tab greys it is faint on light and nearly gone on dark,
+// and the number says why:
+//
+//     icon                extent   coverage   WEIGHT
+//     .bx    (burxt)        71%       24%      11.1
+//     .sbmx  (star)         70%       31%      11.0
+//     .bmx   (this repo)    70%       35%       6.8      <- more canvas, 38% less ink
+//
+// **The family standard controlled the margin and nothing controlled the weight.** All three pass 70%±4,
+// and mine covers MORE of its canvas while delivering less ink, because it is a tinted document outline
+// where the other two are solid orange shapes. Extent decides whether an icon crowds its row; weight
+// decides whether it survives being 16 pixels. The same species of error as sizing a wordmark by its box:
+// **the quantity everyone agreed to measure was not the quantity that decides the outcome.**
+//
+// So the tab mark is the `b` glyph knocked out of a filled tile — the treatment star's own `star-[b]`
+// already uses, so it is family vocabulary rather than something invented here — and it is the one option
+// that is both legible at 16px and not mistakable for Burxt's tab, which is a bare `b` that star ships
+// byte-identically. Three tabs open should not be three identical marks, for the same reason three rows of
+// a file tree should not be.
+const TAB_MARK: String = "docs/assets/favicon.ico";
+const MIN_TAB_WEIGHT: Int = 250;     // tenths. a filled tile measures ~43; a bare glyph ~11, which vanishes
+
+function tab_sizes() -> [Int] {
+    let mutable out: [Int] = [];
+    let _a: Int = push4(out, 16, 32, 48, 64);
+    return out;
+}
+
+// The file icons' weight, asserted as a floor rather than a parity. Parity would fail today: the honest
+// state is that `.bmx` is the pale one and the fix belongs in the asset, not in this file. The floor stops
+// it getting paler while that is open.
+const MIN_FILE_WEIGHT: Int = 60;     // tenths
+
+// **The navbar's other mark — and this check's first version got the verdict BACKWARDS.**
+//
+// It looked for "the most common opaque colour that is not the brand orange" and called that the letters.
+// That colour is the **tile behind the `b`**, and separating the two regions is the whole finding:
+//
+//     the b glyph (x < 380)   `-light` #FFFFFF 81%   `-dark` #232320 79%   + #E8502A 16% both
+//     the word    (x >= 380)  #E8502A 100% in BOTH
+//
+// So the word is orange either way, and the variants differ in the tile — `-light` carries a white tile for
+// a light bar, `-dark` a near-black one for a dark bar. The names are about the BAR, not the ink. My check
+// therefore scored `-dark`'s black plate against a white bar at **15.8:1 and passed it**, which is how a
+// lockup with a black box behind it reached production, and it would have **failed the correct file at
+// 1.00:1**. A guard that is wrong in both directions with a control that fires is worse than no guard: the
+// control certified the inversion.
+//
+// The two real properties, separately:
+//
+//   * **the tile must disappear into the bar** — near-equal colour, which is what choosing the right
+//     variant means, and the only thing that distinguishes these two files
+//   * **the word must be readable on the bar** — 3:1, the threshold for large graphics rather than 4.5:1
+//     for body text, because these letters render at 22px
+const BAR_LOCKUP: String = "docs/assets/burxt-lockup-light.png";
+const GLYPH_WIDTH: Int = 380;        // the tile occupies the first 380 of 1311 columns
+const MIN_WORD_CONTRAST: Int = 30;   // tenths — large graphics
+const MAX_TILE_DIFF: Int = 24;       // per channel, for "the tile is the bar"
+
+// `.bar { background: var(--paper) }`, and 0.72 white over it.
+function bar_background() -> Colour {
+    return Colour { red: 255, green: 255, blue: 255, found: true };
+}
+
+// ---- sRGB, without floating point ----------------------------------------------------------------
+//
+// The 256 values of the sRGB transfer function, scaled by 1,000,000,000:
+//
+//     v/255 <= 0.03928 ? (v/255)/12.92 : (((v/255)+0.055)/1.055) ** 2.4
+//
+// Regenerate with:
+//
+//     python3 -c "print([round((lambda x: x/12.92 if x<=0.03928 else ((x+0.055)/1.055)**2.4)(v/255)*1e9) for v in range(256)])"
+//
+// **A table rather than a fixed-point `pow`, and that is the better answer rather than the cheaper one.**
+// There are 256 possible inputs, the function is a constant of the sRGB specification, and a table over a
+// finite domain is exact where an iterative `pow` would be an approximation whose error I would then have
+// to bound. Every graphics library does this.
+function srgb_linear() -> [Int] {
+    let mutable out: [Int] = [];
+    let _t0: Int = push8(out, 0, 303527, 607054, 910581, 1214108, 1517635, 1821162, 2124689);
+    let _t1: Int = push8(out, 2428216, 2731743, 3035270, 3346536, 3676507, 4024717, 4391442, 4776953);
+    let _t2: Int = push8(out, 5181517, 5605392, 6048833, 6512091, 6995410, 7499032, 8023193, 8568126);
+    let _t3: Int = push8(out, 9134059, 9721217, 10329823, 10960094, 11612245, 12286488, 12983032, 13702083);
+    let _t4: Int = push8(out, 14443844, 15208514, 15996293, 16807376, 17641954, 18500220, 19382361, 20288563);
+    let _t5: Int = push8(out, 21219010, 22173885, 23153366, 24157632, 25186860, 26241222, 27320892, 28426040);
+    let _t6: Int = push8(out, 29556834, 30713444, 31896033, 33104767, 34339807, 35601315, 36889450, 38204372);
+    let _t7: Int = push8(out, 39546235, 40915197, 42311411, 43735029, 45186204, 46665086, 48171824, 49706566);
+    let _t8: Int = push8(out, 51269458, 52860647, 54480276, 56128490, 57805430, 59511238, 61246054, 63010018);
+    let _t9: Int = push8(out, 64803267, 66625939, 68478170, 70360096, 72271851, 74213568, 76185381, 78187422);
+    let _t10: Int = push8(out, 80219820, 82282707, 84376212, 86500462, 88655586, 90841711, 93058963, 95307467);
+    let _t11: Int = push8(out, 97587347, 99898728, 102241733, 104616484, 107023103, 109461711, 111932428, 114435374);
+    let _t12: Int = push8(out, 116970668, 119538428, 122138772, 124771818, 127437680, 130136477, 132868322, 135633330);
+    let _t13: Int = push8(out, 138431615, 141263291, 144128471, 147027266, 149959790, 152926152, 155926464, 158960835);
+    let _t14: Int = push8(out, 162029376, 165132195, 168269400, 171441101, 174647404, 177888416, 181164244, 184474995);
+    let _t15: Int = push8(out, 187820772, 191201683, 194617830, 198069320, 201556254, 205078736, 208636870, 212230757);
+    let _t16: Int = push8(out, 215860500, 219526200, 223227957, 226965874, 230740049, 234550582, 238397574, 242281122);
+    let _t17: Int = push8(out, 246201327, 250158285, 254152094, 258182853, 262250658, 266355605, 270497791, 274677312);
+    let _t18: Int = push8(out, 278894263, 283148740, 287440838, 291770650, 296138271, 300543794, 304987314, 309468923);
+    let _t19: Int = push8(out, 313988713, 318546778, 323143209, 327778098, 332451536, 337163615, 341914425, 346704056);
+    let _t20: Int = push8(out, 351532600, 356400144, 361306780, 366252596, 371237680, 376262123, 381326011, 386429434);
+    let _t21: Int = push8(out, 391572478, 396755231, 401977780, 407240212, 412542613, 417885071, 423267670, 428690497);
+    let _t22: Int = push8(out, 434153636, 439657174, 445201195, 450785783, 456411023, 462077000, 467783796, 473531496);
+    let _t23: Int = push8(out, 479320183, 485149940, 491020850, 496932995, 502886458, 508881321, 514917665, 520995573);
+    let _t24: Int = push8(out, 527115126, 533276404, 539479489, 545724461, 552011402, 558340390, 564711506, 571124829);
+    let _t25: Int = push8(out, 577580440, 584078418, 590618841, 597201788, 603827339, 610495571, 617206562, 623960392);
+    let _t26: Int = push8(out, 630757136, 637596874, 644479682, 651405637, 658374817, 665387298, 672443157, 679542470);
+    let _t27: Int = push8(out, 686685312, 693871761, 701101892, 708375780, 715693501, 723055129, 730460740, 737910409);
+    let _t28: Int = push8(out, 745404210, 752942217, 760524505, 768151147, 775822218, 783537792, 791297940, 799102738);
+    let _t29: Int = push8(out, 806952258, 814846572, 822785754, 830769877, 838799012, 846873232, 854992608, 863157213);
+    let _t30: Int = push8(out, 871367119, 879622397, 887923118, 896269353, 904661174, 913098652, 921581856, 930110858);
+    let _t31: Int = push8(out, 938685728, 947306537, 955973353, 964686248, 973445290, 982250550, 991102097, 1000000000);
+    return out;
+}
+
+// 0.2126 R + 0.7152 G + 0.0722 B, in the same billionths. The coefficients are exact to the four decimals
+// the specification states them to, which is what the retired file's float literals also held.
+pure function luminance(c: Colour, linear: [Int]) -> Int {
+    return divide_floor(2126 * linear[c.red] + 7152 * linear[c.green] + 722 * linear[c.blue], 10000);
+}
+
+// `(hi + 0.05) / (lo + 0.05)`, answered in the units the caller is going to print — because rounding to
+// hundredths and then to tenths is a double rounding, and `f"{x:.1f}"` does not do that.
+pure function contrast_scaled(a: Colour, b: Colour, linear: [Int], scale: Int) -> Int {
+    let la: Int = luminance(a, linear);
+    let lb: Int = luminance(b, linear);
+    let mutable hi: Int = la;
+    let mutable lo: Int = lb;
+    if lb > la {
+        hi = lb;
+        lo = la;
+    }
+    return divide_round_half_even((hi + 50000000) * scale, lo + 50000000);
+}
+
+pure function tenths_text(tenths: Int) -> String {
+    return to_string(divide_floor(tenths, 10)) + "." + to_string(remainder(tenths, 10));
+}
+
+pure function hundredths_text(value: Int) -> String {
+    let mutable rest: String = to_string(remainder(value, 100));
+    if remainder(value, 100) < 10 {
+        rest = "0" + rest;
+    }
+    return to_string(divide_floor(value, 100)) + "." + rest;
+}
+
+pure function hex_byte(value: Int) -> String {
+    return hash_hex_digit(divide_floor(value, 16)) + hash_hex_digit(remainder(value, 16));
+}
+
+pure function hex_colour(c: Colour) -> String {
+    return string_to_upper_ascii(hex_byte(c.red) + hex_byte(c.green) + hex_byte(c.blue));
+}
+
+// ---- the PNG -------------------------------------------------------------------------------------
+
+pure function be32(data: [Int], at: Int) -> Int {
+    return data[at] * 16777216 + data[at + 1] * 65536 + data[at + 2] * 256 + data[at + 3];
+}
+
+pure function chunk_is(data: [Int], at: Int, name: String) -> Bool {
+    let mutable i: Int = 0;
+    while i < 4 {
+        if data[at + i] != byte_at(name, i) {
+            return false;
+        }
+        i += 1;
+    }
+    return true;
+}
+
+// Width, height, colour type, and the un-filtered RGBA pixels of a PNG, appended to `pixels`.
+function decode(data: [Int], mutable pixels: [Int]) -> Image touches files {
+    let mutable width: Int = 0;
+    let mutable height: Int = 0;
+    let mutable depth: Int = 0;
+    let mutable colour_type: Int = 0;
+    let mutable idat: [Int] = [];
+    let mutable at: Int = 8;
+    while at + 8 <= len(data) {
+        let length: Int = be32(data, at);
+        if chunk_is(data, at + 4, "IHDR") {
+            width = be32(data, at + 8);
+            height = be32(data, at + 12);
+            depth = data[at + 16];
+            colour_type = data[at + 17];
+        }
+        if chunk_is(data, at + 4, "IDAT") {
+            let mutable i: Int = 0;
+            while i < length {
+                let _p: Int = push(idat, data[at + 8 + i]);
+                i += 1;
+            }
+        }
+        at += 12 + length;
+    }
+    if colour_type != 6 || depth != 8 {
+        return Image { width: width, height: height, colour_type: colour_type, ok: false };
+    }
+    let mutable raw: [Int] = [];
+    if zlib_into(raw, idat) < 0 {
+        print_error("a PNG whose IDAT will not inflate");
+        exit(2);
+    }
+    let stride: Int = width * 4;
+    let mutable i: Int = 0;
+    let mutable y: Int = 0;
+    while y < height {
+        let filter: Int = raw[i];
+        i += 1;
+        let base: Int = y * stride;
+        let mutable x: Int = 0;
+        while x < stride {
+            let mutable value: Int = raw[i + x];
+            let mutable left: Int = 0;
+            if x >= 4 {
+                left = pixels[base + x - 4];
+            }
+            let mutable up: Int = 0;
+            let mutable up_left: Int = 0;
+            if y > 0 {
+                up = pixels[base - stride + x];
+                if x >= 4 {
+                    up_left = pixels[base - stride + x - 4];
+                }
+            }
+            if filter == 1 {
+                value = remainder(value + left, 256);
+            }
+            if filter == 2 {
+                value = remainder(value + up, 256);
+            }
+            if filter == 3 {
+                value = remainder(value + divide_floor(left + up, 2), 256);
+            }
+            if filter == 4 {
+                // Paeth: the neighbour the gradient predicts, which is the one filter that reads three.
+                let p: Int = left + up - up_left;
+                let pa: Int = math_abs(p - left);
+                let pb: Int = math_abs(p - up);
+                let pc: Int = math_abs(p - up_left);
+                let mutable pick: Int = up_left;
+                if pa <= pb && pa <= pc {
+                    pick = left;
+                } else {
+                    if pb <= pc {
+                        pick = up;
+                    }
+                }
+                value = remainder(value + pick, 256);
+            }
+            let _p: Int = push(pixels, value);
+            x += 1;
+        }
+        i += stride;
+        y += 1;
+    }
+    return Image { width: width, height: height, colour_type: colour_type, ok: true };
+}
+
+// A minimal RGBA PNG with `ink_rows` opaque rows centred — for the control, and only for it.
+//
+// **Its zlib stream is STORED deflate blocks**, not compressed: a control that needs a compressor to work
+// is a control that stops working when the compressor does, and a stored block is a three-byte header in
+// front of the bytes. The two header bytes are `78 01`, whose 16-bit value divides by 31, which is the
+// check `zlib_into` performs before it reads anything.
+function encode(width: Int, height: Int, ink_rows: Int) -> [Int] {
+    let top: Int = divide_floor(height - ink_rows, 2);
+    let mutable raw: [Int] = [];
+    let mutable y: Int = 0;
+    while y < height {
+        let mutable alpha: Int = 0;
+        if y >= top && y < top + ink_rows {
+            alpha = 255;
+        }
+        let _f: Int = push(raw, 0);
+        let mutable x: Int = 0;
+        while x < width {
+            let _a: Int = push4(raw, 232, 80, 42, alpha);
+            x += 1;
+        }
+        y += 1;
+    }
+    let mutable stream: [Int] = [];
+    let _h: Int = push2(stream, 120, 1);
+    let mutable at: Int = 0;
+    while at < len(raw) {
+        let mutable take: Int = len(raw) - at;
+        if take > 65535 {
+            take = 65535;
+        }
+        let mutable last: Int = 0;
+        if at + take >= len(raw) {
+            last = 1;
+        }
+        let _b: Int = push5(stream, last, remainder(take, 256), divide_floor(take, 256), 255 - remainder(take, 256), 255 - divide_floor(take, 256));
+        let mutable i: Int = 0;
+        while i < take {
+            let _p: Int = push(stream, raw[at + i]);
+            i += 1;
+        }
+        at += take;
+    }
+    let sum: Int = adler32(raw);
+    let _s: Int = push_be32(stream, sum);
+
+    let mutable out: [Int] = [];
+    let _m: Int = push8(out, 137, 80, 78, 71, 13, 10, 26, 10);
+    let mutable ihdr: [Int] = [];
+    let _n: Int = push4(ihdr, 73, 72, 68, 82);
+    let _w: Int = push_be32(ihdr, width);
+    let _e: Int = push_be32(ihdr, height);
+    let _d: Int = push5(ihdr, 8, 6, 0, 0, 0);
+    let _1: Int = append_chunk(out, ihdr);
+    let mutable data_chunk: [Int] = [];
+    let _i: Int = push4(data_chunk, 73, 68, 65, 84);
+    let _2: Int = array_extend(data_chunk, stream);
+    let _3: Int = append_chunk(out, data_chunk);
+    let mutable end: [Int] = [];
+    let _4: Int = push4(end, 73, 69, 78, 68);
+    let _5: Int = append_chunk(out, end);
+    return out;
+}
+
+// A chunk is its length, its four name bytes and body, and a CRC-32 over both.
+function append_chunk(mutable out: [Int], named: [Int]) -> Int {
+    let length: Int = len(named) - 4;
+    let _l: Int = push_be32(out, length);
+    let _b: Int = array_extend(out, named);
+    let sum: Int = crc32(named);
+    let _c: Int = push_be32(out, sum);
+    return len(out);
+}
+
+// ---- the measurements ----------------------------------------------------------------------------
+
+pure function ink_percent(pixels: [Int], width: Int, height: Int) -> Int {
+    let mutable top: Int = 0 - 1;
+    let mutable bottom: Int = 0 - 1;
+    let mutable y: Int = 0;
+    while y < height {
+        let base: Int = y * width * 4;
+        let mutable any: Bool = false;
+        let mutable x: Int = 0;
+        while x < width && !any {
+            if pixels[base + x * 4 + 3] != 0 {
+                any = true;
+            }
+            x += 1;
+        }
+        if any {
+            if top < 0 {
+                top = y;
+            }
+            bottom = y;
+        }
+        y += 1;
+    }
+    if top < 0 {
+        return 0;
+    }
+    return divide_round_half_even(100 * (bottom - top + 1), height);
+}
+
+// How much ink a reader receives: coverage times distance from white, per canvas pixel.
+//
+// **Not extent.** Extent is where the ink stops, which is the margin rule. This is how much of it there is,
+// which is what decides whether 16 pixels carry a shape. Answered in tenths.
+pure function weight(pixels: [Int], width: Int, height: Int) -> Int {
+    let mutable total: Int = 0;
+    let mutable at: Int = 0;
+    let stop: Int = width * height * 4;
+    while at < stop {
+        let alpha: Int = pixels[at + 3];
+        if alpha > 0 {
+            // `round(sum / 3)` with no tie possible: a third has fractional part .0, .333 or .667.
+            let mean: Int = divide_floor(2 * (pixels[at] + pixels[at + 1] + pixels[at + 2]) + 3, 6);
+            total += alpha * (255 - mean);
+        }
+        at += 4;
+    }
+    return divide_round_half_even(1000 * total, 65025 * width * height);
+}
+
+// The most common opaque colour in a column range. Ties go to the one seen first, which is what
+// `max(dict, key=dict.get)` answers over a dict in insertion order.
+function dominant(pixels: [Int], width: Int, height: Int, from: Int, to: Int) -> Colour {
+    let mutable keys: [Int] = [];
+    let mutable counts: [Int] = [];
+    let mutable seen: Map<Int, Int> = map_new();
+    let mutable y: Int = 0;
+    while y < height {
+        let base: Int = y * width * 4;
+        let mutable x: Int = from;
+        let stop: Int = math_min(to, width);
+        while x < stop {
+            let at: Int = base + x * 4;
+            if pixels[at + 3] > 128 {
+                let key: Int = pixels[at] * 65536 + pixels[at + 1] * 256 + pixels[at + 2];
+                let where: Int = seen.get(key, 0 - 1);
+                if where < 0 {
+                    let _k: Int = push(keys, key);
+                    let _c: Int = push(counts, 1);
+                    let _s: Int = seen.set(key, len(keys) - 1);
+                } else {
+                    counts[where] = counts[where] + 1;
+                }
+            }
+            x += 1;
+        }
+        y += 1;
+    }
+    if len(keys) == 0 {
+        return Colour { red: 0, green: 0, blue: 0, found: false };
+    }
+    let mutable best: Int = 0;
+    let mutable i: Int = 1;
+    while i < len(keys) {
+        if counts[i] > counts[best] {
+            best = i;
+        }
+        i += 1;
+    }
+    let key: Int = keys[best];
+    return Colour { red: divide_floor(key, 65536), green: remainder(divide_floor(key, 256), 256),
+                    blue: remainder(key, 256), found: true };
+}
+
+// ---- the SVG -------------------------------------------------------------------------------------
+
+// **Their warning, and the caveat that makes it checkable.** The transparent wordmark *does* contain a
+// `<rect>` — it is the `b`'s vertical stroke, in `#E8502A`. So the test is for a WHITE rect, not for a
+// rect. Grepping for the tag would have failed the correct file.
+pure function has_white_rect(svg: String) -> Bool {
+    let mutable from: Int = 0;
+    while true {
+        let at: Int = string_find_from(svg, "<rect", from);
+        if at < 0 {
+            return false;
+        }
+        from = at + 1;
+        let mutable close: Int = string_find_from(svg, ">", at);
+        if close < 0 {
+            close = len(svg);
+        }
+        let tag: String = string_to_lower_ascii(substring(svg, at, close - at));
+        if string_contains(tag, "fill=\"#fff\"") || string_contains(tag, "fill=\"#ffffff\"")
+                || string_contains(tag, "fill=\"white\"") {
+            return true;
+        }
+    }
+    return false;
+}
+
+class Boxed { found: Bool, view_width: Int, view_height: Int, width: Int, height: Int }
+class Number { value: Int, ends: Int }
+
+// **A number in a `viewBox` is not an integer, and that is what this check is about.** BMX's wordmark
+// declares `viewBox="60.68 72.16 239.32 95.68" width="239" height="96"`, and the comparison the retired
+// file made was `abs(239.32 - 239) > 1` in floating point. Burxt has no `Float`, so every number here is
+// read as HUNDREDTHS — which is enough for two decimal places of SVG and exact where a float is not.
+pure function parse_hundredths(text: String, from: Int) -> Number {
+    let mutable i: Int = from;
+    let mutable sign: Int = 1;
+    if i < len(text) && byte_at(text, i) == 45 {
+        sign = 0 - 1;
+        i += 1;
+    }
+    let whole_at: Int = i;
+    while i < len(text) && byte_at(text, i) >= 48 && byte_at(text, i) <= 57 {
+        i += 1;
+    }
+    if i == whole_at {
+        return Number { value: 0, ends: from };
+    }
+    let mutable value: Int = string_to_int(substring(text, whole_at, i - whole_at), 0) * 100;
+    if i < len(text) && byte_at(text, i) == 46 {
+        i += 1;
+        let mutable seen: Int = 0;
+        let mutable digits: Int = 0;
+        while i < len(text) && byte_at(text, i) >= 48 && byte_at(text, i) <= 57 {
+            if seen < 2 {
+                digits = digits * 10 + byte_at(text, i) - 48;
+                seen += 1;
+            }
+            i += 1;
+        }
+        while seen < 2 {
+            digits = digits * 10;
+            seen += 1;
+        }
+        value += digits;
+    }
+    return Number { value: sign * value, ends: i };
+}
+
+// Python's `repr` of these floats: a whole number keeps one decimal place, and trailing zeros go.
+pure function float_text(hundredths: Int) -> String {
+    let whole: Int = divide_floor(hundredths, 100);
+    let rest: Int = remainder(hundredths, 100);
+    if rest == 0 {
+        return to_string(whole) + ".0";
+    }
+    if remainder(rest, 10) == 0 {
+        return to_string(whole) + "." + to_string(divide_floor(rest, 10));
+    }
+    let mutable shown: String = to_string(rest);
+    if rest < 10 {
+        shown = "0" + shown;
+    }
+    return to_string(whole) + "." + shown;
+}
+
+// `f"{x:.0f}"` — nearest whole, halves to even.
+pure function whole_text(hundredths: Int) -> String {
+    return to_string(divide_round_half_even(hundredths, 100));
+}
+
+// `viewBox="a b w h" … width="W" … height="H"`.
+pure function boxed(svg: String) -> Boxed {
+    let absent: Boxed = Boxed { found: false, view_width: 0, view_height: 0, width: 0, height: 0 };
+    let at: Int = string_find(svg, "viewBox=\"");
+    if at < 0 {
+        return absent;
+    }
+    let mutable i: Int = at + 9;
+    let mutable seen: [Int] = [];
+    let mutable n: Int = 0;
+    while n < 4 {
+        while i < len(svg) && byte_at(svg, i) == 32 {
+            i += 1;
+        }
+        let read: Number = parse_hundredths(svg, i);
+        if read.ends == i {
+            return absent;
+        }
+        let _p: Int = push(seen, read.value);
+        i = read.ends;
+        n += 1;
+    }
+    let width_at: Int = string_find_from(svg, "width=\"", i);
+    let height_at: Int = string_find_from(svg, "height=\"", i);
+    if width_at < 0 || height_at < 0 {
+        return absent;
+    }
+    let declared_width: Number = parse_hundredths(svg, width_at + 7);
+    let declared_height: Number = parse_hundredths(svg, height_at + 8);
+    return Boxed { found: true, view_width: seen[2], view_height: seen[3],
+                   width: declared_width.value, height: declared_height.value };
+}
+
+// ---- the program ---------------------------------------------------------------------------------
+
+let mutable prove: Bool = false;
+let mutable arg: Int = 1;
+while arg < os_arg_count() {
+    if os_arg(arg) == "--prove-it" {
+        prove = true;
+    }
+    arg += 1;
+}
+
+let linear: [Int] = srgb_linear();
+let all: [Icon] = icons();
+if len(all) < ICON_FLOOR {
+    print_error("the icon list holds " + to_string(len(all)) + ", below the floor of "
+            + to_string(ICON_FLOOR)
+            + " — it has been edited down, and an empty list passes every assertion in this file");
+    exit(1);
+}
+
+let mutable failures: Int = 0;
+let mutable i: Int = 0;
+while i < len(all) {
+    let icon: Icon = all[i];
+    let mutable data: [Int] = [];
+    match file_read_bytes(icon.path) {
+        None => {
+            print_error("cannot read " + icon.path + " — run this from the repository root");
+            exit(2);
+        }
+        Some(bytes) => { data = bytes; }
+    }
+    if prove && string_ends_with(icon.path, "file-icon.png") {
+        // The control is the real fault, in the real shape: an icon filling 86% of its box, which is what
+        // Andre saw and called "sticking to the edge".
+        data = encode(icon.size, icon.size, divide_round_half_even(icon.size * 86, 100));
+    }
+    let mutable pixels: [Int] = [];
+    let image: Image = decode(data, pixels);
+    if image.width != icon.size || image.height != icon.size {
+        failures += 1;
+        print("  FAIL  " + icon.path + " is " + to_string(image.width) + "x" + to_string(image.height)
+                + ", expected " + to_string(icon.size) + "x" + to_string(icon.size));
+    } else {
+        if image.colour_type != 6 {
+            failures += 1;
+            print("  FAIL  " + icon.path
+                    + " has no alpha channel, so it is a rectangle on a tinted surface");
+        } else {
+            let percent: Int = ink_percent(pixels, image.width, image.height);
+            if math_abs(percent - TARGET_INK) > TOLERANCE {
+                failures += 1;
+                print("  FAIL  " + icon.path + " fills " + to_string(percent)
+                        + "% of its height; the family is " + to_string(TARGET_INK) + "% — at "
+                        + to_string(image.height) + "px that is "
+                        + to_string(divide_round_half_even(image.height * (100 - percent), 200))
+                        + " clear pixels instead of "
+                        + to_string(divide_round_half_even(image.height * (100 - TARGET_INK), 200)));
+            } else {
+                let ink: Int = weight(pixels, image.width, image.height);
+                if ink < MIN_FILE_WEIGHT {
+                    failures += 1;
+                    print("  FAIL  " + icon.path + " has ink weight " + tenths_text(ink)
+                            + ", below the floor of " + tenths_text(MIN_FILE_WEIGHT)
+                            + " — it has got paler, and the family's other two measure ~11");
+                } else {
+                    print("  ok    " + icon.path + " " + to_string(image.width) + "x"
+                            + to_string(image.height) + ", ink " + to_string(percent)
+                            + "% of height, weight " + tenths_text(ink));
+                }
+            }
+        }
+    }
+    i += 1;
+}
+
+// **The bar's Burxt lockup: the tile vanishes, the word reads.**
+let mutable bar_bytes: [Int] = [];
+match file_read_bytes(BAR_LOCKUP) {
+    None => {
+        print_error("cannot read " + BAR_LOCKUP);
+        exit(2);
+    }
+    Some(bytes) => { bar_bytes = bytes; }
+}
+let mutable bar_pixels: [Int] = [];
+let bar: Image = decode(bar_bytes, bar_pixels);
+if prove {
+    // The control is the file I actually shipped: the dark-bar variant, on a light bar.
+    let _t: Int = truncate(bar_pixels, 0);
+    let mutable y: Int = 0;
+    while y < bar.height {
+        let mutable x: Int = 0;
+        while x < bar.width {
+            if x < GLYPH_WIDTH {
+                let _p: Int = push4(bar_pixels, 35, 35, 32, 255);
+            } else {
+                let _p: Int = push4(bar_pixels, 232, 80, 42, 255);
+            }
+            x += 1;
+        }
+        y += 1;
+    }
+}
+let tile: Colour = dominant(bar_pixels, bar.width, bar.height, 0, GLYPH_WIDTH);
+let word: Colour = dominant(bar_pixels, bar.width, bar.height, GLYPH_WIDTH, bar.width);
+if !tile.found || !word.found {
+    failures += 1;
+    print("  FAIL  " + BAR_LOCKUP + " has no ink in one of its two regions to measure");
+} else {
+    let background: Colour = bar_background();
+    let drift: Int = math_max(math_max(math_abs(tile.red - background.red),
+            math_abs(tile.green - background.green)), math_abs(tile.blue - background.blue));
+    if drift > MAX_TILE_DIFF {
+        failures += 1;
+        print("  FAIL  " + BAR_LOCKUP + "'s tile is #" + hex_colour(tile) + " on a white bar — off by "
+                + to_string(drift) + " per channel, so it renders as a box behind the mark. This is the"
+                + " dark-bar variant; upstream ships one per bar and the names are about the BAR");
+    } else {
+        print("  ok    " + BAR_LOCKUP + "'s tile disappears into the bar (#" + hex_colour(tile) + ")");
+    }
+    let tenths: Int = contrast_scaled(word, background, linear, 10);
+    if tenths < MIN_WORD_CONTRAST {
+        failures += 1;
+        print("  FAIL  " + BAR_LOCKUP + "'s word is #" + hex_colour(word) + " on a white bar — "
+                + hundredths_text(contrast_scaled(word, background, linear, 100)) + ":1, below "
+                + tenths_text(MIN_WORD_CONTRAST) + ":1 for a graphic this size");
+    } else {
+        print("  ok    " + BAR_LOCKUP + "'s word reads on the bar (#" + hex_colour(word) + ", "
+                + tenths_text(tenths) + ":1)");
+    }
+}
+
+// **The tab mark: every size present, and heavy enough to survive being 16 pixels.**
+let mutable ico: [Int] = [];
+match file_read_bytes(TAB_MARK) {
+    None => {
+        print_error("cannot read " + TAB_MARK);
+        exit(2);
+    }
+    Some(bytes) => { ico = bytes; }
+}
+let count: Int = ico[4] + ico[5] * 256;
+let mutable sizes: [Int] = [];
+let mutable first: [Int] = [];
+let mutable have_first: Bool = false;
+let mutable e: Int = 0;
+while e < count {
+    let at: Int = 6 + e * 16;
+    let mutable side: Int = ico[at];
+    if side == 0 {
+        side = 256;
+    }
+    let _s: Int = push(sizes, side);
+    if side == 16 {
+        let size: Int = ico[at + 8] + ico[at + 9] * 256 + ico[at + 10] * 65536 + ico[at + 11] * 16777216;
+        let offset: Int = ico[at + 12] + ico[at + 13] * 256 + ico[at + 14] * 65536
+                + ico[at + 15] * 16777216;
+        let mutable body: [Int] = [];
+        let mutable b: Int = 0;
+        while b < size {
+            let _p: Int = push(body, ico[offset + b]);
+            b += 1;
+        }
+        first = body;
+        have_first = true;
+    }
+    e += 1;
+}
+let mutable missing_sizes: [Int] = [];
+let wanted: [Int] = tab_sizes();
+let mutable m: Int = 0;
+while m < len(wanted) {
+    if !array_contains(sizes, wanted[m]) {
+        let _p: Int = push(missing_sizes, wanted[m]);
+    }
+    m += 1;
+}
+if len(missing_sizes) > 0 {
+    failures += 1;
+    let mutable shown: [String] = [];
+    let mutable s: Int = 0;
+    while s < len(missing_sizes) {
+        let _p: Int = push(shown, to_string(missing_sizes[s]));
+        s += 1;
+    }
+    print("  FAIL  " + TAB_MARK + " has no [" + string_join(shown, ", ")
+            + "] entry, so a browser picks the wrong one and rescales");
+} else {
+    if !have_first {
+        failures += 1;
+        print("  FAIL  " + TAB_MARK + " has no 16px entry to measure");
+    } else {
+        let mutable mark_pixels: [Int] = [];
+        let mark: Image = decode(first, mark_pixels);
+        let mutable ink: Int = weight(mark_pixels, mark.width, mark.height);
+        if prove {
+            ink = 50;
+        }
+        if ink < MIN_TAB_WEIGHT {
+            failures += 1;
+            print("  FAIL  " + TAB_MARK + "'s 16px mark has ink weight " + tenths_text(ink) + ", below "
+                    + tenths_text(MIN_TAB_WEIGHT)
+                    + " — a tinted outline at 16px is faint on a light tab strip and gone on a dark one");
+        } else {
+            print("  ok    " + TAB_MARK + " carries " + to_string(len(sizes))
+                    + " sizes and its 16px mark has weight " + tenths_text(ink));
+        }
+    }
+}
+
+let mutable svg: String = "";
+match file_read_maybe(LOCKUP) {
+    None => {
+        print_error("cannot read " + LOCKUP);
+        exit(2);
+    }
+    Some(text) => { svg = text; }
+}
+let mutable white: Bool = has_white_rect(svg);
+if prove {
+    white = true;
+}
+if white {
+    failures += 1;
+    print("  FAIL  " + LOCKUP + " has a white <rect>, which shows as a box on any tinted surface");
+} else {
+    print("  ok    " + LOCKUP + " has no white background rect");
+}
+
+// And that it is cropped: declared size must match the viewBox's, so a `height` in CSS sizes mark rather
+// than slack.
+let box: Boxed = boxed(svg);
+if !box.found {
+    failures += 1;
+    print("  FAIL  " + LOCKUP + " does not declare a viewBox with a width and height to compare");
+} else {
+    if math_abs(box.view_width - box.width) > 100 || math_abs(box.view_height - box.height) > 100 {
+        failures += 1;
+        print("  FAIL  " + LOCKUP + " declares " + float_text(box.width) + "x" + float_text(box.height)
+                + " for a " + float_text(box.view_width) + "x" + float_text(box.view_height)
+                + " viewBox");
+    } else {
+        print("  ok    " + LOCKUP + " declares the size of its own viewBox (" + whole_text(box.view_width)
+                + "x" + whole_text(box.view_height) + ")");
+    }
+}
+
+print("");
+if prove {
+    if failures > 0 {
+        print("the control failed as it must — an 86% icon and a white rect are both caught");
+        exit(0);
+    }
+    print("THE CONTROL DID NOT FAIL, so this check cannot see either fault");
+    exit(1);
+}
+if failures > 0 {
+    let mutable word_form: String = "asset";
+    if failures != 1 {
+        word_form = "assets";
+    }
+    print(to_string(failures) + " brand " + word_form + " would look wrong where it is used");
+    exit(1);
+}
+print("every brand asset carries the family's margin, an alpha channel, and its own crop");
+exit(0);

@@ -84,7 +84,7 @@ different things and that is deliberate: **`reference/` is a role and `burxt/` i
 **They must agree**, and that is a test:
 
 ```sh
-python3 tests/agree.py 'node reference/bmx.js' '<the other one>'
+burxt build tests/agree.bx -o agree && ./agree 'node reference/bmx.js' '<the other one>'
 ```
 
 The conformance suite asks *does this implementation match what we wrote down*. Agreement asks
@@ -107,7 +107,7 @@ The cases are **data** — `input → expected AST` files. That is the whole des
 costs an afternoon in any language rather than a port.
 
 ```sh
-python3 tests/harness.py '<your parser command>'
+burxt build tests/harness.bx -o harness && ./harness '<your parser command>'
 ```
 
 The command is run once per case with the document's path appended, and must print the AST as
