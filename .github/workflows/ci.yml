@@ -108,20 +108,6 @@ jobs:
           node tests/embeds.mjs
           node tests/embeds.mjs --prove-it
 
-      # **Andre's rule for all three projects: if it can be written in Burxt, it must be, and reaching
-      # for another language is a gap report rather than a solution.** BMX is the furthest of the three
-      # from it by raw count and has the strongest defence — most of this job is Python and Node *because*
-      # of the sentence at the top of this file, that the format must be testable without its first host
-      # installed. A count without reasons reads worse than the truth, so every non-Burxt file states one
-      # and this fails on a file that states none.
-      #
-      # It caps nothing. The `gap` total is printed, because a threshold is a number somebody raises when
-      # it is inconvenient, and the rule is not "keep it under N" — it is "know what it is".
-      - name: Every file that is not Burxt says why it is not
-        run: |
-          python3 tests/languages.py
-          python3 tests/languages.py --prove-it
-
       # **A control that cannot fail reports success forever**, and it is the one thing the steps around it
       # cannot see: they would notice a control that crashes, and doing nothing looks exactly like passing.
       # The star-burxt session found one in their tree — a runner whose header advertised `--prove-it` while
@@ -160,38 +146,6 @@ jobs:
       # stale committed `.vsix` passes forever. `tests/extension.py` packs once, compares, restores, and
       # asserts the archive's entries from the bytes it already has. **One thing packs.** star-burxt's CI
       # says the same in one line, `runs the test, not the packer`, and reached it independently.
-
-      # A page that documents `{{` is a page Jekyll reads as Liquid, so every doc wraps its body
-      # in {% raw %}. An UNCLOSED one is worse than a missing one: the missing case fails on the
-      # brace it could not parse, the unclosed case fails on the tag and takes the whole site with
-      # it. That happened -- a slice to end-of-file removed the closing tag from two pages and the
-      # build died with "'raw' tag was never closed".
-      #
-      # Checked here rather than trusted, because there is no Ruby on the machine these pages are
-      # written on: Jekyll only ever runs on the remote, so a green local anything says nothing
-      # about whether the site builds.
-      # **Indentation is insignificant, so nothing else can catch a wrong one.** The examples on the
-      # site are what a reader copies, and a wrongly-indented example teaches the wrong shape while
-      # parsing perfectly. `tools/fmt.py` decides the shape; this asserts the docs are in it.
-      # **Three status claims were stale at once, one of them nine releases behind** — and a stale
-      # NOT-DONE is found by nobody, because a reader who is told a feature is absent believes it and
-      # leaves. The version lives in `SPEC.md`'s title; this checks every page against it.
-      # A control that cannot fail reports success forever, and it is the one promise no other check
-      # can see: they would notice a control that crashes, and doing nothing looks exactly like passing.
-      # The star-burxt session found one in their tree — a runner whose header advertised `--prove-it`
-      # while the flag was a hardcoded `false`. It ran, printed its success line, exited 0, and had never
-      # been watched fail. Nine of their ten were live; that is the ratio that makes this worth a step.
-      - name: No runner advertises a control it does not read
-        run: |
-          burxt build tests/controls.bx -o /tmp/controls
-          /tmp/controls
-          /tmp/controls --prove-it
-
-      - name: Every version the documentation states agrees with SPEC.md
-        run: |
-          burxt build tests/version.bx -o /tmp/version
-          /tmp/version
-          /tmp/version --prove-it
 
       - name: Every doc page closes its raw tag
         run: |
@@ -512,6 +466,58 @@ jobs:
           burxt build tests/surface.bx -o /tmp/surface
           /tmp/surface
           /tmp/surface --prove-it
+
+      # **These three moved out of the conformance job when their runners became Burxt, and for one
+      # commit they were in it while needing a compiler it does not install.** The conformance job
+      # may not need a Burxt toolchain — that is the sentence at the top of this file — so a step
+      # added next to a sibling it reads like belongs wherever that sibling is, not wherever the
+      # diff was smallest.
+      # A page that documents `{{` is a page Jekyll reads as Liquid, so every doc wraps its body
+      # in {% raw %}. An UNCLOSED one is worse than a missing one: the missing case fails on the
+      # brace it could not parse, the unclosed case fails on the tag and takes the whole site with
+      # it. That happened -- a slice to end-of-file removed the closing tag from two pages and the
+      # build died with "'raw' tag was never closed".
+      #
+      # Checked here rather than trusted, because there is no Ruby on the machine these pages are
+      # written on: Jekyll only ever runs on the remote, so a green local anything says nothing
+      # about whether the site builds.
+      # **Indentation is insignificant, so nothing else can catch a wrong one.** The examples on the
+      # site are what a reader copies, and a wrongly-indented example teaches the wrong shape while
+      # parsing perfectly. `tools/fmt.py` decides the shape; this asserts the docs are in it.
+      # **Three status claims were stale at once, one of them nine releases behind** — and a stale
+      # NOT-DONE is found by nobody, because a reader who is told a feature is absent believes it and
+      # leaves. The version lives in `SPEC.md`'s title; this checks every page against it.
+      # A control that cannot fail reports success forever, and it is the one promise no other check
+      # can see: they would notice a control that crashes, and doing nothing looks exactly like passing.
+      # The star-burxt session found one in their tree — a runner whose header advertised `--prove-it`
+      # while the flag was a hardcoded `false`. It ran, printed its success line, exited 0, and had never
+      # been watched fail. Nine of their ten were live; that is the ratio that makes this worth a step.
+      # **Andre's rule for all three projects: if it can be written in Burxt, it must be, and reaching
+      # for another language is a gap report rather than a solution.** A count without reasons reads worse
+      # than the truth, so every non-Burxt file states one and this fails on a file that states none.
+      #
+      # **The ledger is in this job because the ledger is Burxt now**, which is the shape of its own
+      # argument: the file that measures the gap used to be in it.
+      #
+      # It caps nothing. The `gap` total is printed, because a threshold is a number somebody raises when
+      # it is inconvenient, and the rule is not "keep it under N" — it is "know what it is".
+      - name: Every file that is not Burxt says why it is not
+        run: |
+          burxt build tests/languages.bx -o /tmp/languages
+          /tmp/languages
+          /tmp/languages --prove-it
+
+      - name: No runner advertises a control it does not read
+        run: |
+          burxt build tests/controls.bx -o /tmp/controls
+          /tmp/controls
+          /tmp/controls --prove-it
+
+      - name: Every version the documentation states agrees with SPEC.md
+        run: |
+          burxt build tests/version.bx -o /tmp/version
+          /tmp/version
+          /tmp/version --prove-it
 
       - name: Somebody else's program can reach `bmx_parse`
         run: |

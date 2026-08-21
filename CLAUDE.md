@@ -66,7 +66,7 @@ a claim no implementation has to honour, and this repository's history is largel
 converting such claims into checks.
 
 Beyond conformance, `tests/` holds meta-checks over the repository itself — `agree.bx`,
-`branding.py`, `controls.bx`, `extension.py`, `invitation.bx`, `languages.py`, `messages.bx`,
+`branding.py`, `controls.bx`, `extension.py`, `invitation.bx`, `languages.bx`, `messages.bx`,
 `migration.bx`, `output.bx`, `portability.bx`, `renders.bx`, `roundtrip.bx`, `surface.bx`,
 `version.bx`. **The list is `ls tests/`, not a curated selection** — it was six names for a long time
 and three checks had been added since. Most take **`--prove-it`, a negative control** that asserts the
@@ -179,11 +179,11 @@ format's real limits are (BMX has no attribute syntax — that, not navigation b
 
 **The rule across all three projects: if it can be written in Burxt, it must be, and reaching for
 another language is a gap report rather than a solution.** BMX is the furthest of the three from it by
-raw count — measure with `python3 tests/languages.py` — and it has the strongest defence, which is why
+raw count — measure with `tests/languages.bx` — and it has the strongest defence, which is why
 every non-Burxt file **states its reason in its own first 20 lines** (`not-burxt: <reason>`) and the
 check fails on a file that states none. A count without reasons reads worse than the truth: on 2026-08-20
 an outside audit read 8,125 lines by counting the gitignored copy of `reference/bmx.js` that `pack.py`
-stages — the same file twice. **Run `python3 tests/languages.py` for today's numbers rather than reading
+stages — the same file twice. **Run `tests/languages.bx` for today's numbers rather than reading
 one here**; this file has been wrong about them once, and the gitignored rules file beside it twice.
 
 Three of the reasons are properties of BMX being a *format*, and they are not negotiable:
@@ -222,7 +222,7 @@ from the question into its two halves, found their own instance the same day.
 already gone: `burxt/test.py` (now `burxt/guarantees.bx`), `editors/lsp/bmx-lsp.mjs` (now `bmx-lsp.bx`),
 `tools/fmt.py`, `tools/migrate-0.7.py`, and the runners `harness`, `agree`, `output`, `renders`,
 `roundtrip`, `portability`, `messages`, `invitation` and `surface`. What is left is
-`tests/branding.py`, `tests/extension.py`, `tests/languages.py`,
+`tests/branding.py`, `tests/extension.py`,
 `editors/vscode/pack.py`; `docs/assets/code.js` could be Burxt through wasm but
 would cost the documented promise that Helix and Neovim need *only Node*; `tools/shot.mjs` is blocked on
 Burxt having no browser driver. The check prints the gap and caps nothing — a threshold is a number somebody raises

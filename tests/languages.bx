@@ -1,0 +1,455 @@
+// tests/languages.bx — every file in this repository that is not Burxt says why it is not.
+//
+//     burxt build tests/languages.bx -o languages
+//     ./languages
+//     ./languages --prove-it     # the negative control
+//
+// **Andre's rule for all three projects: if it can be written in Burxt, it must be, and reaching for
+// another language is a gap report rather than a solution.** BMX was the furthest of the three from that
+// rule and also had the strongest defence, which is exactly why the defence has to be written down per
+// file instead of argued once. A count on its own reads worse than the truth; a count with a reason beside
+// every line is an audit.
+//
+// **The counts live in the output, not in this header.** The first draft of this paragraph carried them —
+// *"6,367 non-Burxt lines against 1,967 of Burxt"* — and by the time the ports were done that sentence had
+// the ratio the wrong way round. A number in a header is a claim with no runner behind it, which is the
+// defect this repository spends its checks converting; the one below it, printed on every run, is measured.
+//
+// The star-burxt session raised the rule after failing it themselves: told that `reference/bmx.js` exports
+// `render`, they imported 1,171 lines of JavaScript into a product whose argument is that you do not need
+// any, while `bmx_to_html` sat in `burxt/bmx.bx` already conformance-tested. Their amendment is worth
+// keeping: *do not reimplement* is right, and *import the implementation in the host's own language when
+// one exists* is stronger.
+//
+// **Six defences, and only the first two are about BMX being a format rather than a program:**
+//
+//   `reference`   The reference implementation is JavaScript ON PURPOSE. The format's central claim is that
+//                 any language can implement it; a reference written in the host language would make that
+//                 claim untestable by anyone who does not have the host.
+//   `neutral`     A runner that takes an arbitrary implementation command. If it were Burxt, running the
+//                 conformance suite would require the Burxt toolchain — so a stranger implementing BMX in
+//                 a sixth language could not check their work, which is the one thing these files exist
+//                 for. **The category is empty today and stays in the list**: it is the shape a future
+//                 neutral runner would claim, and deleting an empty category is how the next one gets
+//                 classified as something else.
+//   `bootstrap`   `tools/check.sh` only. The entry point a contributor runs **before** any toolchain
+//                 exists, so it cannot need what it installs — the chicken-and-egg category, and it
+//                 already discloses which groups it skipped.
+//   `platform`    The artefact under test, or the runtime it runs in, is JavaScript and nothing else can
+//                 be: VS Code's extension host is Node, a TextMate grammar is tokenised by a JS engine,
+//                 and `docs/assets/code.js` runs in the reader's browser.
+//   `vendored`    A byte copy of a file from burxt-lang.org. `docs/_config.yml` says re-copy rather than
+//                 edit, so it carries no marker and is named here instead — editing it to add one would
+//                 break the property that makes it a copy.
+//   `gap`         **Could be Burxt and is not.** Named rather than defended. This is the number the rule
+//                 is about, and it is the only category that should ever shrink.
+//
+// **`standalone` used to be a category here and it was doing work it had not earned.** It covered sixteen
+// files on the strength of `ci.yml`'s sentence — *the format must be testable without its first host
+// installed* — and **that sentence is about the format, not about this repository's CI.** What the format's
+// claim actually needs is the fixtures, which are data, plus a runner a stranger can execute: that is
+// `neutral`, and it is genuinely permanent. `tests/branding.py`, `editors/vscode/pack.py` and the rest
+// check *this repository*. In Burxt they make the conformance job need a toolchain — which costs a
+// contributor without one some checks, and **costs the format's portability claim nothing at all.**
+//
+// Conflating those two is how a real property lent its authority to a choice. Reclassified 2026-08-21:
+// fifteen files moved to `gap`, and the gap went from 708 lines to 3,074. **The number was wrong in the
+// flattering direction, which is the only direction that survives.**
+//
+// **This total is not comparable to the other repositories', and that has to be said here or a reader will
+// compare it anyway.** star-burxt reached `gap` zero; BMX cannot and should not. The difference is
+// structural rather than a difference in effort: **`ci.yml`'s conformance job may not need a Burxt
+// toolchain**, by a design decision older than this check — the format must be testable without its first
+// host installed — and star has no equivalent job, so it has no equivalent constraint. That single property
+// makes `reference`, `neutral` and `platform` **permanent** non-Burxt code here — a release cannot unforbid
+// them and no amount of work should remove them.
+//
+// So the honest reading of these numbers is: `gap` is the debt, and the rest is the architecture. A
+// different repository's zero and this one's remainder are not measuring the same thing. The star-burxt
+// session put it better than I did — *"your standalone property generates permanent non-Burxt code and star
+// has no equivalent, so BMX's remainder is not debt"* — and asked that it be written where the number is
+// printed rather than left to inference.
+//
+// **The marker must be a DECLARATION, not a mention** — beginning a comment line, inside the file's first
+// 20 lines, with its reason free to follow on the same line. `tests/version.bx` learned that the hard way
+// the same day: its opt-out marker was matched anywhere in a file, so `CLAUDE.md` opted itself out of the
+// version gate by *describing* how opting out works, and the page count fell silently. A file can be
+// removed from a check by writing prose about the check, so this one is positional.
+//
+// ---- the port ------------------------------------------------------------------------------------
+//
+// Ported from `tests/languages.py`, which was the last file in the ledger that was itself in the ledger.
+// Byte-identical on the real tree, on the control, and on planted markers of every wrong shape.
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+const WITHIN: Int = 20;
+
+// **Deliberately without `.bx`**: this counts what is NOT Burxt, and the Burxt total is measured
+// separately below.
+function suffixes() -> [String] {
+    let mutable out: [String] = [];
+    let a: Int = push(out, ".py");
+    let b: Int = push(out, ".mjs");
+    let c: Int = push(out, ".js");
+    let d: Int = push(out, ".sh");
+    return out;
+}
+
+function reasons() -> [String] {
+    let mutable out: [String] = [];
+    let a: Int = push(out, "reference");
+    let b: Int = push(out, "neutral");
+    let c: Int = push(out, "bootstrap");
+    let d: Int = push(out, "platform");
+    let e: Int = push(out, "gap");
+    return out;
+}
+
+// The tuple as Python printed it, because the failure line quoted it verbatim.
+const REASONS_SHOWN: String = "('reference', 'neutral', 'bootstrap', 'platform', 'gap')";
+
+// Files that must not be edited, so they cannot carry a marker. The reason lives here because the
+// alternative is editing the thing whose whole property is being an unedited copy.
+const VENDORED: String = "docs/assets/site.js";
+
+// Never scanned: git's own, installed dependencies, and the parser copy `pack.py` stages into the
+// extension (gitignored, and counting it is what made an outside audit read 8,125 where the tree has
+// 6,367 — the same 1,171 lines twice).
+pure function skipped(rel: String) -> Bool {
+    return string_starts_with(rel, ".git/") || string_contains(rel, "/.git/")
+            || string_starts_with(rel, "node_modules/") || string_contains(rel, "/node_modules/")
+            || string_starts_with(rel, "editors/vscode/reference/")
+            || string_contains(rel, "/editors/vscode/reference/");
+}
+
+class Gap { path: String, lines: Int }
+
+pure function has(items: [String], needle: String) -> Bool {
+    let mutable i: Int = 0;
+    while i < len(items) {
+        if items[i] == needle {
+            return true;
+        }
+        i += 1;
+    }
+    return false;
+}
+
+pure function suffix_of(path: String) -> String {
+    let mutable i: Int = len(path);
+    while i > 0 {
+        let b: Int = byte_at(path, i - 1);
+        if b == 46 {
+            return substring(path, i - 1, len(path) - i + 1);
+        }
+        if b == 47 {
+            return "";
+        }
+        i -= 1;
+    }
+    return "";
+}
+
+// `len(text.splitlines())`: a trailing newline does not open a line.
+pure function line_count(text: String) -> Int {
+    if len(text) == 0 {
+        return 0;
+    }
+    let mutable n: Int = 0;
+    let mutable i: Int = 0;
+    while i < len(text) {
+        if byte_at(text, i) == 10 {
+            n += 1;
+        }
+        i += 1;
+    }
+    if byte_at(text, len(text) - 1) != 10 {
+        n += 1;
+    }
+    return n;
+}
+
+pure function is_lower(b: Int) -> Bool {
+    return b >= 97 && b <= 122;
+}
+
+// `^(?:#|//)\s*not-burxt:\s*([a-z]+)(?:\s|$)` against a STRIPPED line.
+//
+// **Anchored to the START of a comment line**, which is what keeps this a declaration rather than a
+// mention: prose referring to a marker has words before it, so ``add `not-burxt: <reason>` `` in the
+// message below cannot match itself. The first draft anchored the end immediately after the category and
+// matched nothing but this very file, because every marker written carries its reason after an em dash — a
+// predicate that only accepted the bare form, in a repository whose convention is that a marker explains
+// itself.
+pure function marker_on(raw: String) -> String {
+    let line: String = string_trim(raw);
+    let mutable i: Int = 0;
+    if string_starts_with(line, "#") {
+        i = 1;
+    } else {
+        if string_starts_with(line, "//") {
+            i = 2;
+        } else {
+            return "";
+        }
+    }
+    while i < len(line) && string_is_space(byte_at(line, i)) {
+        i += 1;
+    }
+    if !string_matches_at(line, "not-burxt:", i) {
+        return "";
+    }
+    i += 10;
+    while i < len(line) && string_is_space(byte_at(line, i)) {
+        i += 1;
+    }
+    let start: Int = i;
+    while i < len(line) && is_lower(byte_at(line, i)) {
+        i += 1;
+    }
+    if i == start {
+        return "";
+    }
+    if i < len(line) && !string_is_space(byte_at(line, i)) {
+        return "";
+    }
+    return substring(line, start, i - start);
+}
+
+// The reason a file declares, as a declaration: alone on its line, near the top.
+pure function declared(text: String) -> String {
+    let lines: [String] = string_split(text, "\n");
+    let mutable i: Int = 0;
+    while i < len(lines) && i < WITHIN {
+        let found: String = marker_on(lines[i]);
+        if len(found) > 0 {
+            return found;
+        }
+        i += 1;
+    }
+    return "";
+}
+
+pure function pad_left(text: String, width: Int) -> String {
+    let mutable out: String = text;
+    while char_count(out) < width {
+        out = " " + out;
+    }
+    return out;
+}
+
+// ---- the program ---------------------------------------------------------------------------------
+
+let mutable prove: Bool = false;
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    if os_arg(a) == "--prove-it" {
+        prove = true;
+    }
+    a += 1;
+}
+
+let all_reasons: [String] = reasons();
+let exts: [String] = suffixes();
+let mutable missing: [String] = [];
+let mutable unknown: [String] = [];
+let mutable tally_names: [String] = [];
+let mutable tally_lines: [Int] = [];
+let mutable gaps: [Gap] = [];
+let mutable burxt: Int = 0;
+let mutable stolen: Bool = false;
+
+match file_walk(".") {
+    None => {
+        print_error("cannot walk the tree — run this from the repository root");
+        exit(2);
+    }
+    Some(entries) => {
+        let mutable i: Int = 0;
+        while i < len(entries) {
+            let mutable rel: String = entries[i];
+            if string_starts_with(rel, "./") {
+                rel = substring(rel, 2, len(rel) - 2);
+            }
+            // Every `.bx` in the tree, unfiltered, which is what the retired check summed.
+            if string_ends_with(rel, ".bx") && file_is_file(rel) {
+                match file_read_maybe(rel) {
+                    None => { }
+                    Some(text) => { burxt += line_count(text); }
+                }
+            }
+            if has(exts, suffix_of(rel)) && file_is_file(rel) && !skipped(rel) {
+                match file_read_maybe(rel) {
+                    None => { }
+                    Some(text) => {
+                        let mutable reason: String = "";
+                        if rel == VENDORED {
+                            reason = "vendored";
+                        } else {
+                            reason = declared(text);
+                        }
+                        // The control is a real file with its marker taken away — the defect as it would
+                        // happen, somebody adding a runner and not saying why it is not Burxt.
+                        //
+                        // **The subject is DISCOVERED, and it took two expiries to get here.** It named
+                        // `tests/harness.py` until that file became `harness.bx`, at which point the
+                        // control silently stopped having a subject and reported success. So it was
+                        // repointed at `tests/languages.py` — this file — and porting this file to Burxt
+                        // would have expired it again, because `.bx` is deliberately outside the scan.
+                        // A control keyed to a filename expires exactly when the file is right to rename,
+                        // and naming *itself* is not the fix when the fix is a rename. So it takes the
+                        // first file the walk finds carrying a marker, whatever that file is.
+                        if prove && !stolen && len(reason) > 0 {
+                            stolen = true;
+                            reason = "";
+                        }
+                        if len(reason) == 0 {
+                            let m: Int = push(missing, rel);
+                        } else {
+                            if !has(all_reasons, reason) && reason != "vendored" {
+                                let u: Int = push(unknown, rel + ": '" + reason + "'");
+                            } else {
+                                let lines: Int = line_count(text);
+                                let mutable at: Int = -1;
+                                let mutable t: Int = 0;
+                                while t < len(tally_names) {
+                                    if tally_names[t] == reason {
+                                        at = t;
+                                    }
+                                    t += 1;
+                                }
+                                if at < 0 {
+                                    let n: Int = push(tally_names, reason);
+                                    let l: Int = push(tally_lines, lines);
+                                } else {
+                                    tally_lines[at] = tally_lines[at] + lines;
+                                }
+                                if reason == "gap" {
+                                    let g: Int = push(gaps, Gap { path: rel, lines: lines });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            i += 1;
+        }
+    }
+}
+
+let mutable k: Int = 0;
+while k < len(missing) {
+    print("  FAIL  " + missing[k] + " does not say why it is not Burxt — add `not-burxt: <reason>` in its"
+            + " first " + to_string(WITHIN) + " lines");
+    k += 1;
+}
+let mutable u: Int = 0;
+while u < len(unknown) {
+    print("  FAIL  " + unknown[u] + " is not one of " + REASONS_SHOWN);
+    u += 1;
+}
+
+let mutable total: Int = 0;
+let mutable t: Int = 0;
+while t < len(tally_lines) {
+    total += tally_lines[t];
+    t += 1;
+}
+print("  " + to_string(burxt) + " lines of Burxt; " + to_string(total)
+        + " not, every one of them accounted for:");
+let mutable shown: [String] = [];
+let mutable s: Int = 0;
+while s < len(all_reasons) {
+    let x: Int = push(shown, all_reasons[s]);
+    s += 1;
+}
+let v: Int = push(shown, "vendored");
+let mutable p: Int = 0;
+while p < len(shown) {
+    let mutable at: Int = -1;
+    let mutable q: Int = 0;
+    while q < len(tally_names) {
+        if tally_names[q] == shown[p] {
+            at = q;
+        }
+        q += 1;
+    }
+    if at >= 0 {
+        print("    " + pad_left(to_string(tally_lines[at]), 5) + "  " + shown[p]);
+    }
+    p += 1;
+}
+
+// Printed, not asserted, for the reason in the header: `gap` is the debt and the rest is the
+// architecture, so the two want reading differently rather than summing.
+let mutable permanent: Int = 0;
+let mutable r: Int = 0;
+while r < len(tally_names) {
+    if tally_names[r] == "reference" || tally_names[r] == "neutral" || tally_names[r] == "platform" {
+        permanent += tally_lines[r];
+    }
+    r += 1;
+}
+print("  of that, " + to_string(permanent) + " lines are permanent — reference, neutral and platform,"
+        + " which no");
+print("  release and no amount of work can move; everything in `gap` can.");
+
+// **The gap total is printed rather than capped.** A threshold here would be a number somebody raises
+// when it is inconvenient, and the rule is not "keep it under N" — it is "know what it is".
+if len(gaps) > 0 {
+    print("  the gap, named:");
+    // insertion sort, descending by size, stable — so files of equal length keep the walk's order
+    let mutable g: Int = 1;
+    while g < len(gaps) {
+        let held: Gap = gaps[g];
+        let mutable j: Int = g;
+        while j > 0 && gaps[j - 1].lines < held.lines {
+            gaps[j] = gaps[j - 1];
+            j -= 1;
+        }
+        gaps[j] = held;
+        g += 1;
+    }
+    let mutable n: Int = 0;
+    while n < len(gaps) {
+        print("    " + pad_left(to_string(gaps[n].lines), 5) + "  " + gaps[n].path);
+        n += 1;
+    }
+}
+
+// **Zero is not a passing count, and this printed its success line over nothing.** Proven by handing it an
+// empty scan: *"0 lines not Burxt, every one of them accounted for"*, exit 0. A glob that stops matching —
+// a renamed directory, a suffix dropped from the list — reads exactly like a tree with nothing left to
+// explain. The star-burxt session found the same shape in the most important suite they have: `every
+// guarantee holds`, no number, which is what it would print over zero guarantees.
+//
+// The floors are deliberately far below today's numbers. They are not budgets; they are the assertion that
+// the scan found a tree at all.
+if burxt < 500 || total < 500 {
+    print("  FAIL  this scanned " + to_string(burxt) + " lines of Burxt and " + to_string(total)
+            + " of anything else, which is not this repository — the glob has stopped finding it");
+    if len(missing) == 0 {
+        let m: Int = push(missing, "(the scan itself)");
+    }
+}
+
+if prove {
+    if len(missing) > 0 || len(unknown) > 0 {
+        print("");
+        print("the control failed as it must — a file with no stated reason is caught");
+        exit(0);
+    }
+    print("");
+    print("THE CONTROL DID NOT FAIL, so this check cannot see an unexplained language choice");
+    exit(1);
+}
+if len(missing) > 0 || len(unknown) > 0 {
+    print("");
+    print(to_string(len(missing) + len(unknown)) + " file(s) do not account for their language");
+    exit(1);
+}
+print("");
+print("every non-Burxt file says why");
+exit(0);

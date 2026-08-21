@@ -1,4 +1,4 @@
-// not-burxt: gap — COULD be Burxt — see tests/languages.py
+// not-burxt: gap — blocked on Burxt having no browser driver; see tests/languages.bx
 // **The blocker named for this is asserted, not measured, and that is recorded rather than fixed.** The
 // ledger says Burxt has no way to read a rendered DOM; nobody has checked, and the Burxt session's
 // sharpening of the sorting rule is why that matters — the honest question has two halves, *is the job

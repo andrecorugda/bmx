@@ -77,8 +77,6 @@ run "the suite is not empty" bash -c '[ "$(ls tests/cases/*.bmx tests/errors/*.b
 run "the linter fires where it should and stays quiet where it should" node tests/lints.mjs
 run "the parser imports where there is no Node" bash -c '
   node tests/embeds.mjs && node tests/embeds.mjs --prove-it'
-run "every file that is not Burxt says why it is not" bash -c '
-  python3 tests/languages.py && python3 tests/languages.py --prove-it'
 
 echo
 echo "the editor surface"
@@ -241,6 +239,9 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
     burxt build tests/invitation.bx -o /tmp/check-invitation &&
     BMX_HARNESS=/tmp/check-harness /tmp/check-invitation &&
     BMX_HARNESS=/tmp/check-harness /tmp/check-invitation --prove-it'
+  run "every file that is not Burxt says why it is not" bash -c '
+    burxt build tests/languages.bx -o /tmp/check-languages &&
+    /tmp/check-languages && /tmp/check-languages --prove-it'
   run "no runner advertises a control it does not read" bash -c '
     burxt build tests/controls.bx -o /tmp/check-controls &&
     /tmp/check-controls && /tmp/check-controls --prove-it'
