@@ -1,0 +1,348 @@
+// tests/invitation.bx — the invitation on the site is a command that works.
+//
+//     burxt build tests/invitation.bx -o invitation
+//     ./invitation
+//     ./invitation --prove-it     # the negative control
+//
+// **`README.md` promised "any language can implement BMX" and `docs/` did not mention the harness
+// once.** Grepped by the star-burxt session across every page: zero hits, and nothing under `docs/`
+// matched *implement BMX*, *your own implementation* or *another language* either. So the capability was
+// real — the harness takes an arbitrary command string, and a stranger can conform in an afternoon — and
+// the invitation existed only in the repository, which a reader of the documentation site never opens.
+//
+// Worse than absent: **mis-routed.** `install.md`'s "In any other language" sent that reader to
+// [Building on BMX], whose first sentence says it is for layers *above* the format. The one contributor
+// this project needs most — 1.0 requires an implementation by somebody who did not write the spec — met
+// the page that was not for them and stopped.
+//
+// That is the same family as the defect star-burxt had just fixed on their own install page, and the
+// same family as `tests/output.bx`: **a claim in prose is a specification nobody runs.** A page carrying
+// a command is a claim. So this runs it.
+//
+// What it asserts, and why each one is a thing that would actually break:
+//
+//   1. the implementer page exists and names the runner a stranger is told to use;
+//   2. every runner the page names is a file that is there — a rename elsewhere silently guts the page;
+//   3. the harness's output still has the shape the page prints, since the page teaches a reader what
+//      success and failure look like before they have ever run it;
+//   4. the suite is at least as large as the two pages claim in prose.
+//
+// **It does not pin the pass count**, and that is deliberate: a gate that fires when somebody adds a
+// conformance case is a gate that argues against the thing this project wants to be frictionless.
+//
+// ---- the port ------------------------------------------------------------------------------------
+//
+// Ported from `tests/invitation.py`. Verdict-identical, and byte-identical on every line it prints.
+//
+// The last runner in this repository that needed Python to check whether the repository still invites
+// somebody who does not use Python.
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+// The prose floor: the suite's size, stated in words on the pages that describe it rather than as a
+// number anybody maintains. **Discovered, not listed** — `tests/version.py` held a literal list of six
+// pages and a new page escaped its gate in silence, which is how `docs/index.md` came to claim 0.4 for
+// eight minors. A check whose scope is hand-written has the same blind spot as the claim it guards.
+const FLOOR: Int = 90;
+const CLAIM: String = "more than ninety";
+const PAGE: String = "docs/implementing.md";
+
+class Tally { found: Bool, total: Int, passed: Int, failed: Int }
+
+pure function is_lower_or_underscore(b: Int) -> Bool {
+    return (b >= 97 && b <= 122) || b == 95;
+}
+
+// `re.findall(r"tests/([a-z_]+\.(?:py|bx))", page)`, then sorted and deduplicated.
+pure function runners_named(page: String) -> [String] {
+    let mutable found: [String] = [];
+    let mutable from: Int = 0;
+    while true {
+        let at: Int = string_find_from(page, "tests/", from);
+        if at < 0 {
+            from = len(page) + 1;
+            break;
+        }
+        let mutable i: Int = at + 6;
+        let start: Int = i;
+        while i < len(page) && is_lower_or_underscore(byte_at(page, i)) {
+            i += 1;
+        }
+        if i > start && i + 3 <= len(page) && byte_at(page, i) == 46 {
+            let ext: String = substring(page, i + 1, 2);
+            if ext == "py" || ext == "bx" {
+                let name: String = substring(page, start, i + 3 - start);
+                if !array_has(found, name) {
+                    let a: Int = push(found, name);
+                }
+            }
+        }
+        from = at + 1;
+    }
+    // selection sort, byte order — `sorted(set(...))`
+    let mutable m: Int = 0;
+    while m < len(found) {
+        let mutable best: Int = m;
+        let mutable n: Int = m + 1;
+        while n < len(found) {
+            if string_compare(found[n], found[best]) < 0 {
+                best = n;
+            }
+            n += 1;
+        }
+        let hold: String = found[m];
+        found[m] = found[best];
+        found[best] = hold;
+        m += 1;
+    }
+    return found;
+}
+
+pure function array_has(items: [String], needle: String) -> Bool {
+    let mutable i: Int = 0;
+    while i < len(items) {
+        if items[i] == needle {
+            return true;
+        }
+        i += 1;
+    }
+    return false;
+}
+
+// Python's `%r` on a list of strings, so a failure line reads the same as the retired check's.
+pure function repr_list(items: [String]) -> String {
+    let mutable parts: [String] = [];
+    let mutable i: Int = 0;
+    while i < len(items) {
+        let a: Int = push(parts, "'" + items[i] + "'");
+        i += 1;
+    }
+    return "[" + string_join(parts, ", ") + "]";
+}
+
+// `^(\d+) cases, (\d+) passed, (\d+) failed$`
+pure function tally_of(line: String) -> Tally {
+    let absent: Tally = Tally { found: false, total: 0, passed: 0, failed: 0 };
+    let mutable i: Int = 0;
+    let mutable numbers: [Int] = [];
+    let words: [String] = [" cases, ", " passed, ", " failed"];
+    let mutable w: Int = 0;
+    while w < len(words) {
+        let start: Int = i;
+        while i < len(line) && byte_at(line, i) >= 48 && byte_at(line, i) <= 57 {
+            i += 1;
+        }
+        if i == start {
+            return absent;
+        }
+        if !string_matches_at(line, words[w], i) {
+            return absent;
+        }
+        let a: Int = push(numbers, string_to_int(substring(line, start, i - start), 0));
+        i += len(words[w]);
+        w += 1;
+    }
+    if i != len(line) {
+        return absent;
+    }
+    return Tally { found: true, total: numbers[0], passed: numbers[1], failed: numbers[2] };
+}
+
+// ---- the program ---------------------------------------------------------------------------------
+
+let mutable broken: Bool = false;
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    if os_arg(a) == "--prove-it" {
+        broken = true;
+    }
+    a += 1;
+}
+
+let mutable failures: [String] = [];
+let mutable here: String = ".";
+match os_cwd() {
+    None => { here = "."; }
+    Some(where) => { here = where; }
+}
+
+// `check`, inlined at each call because a helper cannot push to a top-level list.
+let page_there: Bool = file_is_file(PAGE);
+if page_there {
+    print("  ok    the implementer page is on the site");
+} else {
+    print("  FAIL  the implementer page is on the site");
+    print("          " + here + "/" + PAGE + " is missing");
+    exit(1);
+}
+
+match file_read_maybe(PAGE) {
+    None => {
+        print_error("cannot read " + PAGE);
+        exit(2);
+    }
+    Some(page) => {
+        // 1 + 2. The page names runners; a runner named on a page and absent from the tree is the
+        // failure this file is named after, one level down.
+        // **`.bx` as well as `.py`, because the runner the page names is Burxt now.** This matched only
+        // `.py` and would have reported "the page tells a stranger which runner to use" as false the
+        // moment `harness.py` became `harness.bx` — a check keyed to a file extension, which is the same
+        // shape as the one keyed to a filename in `tests/extension.py`.
+        let named: [String] = runners_named(page);
+        if array_has(named, "harness.bx") {
+            print("  ok    the page tells a stranger which runner to use");
+        } else {
+            print("  FAIL  the page tells a stranger which runner to use");
+            print("          the page names " + repr_list(named));
+            let f: Int = push(failures, "the page tells a stranger which runner to use");
+        }
+        let mutable missing: [String] = [];
+        let mutable i: Int = 0;
+        while i < len(named) {
+            if !file_is_file("tests/" + named[i]) {
+                let m: Int = push(missing, named[i]);
+            }
+            i += 1;
+        }
+        if len(missing) == 0 {
+            print("  ok    every runner the page names exists");
+        } else {
+            print("  FAIL  every runner the page names exists");
+            print("          named but absent: " + repr_list(missing));
+            let f: Int = push(failures, "every runner the page names exists");
+        }
+
+        // 3. The shape the page prints, from the runner rather than from memory. The control hands it a
+        // command that is not a BMX parser — the wrong-binary case `tests/support.bx` exists for — so the
+        // shape check has nothing to match and must say so.
+        let mutable command: String = "node reference/bmx.js";
+        if broken {
+            command = "node reference/bmx.js --render";
+        }
+        // **The harness is a Burxt program**, so it is built before it is driven. `BMX_HARNESS` lets a
+        // caller pass a build it already has; without it, this builds one, because a check that needs a
+        // toolchain and does not say so is a check that fails confusingly on a machine without one.
+        let mutable harness: String = os_env_or("BMX_HARNESS", "");
+        if len(harness) == 0 {
+            match file_temp_directory("bmx-invitation") {
+                None => {
+                    print_error("cannot make a scratch directory");
+                    exit(2);
+                }
+                Some(scratch) => {
+                    let built: String = scratch + "/harness";
+                    let made: Capture = os_capture_status("burxt build " + file_quote(here
+                            + "/tests/harness.bx") + " -o " + file_quote(built));
+                    if made.code != 0 {
+                        print_error("cannot build the harness this page names:");
+                        print_error(made.output + made.errors);
+                        exit(1);
+                    }
+                    harness = built;
+                }
+            }
+        }
+        let run: Capture = os_capture_status(file_quote(harness) + " " + file_quote(command));
+        let lines: [String] = string_split(string_trim(run.output), "\n");
+        let mutable last: String = "";
+        let mutable j: Int = 0;
+        while j < len(lines) {
+            if len(string_trim(lines[j])) > 0 {
+                last = lines[j];
+            }
+            j += 1;
+        }
+        let tally: Tally = tally_of(last);
+        if tally.found {
+            print("  ok    the harness still prints the count the page shows");
+        } else {
+            print("  FAIL  the harness still prints the count the page shows");
+            print("          last line was '" + last + "'");
+            let f: Int = push(failures, "the harness still prints the count the page shows");
+        }
+
+        if tally.found {
+            if tally.passed + tally.failed == tally.total {
+                print("  ok    the count is self-consistent, as the page's example is");
+            } else {
+                print("  FAIL  the count is self-consistent, as the page's example is");
+                print("          " + to_string(tally.passed) + " + " + to_string(tally.failed) + " != "
+                        + to_string(tally.total));
+                let f: Int = push(failures, "the count is self-consistent, as the page's example is");
+            }
+
+            // 4. The prose floor, on every page that states it. A shrinking suite would make all of them
+            // wrong at once and none of them would say so.
+            //
+            // **This check is also what stops a green run over an evaporated suite**, which is the half
+            // the star-burxt session asked about: this file deliberately refuses to pin the pass count,
+            // and a harness that has stopped finding cases at all reports `0 cases, 0 passed, 0 failed` —
+            // a shape that matches, and a tally that is self-consistent. The floor is what notices.
+            // Verified by running the harness against a tree with no fixtures in it: `0 documents, but 3
+            // page(s) say 'more than ninety'`. Do not weaken it into a prose-only assertion; it is
+            // carrying two claims.
+            let mutable claimants: [String] = [];
+            match file_walk("docs") {
+                None => {
+                    print_error("cannot walk docs/ — run this from the repository root");
+                    exit(2);
+                }
+                Some(entries) => {
+                    let mutable k: Int = 0;
+                    while k < len(entries) {
+                        let path: String = entries[k];
+                        if string_ends_with(path, ".md") {
+                            match file_read_maybe(path) {
+                                None => { }
+                                Some(text) => {
+                                    if string_contains(string_to_lower_ascii(text), CLAIM) {
+                                        let c: Int = push(claimants, path);
+                                    }
+                                }
+                            }
+                        }
+                        k += 1;
+                    }
+                }
+            }
+            if len(claimants) > 0 {
+                print("  ok    some page still states the suite's size in prose");
+            } else {
+                print("  FAIL  some page still states the suite's size in prose");
+                print("          the phrase '" + CLAIM
+                        + "' is on no page — reword it and FLOOR here together");
+                let f: Int = push(failures, "some page still states the suite's size in prose");
+            }
+            if tally.total >= FLOOR {
+                print("  ok    the suite is as large as those pages claim");
+            } else {
+                print("  FAIL  the suite is as large as those pages claim");
+                print("          " + to_string(tally.total) + " documents, but "
+                        + to_string(len(claimants)) + " page(s) say '" + CLAIM + "'");
+                let f: Int = push(failures, "the suite is as large as those pages claim");
+            }
+            let mutable p: Int = 0;
+            while p < len(claimants) {
+                print("        " + claimants[p] + " states it");
+                p += 1;
+            }
+        }
+
+        if broken {
+            if len(failures) > 0 {
+                print("");
+                print("the control worked: pointed at a renderer, the checks above failed");
+                exit(0);
+            }
+            print_error("the control FAILED: a command that cannot print an AST was accepted");
+            exit(1);
+        }
+        if len(failures) > 0 {
+            print_error(to_string(len(failures)) + " failed");
+            exit(1);
+        }
+        print("the invitation is a command that works");
+        exit(0);
+    }
+}

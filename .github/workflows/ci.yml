@@ -402,8 +402,10 @@ jobs:
       # this project wants to be frictionless.
       - name: The invitation on the site is a command that works
         run: |
-          python3 tests/invitation.py
-          python3 tests/invitation.py --prove-it
+          burxt build tests/harness.bx -o /tmp/harness
+          burxt build tests/invitation.bx -o /tmp/invitation
+          BMX_HARNESS=/tmp/harness /tmp/invitation
+          BMX_HARNESS=/tmp/harness /tmp/invitation --prove-it
 
       # Moved here with the harness: this step BUILDS the harness to prove the page's command runs, so it
       # needs the same compiler. A check that verifies an invitation cannot be cheaper to run than the

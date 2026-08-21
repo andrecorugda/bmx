@@ -72,11 +72,9 @@ echo "the format, and both implementations of it"
 # whose header promises to mirror `ci.yml` was checking a different set against a different floor, and
 # the local run was the weaker of the two. Found while adding the implementer page, which states the
 # suite's size in prose and therefore needed to know which number was load-bearing. Both now count both
-# folders, and `tests/invitation.py` owns the floor the documentation claims.
+# folders, and `tests/invitation.bx` owns the floor the documentation claims.
 run "the suite is not empty" bash -c '[ "$(ls tests/cases/*.bmx tests/errors/*.bmx | wc -l)" -ge 39 ]'
 run "the linter fires where it should and stays quiet where it should" node tests/lints.mjs
-run "the invitation on the site is a command that works" bash -c '
-  python3 tests/invitation.py && python3 tests/invitation.py --prove-it'
 run "the parser imports where there is no Node" bash -c '
   node tests/embeds.mjs && node tests/embeds.mjs --prove-it'
 run "every file that is not Burxt says why it is not" bash -c '
@@ -236,6 +234,16 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
   # **Out of the documentation group, because measuring a Node floor now needs a Burxt compiler.** The
   # trade is the one every port in this file has made: the check is written in the language this
   # repository is becoming, and a contributor without a toolchain loses it — which the summary says.
+  # **This check was in the unguarded group and `ci.yml` had it in the Burxt job** — the drift this
+  # file's header exists to prevent, and it hid here because `burxt` happens to be on the author's PATH
+  # globally, so the unguarded copy passed locally and would have FAILED on a machine without a
+  # toolchain rather than being skipped with the rest. It builds the harness; it belongs where the
+  # compiler is. Nothing yet checks that this file and `ci.yml` agree, which is how that lasted.
+  run "the invitation on the site is a command that works" bash -c '
+    burxt build tests/harness.bx -o /tmp/check-harness &&
+    burxt build tests/invitation.bx -o /tmp/check-invitation &&
+    BMX_HARNESS=/tmp/check-harness /tmp/check-invitation &&
+    BMX_HARNESS=/tmp/check-harness /tmp/check-invitation --prove-it'
   run "no refusal tells an author to write what the format refuses" bash -c '
     burxt build tests/messages.bx -o /tmp/check-messages &&
     /tmp/check-messages && /tmp/check-messages --prove-it'

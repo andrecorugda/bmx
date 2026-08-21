@@ -65,11 +65,13 @@ Where `SPEC.md` and `tests/` disagree, **the tests win**. A claim in prose that 
 a claim no implementation has to honour, and this repository's history is largely the story of
 converting such claims into checks.
 
-Beyond conformance, `tests/` holds meta-checks over the repository itself — `version.py`,
-`messages.bx`, `portability.bx`, `branding.py`, `extension.py`, `surface.py`,
-`output.py`, `invitation.py`. Most take **`--prove-it`, a negative control** that asserts the check can fail; CI runs
-both halves, because a check nobody has watched fail is a check nobody has tested. Add the control
-when you add a check.
+Beyond conformance, `tests/` holds meta-checks over the repository itself — `agree.bx`,
+`branding.py`, `controls.py`, `extension.py`, `invitation.bx`, `languages.py`, `messages.bx`,
+`migration.bx`, `output.bx`, `portability.bx`, `renders.bx`, `roundtrip.bx`, `surface.py`,
+`version.py`. **The list is `ls tests/`, not a curated selection** — it was six names for a long time
+and three checks had been added since. Most take **`--prove-it`, a negative control** that asserts the
+check can fail; CI runs both halves, because a check nobody has watched fail is a check nobody has
+tested. Add the control when you add a check, and `tests/controls.py` is what notices if you do not.
 
 `tests/probe.py` (`speaks(command, "ast"|"page")`) is why runners diagnose a wrong binary instead of
 blaming every document — call it from any new runner that takes a command.
