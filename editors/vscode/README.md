@@ -43,7 +43,7 @@ code --install-extension bmx.vsix
 Or build it from a checkout — no toolchain, no npm:
 
 ```sh
-python3 editors/vscode/pack.py
+burxt build editors/vscode/pack.bx -o /tmp/pack && /tmp/pack
 ```
 
 ## Preview

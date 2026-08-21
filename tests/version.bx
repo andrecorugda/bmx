@@ -229,7 +229,7 @@ pure function first_chars(text: String, width: Int) -> String {
 // by path, and the shapes above stay for prose.
 //
 // It compares major.minor, because the manifest carries a patch (`0.12.2`) and `SPEC.md`'s title does not.
-// That is the same rule `tests/extension.py` applies to the extension, for the same reason: a packaging fix
+// That is the same rule `tests/extension.bx` applies to the extension, for the same reason: a packaging fix
 // must not need a format release.
 const MANIFEST: String = "burxt.package";
 

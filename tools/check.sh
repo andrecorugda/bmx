@@ -108,8 +108,6 @@ run "the preview does what the button promises" bash -c '
   node editors/vscode/test/preview.js'
 run "every brand asset carries the family's margin and its own crop" bash -c '
   python3 tests/branding.py && python3 tests/branding.py --prove-it'
-run "the extension's version is the format's, and the committed package is the packed one" bash -c '
-  python3 tests/extension.py && python3 tests/extension.py --prove-it'
 
 echo
 echo "the documentation"
@@ -239,6 +237,15 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
     burxt build tests/invitation.bx -o /tmp/check-invitation &&
     BMX_HARNESS=/tmp/check-harness /tmp/check-invitation &&
     BMX_HARNESS=/tmp/check-harness /tmp/check-invitation --prove-it'
+  # **Moved out of the unguarded group with its packer.** `editors/vscode/pack.bx` builds the `.vsix`
+  # from `lib/zip.bx`, so packaging needs the toolchain now — which is the trade the `gap`
+  # reclassification already decided: the format's portability claim is about the FORMAT, and packaging
+  # this repository's editor extension was never part of it.
+  run "the extension's version is the format's, and the committed package is the packed one" bash -c '
+    burxt build editors/vscode/pack.bx -o /tmp/check-pack &&
+    burxt build tests/extension.bx -o /tmp/check-extension &&
+    BMX_PACK=/tmp/check-pack /tmp/check-extension &&
+    BMX_PACK=/tmp/check-pack /tmp/check-extension --prove-it'
   run "every file that is not Burxt says why it is not" bash -c '
     burxt build tests/languages.bx -o /tmp/check-languages &&
     /tmp/check-languages && /tmp/check-languages --prove-it'

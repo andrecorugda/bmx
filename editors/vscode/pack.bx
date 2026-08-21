@@ -1,0 +1,311 @@
+// editors/vscode/pack.bx — package the extension as a .vsix, with no toolchain.
+//
+//     burxt build editors/vscode/pack.bx -o pack && ./pack     # writes bmx.vsix here
+//     code --install-extension editors/vscode/bmx.vsix
+//
+// Adapted from Burxt's packer, which is the same three-part archive and the same promise: this directory
+// needs no toolchain to use. Two differences, both real: BMX ships no language server in the extension
+// (see README.md for why the diagnostics are library functions instead), and it declares itself runnable
+// on the UI side because a grammar has nothing to spawn.
+//
+// A .vsix is a ZIP with three things in it: an OPC content-types map, a VSIX manifest, and the extension
+// under `extension/`. `vsce` does more than this — linting, dependency bundling, marketplace checks — but
+// all of that is for publishing, and none of it is needed to install locally. Since the extension has no
+// npm dependencies, a packer built on `lib/zip.bx` is the whole job.
+//
+// Why package at all rather than symlinking the folder into the extensions directory: an installed
+// extension is registered, versioned, upgradable and uninstallable through the normal UI, and it is the
+// same shape everyone else's extensions have. A symlink works, until something scans the registry and does
+// not find you.
+//
+// ---- the port ------------------------------------------------------------------------------------
+//
+// Ported from `editors/vscode/pack.py`. **This is the one port whose output is deliberately NOT
+// byte-identical**, and the reason is worth being explicit about: the archive is DEFLATE, and two correct
+// compressors do not agree on the compressed bytes. Python's `zlib` and `lib/deflate.bx` produce different
+// streams for the same input, both of which every reader must accept.
+//
+// So what is verified instead is everything a reader can check: `python3 -m zipfile` reads the archive end
+// to end, every entry inflates to the same bytes the Python packer put in, the entry names and their order
+// match, and every stamp is the same fixed 1980-01-01 the reproducibility check asserts. The committed
+// `bmx.vsix` moved once, in the commit that landed this file, and `tests/extension.bx` is what holds it to
+// the packer from then on.
+//
+// `lib/zip.bx` exists because of this file: three Python packers in three repositories wrote the same
+// three record types, and that was the gap report. Its header says so.
+use "std/files.bx";
+use "std/json.bx";
+use "std/os.bx";
+use "std/string.bx";
+use "std/zip.bx";
+
+const HERE: String = "editors/vscode";
+
+// Everything that belongs in the package. Listed rather than globbed, so a stray file in the directory
+// never ships by accident.
+function files() -> [String] {
+    let mutable out: [String] = [];
+    let a: Int = push(out, "package.json");
+    let b: Int = push(out, "extension.js");
+    // **The reference implementation ships INSIDE the extension**, so the preview renders with no
+    // toolchain installed. Copied by this packer from the repository root rather than duplicated in that
+    // directory, because two copies of a parser is how they drift.
+    let c: Int = push(out, "reference/bmx.mjs");
+    let d: Int = push(out, "language-configuration.json");
+    let e: Int = push(out, "syntaxes/bmx.tmLanguage.json");
+    let f: Int = push(out, "icon.png");
+    let g: Int = push(out, "file-icon.png");
+    let h: Int = push(out, "README.md");
+    return out;
+}
+
+// **Written as lines and joined, because Burxt has no multi-line string literal.** Every one of these
+// files is XML with quotes in it, so the alternative would be one very long escaped line per document and
+// no way to see the shape of what is emitted.
+function content_types() -> String {
+    let mutable out: [String] = [];
+    let a: Int = push(out, "<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+    let b: Int = push(out, "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">");
+    let c: Int = push(out, "  <Default Extension=\".json\" ContentType=\"application/json\"/>");
+    let d: Int = push(out, "  <Default Extension=\".js\" ContentType=\"application/javascript\"/>");
+    let e: Int = push(out, "  <Default Extension=\".png\" ContentType=\"image/png\"/>");
+    let f: Int = push(out, "  <Default Extension=\".svg\" ContentType=\"image/svg+xml\"/>");
+    let g: Int = push(out, "  <Default Extension=\".md\" ContentType=\"text/markdown\"/>");
+    let h: Int = push(out, "  <Default Extension=\".xml\" ContentType=\"text/xml\"/>");
+    let i: Int = push(out, "  <Default Extension=\".vsixmanifest\" ContentType=\"text/xml\"/>");
+    let j: Int = push(out, "</Types>");
+    let k: Int = push(out, "");
+    return string_join(out, "\n");
+}
+
+pure function escape(text: String) -> String {
+    let mutable out: String = string_replace(text, "&", "&amp;");
+    out = string_replace(out, "<", "&lt;");
+    out = string_replace(out, ">", "&gt;");
+    out = string_replace(out, "\"", "&quot;");
+    return out;
+}
+
+// A field's text, or a fallback — `pkg.get(name, default)` where the value is a String.
+pure function text_at(pkg: Json, name: String, fallback: String) -> String {
+    match json_at(pkg, name) {
+        None => { return fallback; }
+        Some(value) => {
+            match json_as_text(value) {
+                None => { return fallback; }
+                Some(said) => { return said; }
+            }
+        }
+    }
+}
+
+// `",".join(pkg.get(name, []))` over a list of strings.
+pure function joined(pkg: Json, name: String) -> String {
+    let mutable parts: [String] = [];
+    match json_at(pkg, name) {
+        None => { return ""; }
+        Some(value) => {
+            match value {
+                List(items) => {
+                    let mutable i: Int = 0;
+                    while i < len(items) {
+                        match json_as_text(items[i]) {
+                            None => { }
+                            Some(said) => { let a: Int = push(parts, said); }
+                        }
+                        i += 1;
+                    }
+                }
+                Null => { return ""; }
+                Truth(t) => { return ""; }
+                Number(d) => { return ""; }
+                Text(s) => { return ""; }
+                Object(fields) => { return ""; }
+            }
+        }
+    }
+    return string_join(parts, ",");
+}
+
+pure function is_empty_object(value: Json) -> Bool {
+    match value {
+        Object(fields) => { return len(fields) == 0; }
+        Null => { return true; }
+        Truth(t) => { return false; }
+        Number(d) => { return false; }
+        Text(s) => { return len(s) == 0; }
+        List(items) => { return len(items) == 0; }
+    }
+}
+
+pure function nested_text(pkg: Json, outer: String, inner: String) -> String {
+    match json_at(pkg, outer) {
+        None => { return ""; }
+        Some(value) => { return text_at(value, inner, ""); }
+    }
+}
+
+function manifest(pkg: Json) -> String {
+    let tags: String = joined(pkg, "keywords");
+    // The Python read `",".join(pkg.get("contributes", \{\}) and pkg.get("categories", []))`, which is
+    // Python for *categories, unless there is nothing being contributed at all*. Spelled out.
+    let mutable categories: String = "";
+    match json_at(pkg, "contributes") {
+        None => { categories = ""; }
+        Some(contributes) => {
+            if !is_empty_object(contributes) {
+                categories = joined(pkg, "categories");
+            }
+        }
+    }
+    // A grammar spawns nothing, so unlike Burxt's this works on either side of a remote — and saying so
+    // is what makes highlighting work in vscode.dev and in a container without the extension being
+    // installed twice.
+    let mutable kind: String = joined(pkg, "extensionKind");
+    if len(kind) == 0 {
+        kind = "ui,workspace";
+    }
+    let name: String = text_at(pkg, "name", "");
+    let mutable out: [String] = [];
+    let a: Int = push(out, "<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+    let b: Int = push(out, "<PackageManifest Version=\"2.0.0\""
+            + " xmlns=\"http://schemas.microsoft.com/developer/vsx-schema/2011\""
+            + " xmlns:d=\"http://schemas.microsoft.com/developer/vsx-schema-design/2011\">");
+    let c: Int = push(out, "  <Metadata>");
+    let d: Int = push(out, "    <Identity Language=\"en-US\" Id=\"" + escape(name) + "\" Version=\""
+            + escape(text_at(pkg, "version", "")) + "\" Publisher=\""
+            + escape(text_at(pkg, "publisher", "")) + "\"/>");
+    let e: Int = push(out, "    <DisplayName>" + escape(text_at(pkg, "displayName", name))
+            + "</DisplayName>");
+    let f: Int = push(out, "    <Description xml:space=\"preserve\">"
+            + escape(text_at(pkg, "description", "")) + "</Description>");
+    let g: Int = push(out, "    <Tags>" + escape(tags) + "</Tags>");
+    let h: Int = push(out, "    <Categories>" + escape(categories) + "</Categories>");
+    let i: Int = push(out, "    <GalleryFlags>Public</GalleryFlags>");
+    let j: Int = push(out, "    <Properties>");
+    let k: Int = push(out, "      <Property Id=\"Microsoft.VisualStudio.Code.Engine\" Value=\""
+            + escape(nested_text(pkg, "engines", "vscode")) + "\"/>");
+    let l: Int = push(out,
+            "      <Property Id=\"Microsoft.VisualStudio.Code.ExtensionDependencies\" Value=\"\"/>");
+    let m: Int = push(out, "      <Property Id=\"Microsoft.VisualStudio.Code.ExtensionPack\" Value=\"\"/>");
+    let n: Int = push(out, "      <Property Id=\"Microsoft.VisualStudio.Code.ExtensionKind\" Value=\""
+            + escape(kind) + "\"/>");
+    let o: Int = push(out, "      <Property Id=\"Microsoft.VisualStudio.Services.Links.Source\" Value=\""
+            + escape(nested_text(pkg, "repository", "url")) + "\"/>");
+    let p: Int = push(out, "    </Properties>");
+    let q: Int = push(out, "    <Icon>extension/icon.png</Icon>");
+    let r: Int = push(out, "  </Metadata>");
+    let s2: Int = push(out, "  <Installation>");
+    let t: Int = push(out, "    <InstallationTarget Id=\"Microsoft.VisualStudio.Code\"/>");
+    let u: Int = push(out, "  </Installation>");
+    let v: Int = push(out, "  <Dependencies/>");
+    let w: Int = push(out, "  <Assets>");
+    let x: Int = push(out, "    <Asset Type=\"Microsoft.VisualStudio.Code.Manifest\""
+            + " Path=\"extension/package.json\" Addressable=\"true\"/>");
+    let y: Int = push(out, "    <Asset Type=\"Microsoft.VisualStudio.Services.Content.Details\""
+            + " Path=\"extension/README.md\" Addressable=\"true\"/>");
+    let z: Int = push(out, "    <Asset Type=\"Microsoft.VisualStudio.Services.Icons.Default\""
+            + " Path=\"extension/icon.png\" Addressable=\"true\"/>");
+    let a2: Int = push(out, "  </Assets>");
+    let b2: Int = push(out, "</PackageManifest>");
+    let c2: Int = push(out, "");
+    return string_join(out, "\n");
+}
+
+// ---- the program ---------------------------------------------------------------------------------
+
+let mutable source: String = "";
+match file_read_maybe(HERE + "/package.json") {
+    None => {
+        print_error("cannot read " + HERE + "/package.json — run this from the repository root");
+        exit(2);
+    }
+    Some(text) => { source = text; }
+}
+let mutable pkg: Json = json_null();
+match json_parse(source) {
+    Error(why) => {
+        print_error(HERE + "/package.json is not JSON: " + why);
+        exit(2);
+    }
+    Ok(parsed) => { pkg = parsed; }
+}
+let name: String = text_at(pkg, "name", "");
+let version: String = text_at(pkg, "version", "");
+
+// **The filename carries no version, and that is a fix rather than laziness.** It used to be
+// `bmx-<version>.vsix`, which put the version in seven places — two READMEs, three doc pages, this
+// header, CI — so bumping it broke every install command in the repository. The result was predictable
+// and measured: **thirty commits changed the package and the version never moved off 0.1.0.** VS Code
+// decides whether to offer an update by comparing versions, so anyone who installed the first 0.1.0 has a
+// grammar that knows only the 0.6 fence and will never be told otherwise.
+//
+// A version belongs where a tool reads it — `package.json`, and the manifest built from it. A stable
+// filename means the install command in the docs is correct forever, and bumping the version costs one
+// edit in one file. `tests/extension.bx` fails if that edit is not made.
+let out: String = HERE + "/" + name + ".vsix";
+
+// `reference/bmx.js` lives at the repository root, not here. Staged rather than symlinked, because a
+// .vsix is a zip and a symlink in one is a file nobody can read.
+let made: Bool = file_make_directory(HERE + "/reference");
+match file_read_maybe("reference/bmx.js") {
+    None => {
+        print_error("cannot read reference/bmx.js — run this from the repository root");
+        exit(2);
+    }
+    Some(parser) => {
+        let w: Int = file_write(HERE + "/reference/bmx.mjs", parser);
+    }
+}
+
+let listed: [String] = files();
+let mutable missing: [String] = [];
+let mutable i: Int = 0;
+while i < len(listed) {
+    if !file_is_file(HERE + "/" + listed[i]) {
+        let m: Int = push(missing, listed[i]);
+    }
+    i += 1;
+}
+if len(missing) > 0 {
+    print_error("cannot package, these are missing: " + string_join(missing, ", "));
+    exit(1);
+}
+
+// **Every entry gets the same fixed timestamp, so packing twice gives identical bytes.** `lib/zip.bx`
+// stamps 1980-01-01 on every entry for this reason, and its header records that it learned it here: this
+// packer had three entries carrying the current time — the two written from strings, and the staged
+// parser written a moment earlier. The consequence is not cosmetic. **A committed artefact that cannot be
+// reproduced cannot be checked against its source**, so a stale `.vsix` is undetectable and a
+// repack-then-inspect step overwrites the evidence before looking at it.
+//
+// The trap the first check for this fell into is worth naming: two packs run back-to-back land in the same
+// two-second bucket, which is the granularity a zip stores, so a reproducibility test that packs twice in
+// a row **passes on a non-reproducible packer**. It took a three-second sleep to see it.
+// `tests/extension.bx` asserts the fixed stamp itself rather than comparing two runs.
+let mutable entries: [ZipEntry] = [];
+let c1: Int = push(entries, zip_entry_text("[Content_Types].xml", content_types()));
+let c2: Int = push(entries, zip_entry_text("extension.vsixmanifest", manifest(pkg)));
+let mutable f: Int = 0;
+while f < len(listed) {
+    match file_read_bytes(HERE + "/" + listed[f]) {
+        None => {
+            print_error("cannot read " + HERE + "/" + listed[f]);
+            exit(2);
+        }
+        Some(bytes) => {
+            let e: Int = push(entries, zip_entry("extension/" + listed[f], bytes));
+        }
+    }
+    f += 1;
+}
+
+let written: Int = zip_write_deflated(out, entries);
+print("wrote " + out + " (" + to_string(written) + " bytes, version " + version + ")");
+let mutable here: String = ".";
+match os_cwd() {
+    None => { here = "."; }
+    Some(where) => { here = where; }
+}
+print("install with:  code --install-extension " + here + "/" + out);
+exit(0);

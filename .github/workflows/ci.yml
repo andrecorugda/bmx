@@ -141,11 +141,13 @@ jobs:
           cp reference/bmx.js editors/vscode/reference/bmx.mjs
           node editors/vscode/test/preview.js
 
-      # **There is deliberately no separate "does it package" step.** The obvious shape is `pack.py`
-      # then inspect the result, and it overwrites the evidence one line before looking for it — so a
-      # stale committed `.vsix` passes forever. `tests/extension.py` packs once, compares, restores, and
-      # asserts the archive's entries from the bytes it already has. **One thing packs.** star-burxt's CI
-      # says the same in one line, `runs the test, not the packer`, and reached it independently.
+      # **There is deliberately no separate "does it package" step.** The obvious shape is pack-then-
+      # inspect, and it overwrites the evidence one line before looking for it — so a stale committed
+      # `.vsix` passes forever. `tests/extension.bx` packs once, compares, restores, and asserts the
+      # archive's entries from the bytes it already has. **One thing packs.** star-burxt's CI says the
+      # same in one line, `runs the test, not the packer`, and reached it independently.
+      #
+      # It runs in the Burxt job, because the packer is Burxt.
 
       - name: Every doc page closes its raw tag
         run: |
@@ -211,9 +213,13 @@ jobs:
           #
           # Raised 1.4.0 -> 1.5.0 on 2026-08-20, deliberately and alone, with the suite green against the
           # PUBLISHED asset rather than a local build of the tag: 29 checks, including the Burxt half.
-          # 1.5.0 ships `std/zip.bx` and `std/deflate.bx`, which this repository does not use and will not
-          # — `editors/vscode/pack.py` is reachable from the conformance job, and that job may not need a
-          # Burxt toolchain (see the top of this file). The pin is what BMX tests against; the FLOOR is
+          # 1.5.0 ships `std/zip.bx` and `std/deflate.bx`. **This comment used to say this repository
+          # would never use them**, because `editors/vscode/pack.py` was reachable from the conformance
+          # job and that job may not need a Burxt toolchain — and that was the `standalone` argument
+          # again, one file over: the sentence at the top of this file is about the FORMAT being testable
+          # without Burxt, and packaging an editor extension was never part of it. `pack.bx` uses both
+          # modules, and `lib/zip.bx`'s own header names this packer as the gap report it was written to
+          # close. The pin is what BMX tests against; the FLOOR is
           # 1.3.0 and is stated in `docs/install.md`, which is a different number and must not follow this
           # one.
           BURXT: 1.7.0

@@ -188,7 +188,7 @@ match file_read_maybe(PAGE) {
         // **`.bx` as well as `.py`, because the runner the page names is Burxt now.** This matched only
         // `.py` and would have reported "the page tells a stranger which runner to use" as false the
         // moment `harness.py` became `harness.bx` — a check keyed to a file extension, which is the same
-        // shape as the one keyed to a filename in `tests/extension.py`.
+        // shape as the one keyed to a filename in `tests/extension.bx`.
         let named: [String] = runners_named(page);
         if array_has(named, "harness.bx") {
             print("  ok    the page tells a stranger which runner to use");

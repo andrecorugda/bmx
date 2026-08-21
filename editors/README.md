@@ -192,7 +192,7 @@ code --install-extension editors/vscode/bmx.vsix
 Build it yourself from a checkout — no npm, no `vsce`, no toolchain:
 
 ```sh
-python3 editors/vscode/pack.py
+burxt build editors/vscode/pack.bx -o /tmp/pack && /tmp/pack
 ```
 
 A symlink works too and is fine while you are editing the grammar, but an installed extension is

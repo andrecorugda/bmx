@@ -564,7 +564,7 @@ lives only where a tool reads it. The extension's `major.minor` must equal `SPEC
 
 **Two things had to be built before that could be checked.**
 
-`pack.py` is deterministic now. Three entries carried the current time — the two written from strings, and
+The packer is deterministic now. Three entries carried the current time — the two written from strings, and
 `reference/bmx.mjs`, which the packer writes moments earlier — so the bytes moved on every run and a stale
 committed `.vsix` was undetectable. Nothing detected it: CI packs and *then* inspects the result. **A check
 that regenerates the artefact it is verifying cannot see a stale one.**

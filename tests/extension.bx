@@ -1,0 +1,806 @@
+// tests/extension.bx — every version an editor artefact declares, checked against the format it paints.
+//
+//     burxt build tests/extension.bx -o extension
+//     ./extension
+//     ./extension --prove-it     # the negative control
+//
+// BMX_PACK names the packer to drive; without it, this builds `editors/vscode/pack.bx`.
+//
+// **Thirty commits changed the package and the version never moved off 0.1.0.** Measured, not suspected:
+// `git log -- editors/vscode/bmx-0.1.0.vsix` counted thirty, and unzipping the first one against the last
+// gives two grammars — an 8,931-byte one that knows only `::: card`, and a 13,235-byte one that knows
+// `:name:` / `:!name:` — both declaring version 0.1.0.
+//
+// **That is the worst available failure, because the mechanism that should fix it is the mechanism that
+// hides it.** VS Code decides whether to offer an update by comparing versions. Anyone who installed the
+// extension before the 0.7 respelling has a highlighter that paints today's documents wrong, and their
+// editor tells them they are current. Reinstalling changes nothing. There is no symptom except colour.
+//
+// **And the cause was ergonomic, which is why no amount of care would have fixed it.** The artefact was
+// called `bmx-<version>.vsix`, so the version appeared in seven places: two READMEs, three doc pages, the
+// packer's own header, and CI. Bumping it broke every install command in the repository. **A version that
+// is expensive to change is a version that does not change** — so the filename lost its version
+// (`bmx.vsix`, stable forever) and the version now lives only where a tool reads it.
+//
+// That fix removes the friction. This file removes the option:
+//
+//   * **The extension's `major.minor` must equal `SPEC.md`'s.** `SPEC.md`'s title is already the one place
+//     the version is decided — `tests/version.bx` checks every prose claim against it. This is the same
+//     rule reaching the one claim that check cannot see, because it is JSON inside a zip.
+//   * **The patch is free**, so a packaging fix does not need a format release. What is not free is a
+//     format release that leaves the extension behind, which is the thing that happened.
+//   * **The committed artefact must be the one the packer writes**, byte for byte — which required making
+//     the pack reproducible first, because it was not. Three entries carried the current time, so the
+//     bytes moved on every run and a stale commit was undetectable. Nothing detected it: CI repacks and
+//     then inspects the result, overwriting the evidence one line before looking for it. **A check that
+//     regenerates the artefact it is verifying cannot see a stale one.**
+//   * **And the reproducibility is asserted as a property, not by packing twice.** The first version of
+//     that check packed twice in a row and PASSED on the non-reproducible packer, because a zip stores
+//     timestamps at two-second granularity and back-to-back runs share a bucket. A three-second sleep
+//     exposed it. **A test that can only fail when it happens to straddle a boundary is a test that
+//     reports success.** One fixed stamp per entry cannot pass by accident.
+//   * **Every filename the documentation tells someone to install must exist.** This is the check that
+//     matters for the fix itself: the whole point of a stable name is that six documents keep pointing at
+//     a real file, and the way to lose that is to rename it again.
+//   * **The language server too**, found by grepping for the version I had just removed: it answered
+//     `initialize` with `0.1.0` while producing 0.12 diagnostics, and its own test asserted the *name* —
+//     the half that never changes. Read from source rather than over the wire, which is the weaker of the
+//     two and enough for the failure that actually happens: nobody bumps it.
+//   * **And the install PATH, which is the same promise one step out.** A page naming a `.vsix` that is
+//     not in the tree is checked above; a page naming an extensions *directory* that does not exist on the
+//     reader's machine is the same defect and was not. `~/.vscode/extensions` is wrong in every remote
+//     window — VS Code Server loads extensions from the remote host — and **the machine BMX is developed
+//     on has no such directory.** The star-burxt session lost Andre a day to exactly this sentence in
+//     star's docs: three finished grammars, packed correctly, never installed, no error to search for
+//     because a `cp` into a path whose parent exists succeeds silently. `code --install-extension` is the
+//     instruction that removes the class, because it resolves the directory and prints which machine it
+//     used.
+//
+//     So: every page that tells somebody to install must name `code --install-extension`, and a page
+//     naming a raw extensions directory must name the remote one beside it. **This is a lint on prose,
+//     which is the only kind of check available** — CI has no VS Code, so the instruction cannot be
+//     executed, only kept honest.
+//
+// ---- the port ------------------------------------------------------------------------------------
+//
+// Ported from `tests/extension.py`. Verified verdict- and byte-identical against it while both the Python
+// packer and the Python checker still existed, then flipped with the packer in one commit.
+//
+// **It reads the archive with `lib/zip.bx`, which exists because of this pair of files** — and its header
+// says the reason out loud: a checker that reads one copy of duplicated ZIP metadata is not an oracle,
+// because a ZIP stores every entry's metadata twice and `zipfile` resolves through the central directory
+// and never looks at the local header. Zeroing a local CRC left an independent test PASSING. Here the
+// content check goes through `zip_content`, which walks the LOCAL header and verifies the CRC — so the two
+// copies are both read, by two different assertions, which is what the Python could not do at all.
+use "std/files.bx";
+use "std/json.bx";
+use "std/os.bx";
+use "std/string.bx";
+use "std/zip.bx";
+
+class Claim { ok: Bool, ok_line: String, fail_line: String }
+
+const PKG: String = "editors/vscode/package.json";
+const VSIX: String = "editors/vscode/bmx.vsix";
+const PACK: String = "editors/vscode/pack.bx";
+const LOCAL: String = "~/.vscode/extensions";
+const REMOTE: String = "~/.vscode-server/extensions";
+
+// Where somebody is told to install it. A promise to install a file is a promise the file is there.
+function pages() -> [String] {
+    let mutable out: [String] = [];
+    let a: Int = push(out, "docs/editor.md");
+    let b: Int = push(out, "docs/install.md");
+    let c: Int = push(out, "editors/README.md");
+    let d: Int = push(out, "editors/vscode/README.md");
+    let e: Int = push(out, PACK);
+    let f: Int = push(out, "tools/check.sh");
+    let g: Int = push(out, ".github/workflows/ci.yml");
+    return out;
+}
+
+pure function is_digit(b: Int) -> Bool {
+    return b >= 48 && b <= 57;
+}
+
+pure function version_end(text: String, from: Int) -> Int {
+    let mutable i: Int = from;
+    while i < len(text) && is_digit(byte_at(text, i)) {
+        i += 1;
+    }
+    if i == from || i >= len(text) || byte_at(text, i) != 46 {
+        return 0 - 1;
+    }
+    i += 1;
+    let after: Int = i;
+    while i < len(text) && is_digit(byte_at(text, i)) {
+        i += 1;
+    }
+    if i == after {
+        return 0 - 1;
+    }
+    return i;
+}
+
+function must_read(path: String) -> String touches files {
+    let mutable text: String = "";
+    match file_read_maybe(path) {
+        None => {
+            print_error("cannot read " + path + " — run this from the repository root");
+            exit(2);
+        }
+        Some(said) => { text = said; }
+    }
+    return text;
+}
+
+// The one place the format's version is decided: the normative document's title.
+function spec_version() -> String touches files {
+    let text: String = must_read("SPEC.md");
+    let lines: [String] = string_split(text, "\n");
+    let mutable first: String = "";
+    if len(lines) > 0 {
+        first = lines[0];
+    }
+    let at: Int = string_find(first, "BMX ");
+    if at >= 0 {
+        let ends: Int = version_end(first, at + 4);
+        if ends > 0 {
+            return substring(first, at + 4, ends - at - 4);
+        }
+    }
+    print_error("SPEC.md's first line does not name a version, so nothing can be checked against it");
+    exit(1);
+    return "";
+}
+
+function field_of(path: String, name: String) -> String touches files {
+    let text: String = must_read(path);
+    match json_parse(text) {
+        Error(why) => {
+            print_error(path + " is not JSON: " + why);
+            exit(2);
+        }
+        Ok(parsed) => {
+            match json_at(parsed, name) {
+                None => { return ""; }
+                Some(value) => {
+                    match json_as_text(value) {
+                        None => { return ""; }
+                        Some(said) => { return said; }
+                    }
+                }
+            }
+        }
+    }
+    return "";
+}
+
+function json_text_field(text: String, name: String) -> String {
+    match json_parse(text) {
+        Error(why) => { return ""; }
+        Ok(parsed) => {
+            match json_at(parsed, name) {
+                None => { return ""; }
+                Some(value) => {
+                    match json_as_text(value) {
+                        None => { return ""; }
+                        Some(said) => { return said; }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// `<Identity[^>]*Version="([^"]+)"`
+pure function identity_version(manifest: String) -> String {
+    let at: Int = string_find(manifest, "<Identity");
+    if at < 0 {
+        return "";
+    }
+    let mutable close: Int = string_find_from(manifest, ">", at);
+    if close < 0 {
+        close = len(manifest);
+    }
+    let tag: String = substring(manifest, at, close - at);
+    let mark: Int = string_find(tag, "Version=\"");
+    if mark < 0 {
+        return "";
+    }
+    let start: Int = mark + 9;
+    let ends: Int = string_find_from(tag, "\"", start);
+    if ends < 0 {
+        return "";
+    }
+    return substring(tag, start, ends - start);
+}
+
+// The DOS date and time an entry carries, as Python's `date_time` tuple reads.
+pure function stamp_text(entry: ZipRead) -> String {
+    let year: Int = 1980 + divide_floor(entry.dos_date, 512);
+    let month: Int = remainder(divide_floor(entry.dos_date, 32), 16);
+    let day: Int = remainder(entry.dos_date, 32);
+    let hour: Int = divide_floor(entry.dos_time, 2048);
+    let minute: Int = remainder(divide_floor(entry.dos_time, 32), 64);
+    let second: Int = remainder(entry.dos_time, 32) * 2;
+    return "(" + to_string(year) + ", " + to_string(month) + ", " + to_string(day) + ", "
+            + to_string(hour) + ", " + to_string(minute) + ", " + to_string(second) + ")";
+}
+
+pure function has(items: [String], needle: String) -> Bool {
+    let mutable i: Int = 0;
+    while i < len(items) {
+        if items[i] == needle {
+            return true;
+        }
+        i += 1;
+    }
+    return false;
+}
+
+function sorted_unique(items: [String]) -> [String] {
+    let mutable out: [String] = [];
+    let mutable i: Int = 0;
+    while i < len(items) {
+        if !has(out, items[i]) {
+            let a: Int = push(out, items[i]);
+        }
+        i += 1;
+    }
+    let mutable m: Int = 0;
+    while m < len(out) {
+        let mutable best: Int = m;
+        let mutable n: Int = m + 1;
+        while n < len(out) {
+            if string_compare(out[n], out[best]) < 0 {
+                best = n;
+            }
+            n += 1;
+        }
+        let hold: String = out[m];
+        out[m] = out[best];
+        out[best] = hold;
+        m += 1;
+    }
+    return out;
+}
+
+// `re.split(r"[\s`'\"(),]+", line)` then `.strip("`'\".,;:!?()")`.
+//
+// **A SPLIT, not a character class, and that distinction is the day's best transferable finding.** This
+// was `\b([\w.-]+\.vsix)\b`, and `code --install-extension bmx-<version>.vsix` matched NOTHING: the
+// character before `.vsix` is `>`, which the class does not admit, so the scan could not reach the name
+// and a wrong filename on a real install line passed silently. Verified before changing it.
+//
+// **A character class enumerates what a filename may contain; splitting on delimiters accepts whatever is
+// actually there.** Prose contains things filenames do not — placeholders, ellipses, a name inside
+// parentheses — and each of those is a hole in a class and none is a hole in a split.
+//
+// **And the lesson's second half, which is symmetric and cost two measurements to find:**
+//
+//     A class misses what it did not enumerate. A split accepts what it should not.
+//
+// The class missed `bmx-<version>.vsix` because `>` was not in it. The split then failed at the other end
+// of the same token: pointed at `editors/README.md` — the page about how a HOST extends BMX — a legitimate
+// `code --install-extension star-burxt.vsix` was reported as a missing file of ours. So the split is
+// filtered to OUR artefact, by the name `package.json` declares rather than a literal.
+pure function is_delimiter(b: Int) -> Bool {
+    return b == 32 || b == 9 || b == 10 || b == 13 || b == 96 || b == 39 || b == 34 || b == 40
+            || b == 41 || b == 44;
+}
+
+pure function is_trimmed(b: Int) -> Bool {
+    return b == 96 || b == 39 || b == 34 || b == 46 || b == 44 || b == 59 || b == 58 || b == 33
+            || b == 63 || b == 40 || b == 41;
+}
+
+pure function trimmed(token: String) -> String {
+    let mutable from: Int = 0;
+    let mutable to: Int = len(token);
+    while from < to && is_trimmed(byte_at(token, from)) {
+        from += 1;
+    }
+    while to > from && is_trimmed(byte_at(token, to - 1)) {
+        to -= 1;
+    }
+    return substring(token, from, to - from);
+}
+
+pure function basename(path: String) -> String {
+    let slash: Int = file_last_slash(path);
+    if slash < 0 {
+        return path;
+    }
+    return substring(path, slash + 1, len(path) - slash - 1);
+}
+
+// Every `.vsix` of ours that an install line promises.
+pure function promised(text: String, ours: String) -> [String] {
+    let mutable out: [String] = [];
+    let lines: [String] = string_split(text, "\n");
+    let mutable i: Int = 0;
+    while i < len(lines) {
+        let line: String = lines[i];
+        if string_contains(line, "install-extension") {
+            let mutable at: Int = 0;
+            while at < len(line) {
+                while at < len(line) && is_delimiter(byte_at(line, at)) {
+                    at += 1;
+                }
+                let start: Int = at;
+                while at < len(line) && !is_delimiter(byte_at(line, at)) {
+                    at += 1;
+                }
+                if at > start {
+                    let token: String = trimmed(substring(line, start, at - start));
+                    if string_ends_with(token, ".vsix") && string_contains(token, ours) {
+                        let a: Int = push(out, basename(token));
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+    return out;
+}
+
+// `writes\s+(\S+\.vsix)\s+here` over the packer's own text.
+pure function usage_promise(text: String) -> String {
+    let mutable from: Int = 0;
+    while true {
+        let at: Int = string_find_from(text, "writes", from);
+        if at < 0 {
+            return "(no `writes … here` line)";
+        }
+        from = at + 1;
+        let mutable i: Int = at + 6;
+        let gap: Int = i;
+        while i < len(text) && string_is_space(byte_at(text, i)) {
+            i += 1;
+        }
+        if i == gap {
+            continue;
+        }
+        let start: Int = i;
+        while i < len(text) && !string_is_space(byte_at(text, i)) {
+            i += 1;
+        }
+        let token: String = substring(text, start, i - start);
+        if !string_ends_with(token, ".vsix") {
+            continue;
+        }
+        let after: Int = i;
+        while i < len(text) && string_is_space(byte_at(text, i)) {
+            i += 1;
+        }
+        if i == after {
+            continue;
+        }
+        if string_matches_at(text, "here", i) {
+            return token;
+        }
+    }
+    return "(no `writes … here` line)";
+}
+
+pure function plural(n: Int, word: String) -> String {
+    if n == 1 {
+        return word;
+    }
+    return word + "s";
+}
+
+// ---- the program ---------------------------------------------------------------------------------
+
+let mutable prove: Bool = false;
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    if os_arg(a) == "--prove-it" {
+        prove = true;
+    }
+    a += 1;
+}
+
+let mutable claims: [Claim] = [];
+let want: String = spec_version();
+let source_version: String = field_of(PKG, "version");
+let ours: String = field_of(PKG, "name");
+let mutable declared: String = source_version;
+if prove {
+    // The control is the defect exactly as it happened: a format release ships, the extension is not
+    // bumped, and the packaged grammar is newer than the version that describes it.
+    declared = "0.1.0";
+}
+
+let k1: Int = push(claims, Claim { ok: string_starts_with(declared, want + "."),
+        ok_line: "the extension declares " + declared + ", which is SPEC.md's " + want,
+        fail_line: "the extension declares " + declared + " and SPEC.md says the format is " + want
+                + " — an editor comparing versions will not offer this to anyone holding an older "
+                + declared });
+
+// The version a tool actually reads is the one in the manifest, built by the packer from `package.json`.
+// Two files, so they can disagree.
+let mutable before: [Int] = [];
+match file_read_bytes(VSIX) {
+    None => {
+        print_error("cannot read " + VSIX + " — run this from the repository root");
+        exit(2);
+    }
+    Some(bytes) => { before = bytes; }
+}
+let mutable entries: [ZipRead] = [];
+let count: Int = zip_entries(before, entries);
+if count < 0 {
+    print_error(VSIX + " is not a readable archive");
+    exit(1);
+}
+let mutable manifest: String = "";
+let mutable packed_json: String = "";
+let mutable e: Int = 0;
+while e < len(entries) {
+    if entries[e].name == "extension.vsixmanifest" || entries[e].name == "extension/package.json" {
+        let mutable bytes: [Int] = [];
+        let got: Int = zip_content(before, entries[e], bytes);
+        if got < 0 {
+            print_error(VSIX + ": " + entries[e].name + " will not come out (" + to_string(got) + ")");
+            exit(1);
+        }
+        if entries[e].name == "extension.vsixmanifest" {
+            manifest = from_bytes(bytes);
+        } else {
+            packed_json = from_bytes(bytes);
+        }
+    }
+    e += 1;
+}
+let packed: String = json_text_field(packed_json, "version");
+let identity: String = identity_version(manifest);
+let mutable shown_identity: String = identity;
+if len(identity) == 0 {
+    shown_identity = "(none)";
+}
+let k2: Int = push(claims, Claim {
+        ok: len(identity) > 0 && identity == packed && packed == source_version,
+        ok_line: "the manifest, the packaged manifest and the source agree on " + packed,
+        fail_line: "the manifest says " + shown_identity + ", the packaged package.json says " + packed
+                + ", and the source says " + source_version });
+
+// **Reproducibility first, because it is what makes the next check mean anything.**
+//
+// Asserted as a property of the archive rather than by packing twice and comparing. The version of this
+// that packed twice in a row PASSED on a packer that stamped the current time in three entries — a zip
+// stores timestamps at two-second granularity, so back-to-back runs land in the same bucket. It took a
+// three-second sleep to expose it. **A test that can only fail when it happens to straddle a boundary is a
+// test that reports success.** One fixed stamp for every entry cannot pass by accident.
+let mutable stamps: [String] = [];
+let mutable s: Int = 0;
+while s < len(entries) {
+    if !has(stamps, stamp_text(entries[s])) {
+        let p: Int = push(stamps, stamp_text(entries[s]));
+    }
+    s += 1;
+}
+if prove {
+    if !has(stamps, "(2026, 8, 18, 19, 48, 36)") {
+        let p: Int = push(stamps, "(2026, 8, 18, 19, 48, 36)");
+    }
+}
+let sorted_stamps: [String] = sorted_unique(stamps);
+let mutable first_stamp: String = "";
+if len(sorted_stamps) > 0 {
+    first_stamp = sorted_stamps[0];
+}
+let k3: Int = push(claims, Claim { ok: len(sorted_stamps) == 1,
+        ok_line: "every entry carries one fixed timestamp " + first_stamp
+                + ", so two packs give one artefact",
+        fail_line: "entries carry " + to_string(len(sorted_stamps))
+                + " different timestamps, so the bytes move on every run and a stale commit cannot be"
+                + " detected: [" + string_join(sorted_stamps, ", ") + "]" });
+
+// **And the committed artefact is the one the packer writes.** Compared against a repack, which is what
+// nothing did before: CI packs and then inspects the result, so it overwrites the evidence one line before
+// looking for it. **A check that regenerates the artefact it verifies cannot see a stale one.** The packed
+// bytes are restored afterwards either way, so this never leaves a dirty tree.
+let mutable packer: String = os_env_or("BMX_PACK", "");
+if len(packer) == 0 {
+    match file_temp_directory("bmx-extension") {
+        None => {
+            print_error("cannot make a scratch directory");
+            exit(2);
+        }
+        Some(scratch) => {
+            let built: String = scratch + "/pack";
+            let made: Capture = os_capture_status("burxt build " + file_quote(PACK) + " -o "
+                    + file_quote(built));
+            if made.code != 0 {
+                print_error("cannot build the packer this check drives:");
+                print_error(made.output + made.errors);
+                exit(1);
+            }
+            packer = built;
+        }
+    }
+}
+let ran: Capture = os_capture_status(packer);
+if ran.code != 0 {
+    print_error("the packer refused:");
+    print_error(ran.output + ran.errors);
+    exit(1);
+}
+let mutable after: [Int] = [];
+match file_read_bytes(VSIX) {
+    None => {
+        print_error("the packer wrote no archive");
+        exit(1);
+    }
+    Some(bytes) => { after = bytes; }
+}
+let restored: Int = write_bytes(VSIX, before);
+let mutable same: Bool = len(before) == len(after);
+if same {
+    let mutable i: Int = 0;
+    while i < len(before) && same {
+        if before[i] != after[i] {
+            same = false;
+        }
+        i += 1;
+    }
+}
+if prove {
+    same = false;
+}
+let k4: Int = push(claims, Claim { ok: same,
+        ok_line: "the committed .vsix is what the packer writes (" + to_string(len(before)) + " bytes)",
+        fail_line: "the committed .vsix is not what the packer writes — it was changed without"
+                + " repacking" });
+
+// **And the archive is a well-formed extension, asserted HERE rather than by a second step that packs.**
+// `tools/check.sh` used to run the packer again to inspect the result, three lines after the comparison
+// above — so a stale artefact was detected and then silently repaired inside one invocation, and the
+// second local run was always green. Guarding that with a park-and-restore worked and was the wrong fix:
+// **the collision is eliminated by having exactly one thing pack.**
+//
+// Read from the bytes the packer just wrote rather than from the file, so nothing on disk is touched at
+// all. The entry list is written out rather than globbed, because a missing entry is only ever found by
+// packaging.
+let mutable need: [String] = [];
+let n1: Int = push(need, "[Content_Types].xml");
+let n2: Int = push(need, "extension.vsixmanifest");
+let n3: Int = push(need, "extension/package.json");
+let n4: Int = push(need, "extension/syntaxes/bmx.tmLanguage.json");
+let n5: Int = push(need, "extension/icon.png");
+if prove {
+    let n6: Int = push(need, "extension/a-file-the-packer-never-writes");
+}
+let mutable fresh: [ZipRead] = [];
+let fresh_count: Int = zip_entries(after, fresh);
+let mutable present: [String] = [];
+let mutable p: Int = 0;
+while p < len(fresh) {
+    let x: Int = push(present, fresh[p].name);
+    p += 1;
+}
+let mutable missing_entries: [String] = [];
+let mutable q: Int = 0;
+while q < len(need) {
+    if !has(present, need[q]) {
+        let x: Int = push(missing_entries, need[q]);
+    }
+    q += 1;
+}
+let k5: Int = push(claims, Claim { ok: len(missing_entries) == 0,
+        ok_line: "the packed archive carries all " + to_string(len(need))
+                + " entries an editor needs, and is not corrupt",
+        fail_line: "the packed archive is missing ['" + string_join(missing_entries, "', '") + "']" });
+
+// Every entry, out through its LOCAL header and against its own CRC — which is the copy of the metadata
+// `zipfile.testzip()` never reads.
+let mutable unreadable: Int = 0;
+if fresh_count < 0 {
+    unreadable = 1;
+} else {
+    let mutable r: Int = 0;
+    while r < len(fresh) {
+        let mutable bytes: [Int] = [];
+        if zip_content(after, fresh[r], bytes) < 0 {
+            unreadable += 1;
+        }
+        r += 1;
+    }
+}
+let k6: Int = push(claims, Claim { ok: unreadable == 0,
+        ok_line: "the archive is readable end to end", fail_line: "the archive is corrupt" });
+
+// **The language server had the same defect, found by grepping for the version I had just removed.** It
+// answered `initialize` with `serverInfo: {name: 'bmx-lsp', version: '0.1.0'}` while reporting 0.12
+// diagnostics, and `editors/lsp/test/protocol.mjs` checked the NAME — the half that never changes — and
+// not the version. A client puts `serverInfo` in its log, so a stale one misdirects the first question
+// anybody asks about a diagnostic: which version produced it.
+// **The file and the pattern both moved when the server was ported to Burxt**, and this check is how I
+// found out: it read `bmx-lsp.mjs`, which no longer exists, and the suite failed on a path rather than on
+// a version. A check keyed to a filename is a check that breaks when the file is right to rename — which
+// is the cheap kind of breakage, because it says so immediately.
+let lsp: String = must_read("editors/lsp/bmx-lsp.bx");
+let mutable served: String = "";
+// `json_field\("version",\s*json_text\("([^"]+)"\)\)` — the whitespace matters, because a long line in
+// this file may well be broken after the comma one day, and **an offset counted by hand does not.** The
+// first cut of this used `mark + 32` where the needle is 33 bytes, so it read the closing quote as the
+// version, found an empty string, and reported the server as having no version at all — a check that
+// fails LOUDLY on an arithmetic slip, which is the good kind, and the reason the port compared outputs.
+let opener: String = "json_field(\"version\",";
+let mark: Int = string_find(lsp, opener);
+if mark >= 0 {
+    let mutable i: Int = mark + len(opener);
+    while i < len(lsp) && string_is_space(byte_at(lsp, i)) {
+        i += 1;
+    }
+    let inner: String = "json_text(\"";
+    if string_matches_at(lsp, inner, i) {
+        let start: Int = i + len(inner);
+        let ends: Int = string_find_from(lsp, "\"", start);
+        if ends > start {
+            served = substring(lsp, start, ends - start);
+        }
+    }
+}
+if prove {
+    served = "0.1.0";
+}
+let mutable shown_served: String = served;
+if len(served) == 0 {
+    shown_served = "None";
+}
+let k7: Int = push(claims, Claim { ok: len(served) > 0 && string_starts_with(served, want + "."),
+        ok_line: "the language server answers `initialize` with " + shown_served,
+        fail_line: "the language server reports version " + shown_served + " while producing " + want
+                + " diagnostics — a client logs that, so every bug report about it names the wrong"
+                + " version" });
+
+// And the name every document hands to a reader.
+//
+// **Only names on an `install-extension` line, because the promise IS the install command.** This scanned
+// every `.vsix` token on every page, which cannot tell **using** a name from **mentioning** one — so a
+// sentence recording the old scheme (*"the artefact used to be called `bmx-0.1.0.vsix`"*) failed the check
+// for describing history accurately. Proven reachable by appending exactly that sentence to
+// `editors/vscode/README.md` and watching this fire; latent only because no page happens to carry it
+// today. A check should not constrain what the documentation may say about its own past.
+//
+// Internal paths — the archive-reading lines in `check.sh` and `ci.yml` — are deliberately not scanned.
+// They are not promises to a reader, and they are self-checking: opening a missing zip throws.
+let all_pages: [String] = pages();
+let mutable named_raw: [String] = [];
+let mutable g: Int = 0;
+while g < len(all_pages) {
+    let body: String = must_read(all_pages[g]);
+    let found: [String] = promised(body, ours);
+    let mutable h: Int = 0;
+    while h < len(found) {
+        let x: Int = push(named_raw, found[h]);
+        h += 1;
+    }
+    g += 1;
+}
+if prove {
+    // Through `promised`, not straight into the list: a control that skips the extractor proves the
+    // comparison works and says nothing about whether the extractor still sees an install line.
+    let found: [String] = promised("code --install-extension bmx-0.1.0.vsix", ours);
+    let mutable h: Int = 0;
+    while h < len(found) {
+        let x: Int = push(named_raw, found[h]);
+        h += 1;
+    }
+}
+let named: [String] = sorted_unique(named_raw);
+let mutable missing_named: [String] = [];
+let mutable m: Int = 0;
+while m < len(named) {
+    if !file_is_file("editors/vscode/" + named[m]) {
+        let x: Int = push(missing_named, named[m]);
+    }
+    m += 1;
+}
+let k8: Int = push(claims, Claim { ok: len(missing_named) == 0,
+        ok_line: "every .vsix the documentation names exists (" + string_join(named, ", ") + ")",
+        fail_line: "the documentation tells someone to install " + string_join(missing_named, ", ")
+                + ", which is not in the tree" });
+
+// The path half of the same promise. A directory is not a file, so the check above cannot see it.
+let mutable bare: [String] = [];
+let mutable teaches: [String] = [];
+let mutable t: Int = 0;
+while t < len(all_pages) {
+    let mutable body: String = must_read(all_pages[t]);
+    if prove && all_pages[t] == "editors/README.md" {
+        // The control is the defect as it was written: the local directory, alone, in an instruction.
+        body = string_replace(body, REMOTE, "~/.vscode/extensions-CONTROL");
+    }
+    if string_contains(body, "install-extension") {
+        let x: Int = push(teaches, all_pages[t]);
+    }
+    // A page may mention the local directory freely — it must not be the ONLY one it names, because a
+    // reader in a remote window follows it into a directory nothing reads.
+    if string_contains(body, LOCAL) && !string_contains(body, REMOTE) {
+        let y: Int = push(bare, all_pages[t]);
+    }
+    t += 1;
+}
+let k9: Int = push(claims, Claim { ok: len(bare) == 0,
+        ok_line: "no page sends a reader to " + LOCAL + " without naming " + REMOTE + " beside it",
+        fail_line: string_join(bare, ", ") + " names " + LOCAL
+                + " alone, which is a directory nothing reads in a remote window" });
+let k10: Int = push(claims, Claim { ok: len(teaches) > 0,
+        ok_line: "the install instruction every page leads with is `code --install-extension` ("
+                + to_string(len(teaches)) + " " + plural(len(teaches), "page") + ")",
+        fail_line: "no page names `code --install-extension`, so every reader is left resolving the"
+                + " extensions directory themselves" });
+
+// **The packer's own usage line, which promised a filename it stopped writing.** It said
+// `writes bmx-<version>.vsix here` while the code twelve lines from the end wrote `bmx.vsix` — stale in the
+// one file whose long comment explains why the version was taken OUT of the filename.
+//
+// **Two checks missed it for the same reason:** `bmx-<version>.vsix` contains `<` and `>`, which are not in
+// `[\w.-]`, so the name-scan above never matched the placeholder at all — not before the install-extension
+// scoping and not after.
+//
+// So the promise is compared to the behaviour rather than to a pattern — the usage line's filename against
+// the name the packer actually builds. No wording heuristic, and a placeholder cannot slip through,
+// because a placeholder is not equal to a real name.
+let builds: String = ours + ".vsix";
+let mutable promised_out: String = usage_promise(must_read(PACK));
+if prove {
+    promised_out = "bmx-<version>.vsix";
+}
+let k11: Int = push(claims, Claim { ok: promised_out == builds,
+        ok_line: "the packer's usage line promises " + builds + ", which is what it writes",
+        fail_line: "the packer's usage line promises " + promised_out + " but it writes " + builds });
+
+// A leftover from the old scheme is a second answer to "which one do I install".
+let mutable stale: [String] = [];
+match file_list_directory("editors/vscode") {
+    None => { }
+    Some(found) => {
+        let mutable i: Int = 0;
+        while i < len(found) {
+            if string_starts_with(found[i], "bmx-") && string_ends_with(found[i], ".vsix") {
+                let x: Int = push(stale, found[i]);
+            }
+            i += 1;
+        }
+    }
+}
+let stale_sorted: [String] = sorted_unique(stale);
+let k12: Int = push(claims, Claim { ok: len(stale_sorted) == 0,
+        ok_line: "no versioned .vsix is left over from the old naming",
+        fail_line: string_join(stale_sorted, ", ") + " is still in the tree beside bmx.vsix" });
+
+let mutable failures: Int = 0;
+let mutable c: Int = 0;
+while c < len(claims) {
+    if claims[c].ok {
+        print("  ok    " + claims[c].ok_line);
+    } else {
+        failures += 1;
+        print("  FAIL  " + claims[c].fail_line);
+    }
+    c += 1;
+}
+
+print("");
+if prove {
+    if failures > 0 {
+        print("the control failed as it must — an unbumped version, a stale artefact, a documented"
+                + " filename that does not exist, an install path nothing reads and a missing archive"
+                + " entry are all caught");
+        exit(0);
+    }
+    print("THE CONTROL DID NOT FAIL, so this check cannot see the defect it exists for");
+    exit(1);
+}
+if failures > 0 {
+    print(to_string(failures) + " " + plural(failures, "thing") + " wrong with the packaged extension");
+    exit(1);
+}
+print("every editor artefact declares " + declared + ", packed from source, named the same thing"
+        + " everywhere");
+exit(0);

@@ -48,7 +48,7 @@
 // files on the strength of `ci.yml`'s sentence — *the format must be testable without its first host
 // installed* — and **that sentence is about the format, not about this repository's CI.** What the format's
 // claim actually needs is the fixtures, which are data, plus a runner a stranger can execute: that is
-// `neutral`, and it is genuinely permanent. `tests/branding.py`, `editors/vscode/pack.py` and the rest
+// `neutral`, and it is genuinely permanent. `tests/branding.py` and the rest
 // check *this repository*. In Burxt they make the conformance job need a toolchain — which costs a
 // contributor without one some checks, and **costs the format's portability claim nothing at all.**
 //
@@ -114,7 +114,7 @@ const REASONS_SHOWN: String = "('reference', 'neutral', 'bootstrap', 'platform',
 // alternative is editing the thing whose whole property is being an unedited copy.
 const VENDORED: String = "docs/assets/site.js";
 
-// Never scanned: git's own, installed dependencies, and the parser copy `pack.py` stages into the
+// Never scanned: git's own, installed dependencies, and the parser copy `pack.bx` stages into the
 // extension (gitignored, and counting it is what made an outside audit read 8,125 where the tree has
 // 6,367 — the same 1,171 lines twice).
 pure function skipped(rel: String) -> Bool {

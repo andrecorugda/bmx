@@ -46,7 +46,7 @@ burxt build tools/fmt.bx -o /tmp/fmt
 cd editors/vscode && npm install vscode-textmate vscode-oniguruma   # what scopes.mjs needs
 node editors/vscode/test/scopes.mjs
 node editors/lsp/test/protocol.mjs
-python3 editors/vscode/pack.py          # writes editors/vscode/bmx.vsix, which is committed
+burxt build editors/vscode/pack.bx -o /tmp/pack && /tmp/pack   # writes editors/vscode/bmx.vsix, which is committed
 ```
 
 `tools/check.sh` **mirrors `.github/workflows/ci.yml` and nothing else**. When a check is added to
@@ -66,7 +66,7 @@ a claim no implementation has to honour, and this repository's history is largel
 converting such claims into checks.
 
 Beyond conformance, `tests/` holds meta-checks over the repository itself — `agree.bx`,
-`branding.py`, `controls.bx`, `extension.py`, `invitation.bx`, `languages.bx`, `messages.bx`,
+`branding.py`, `controls.bx`, `extension.bx`, `invitation.bx`, `languages.bx`, `messages.bx`,
 `migration.bx`, `output.bx`, `portability.bx`, `renders.bx`, `roundtrip.bx`, `surface.bx`,
 `version.bx`. **The list is `ls tests/`, not a curated selection** — it was six names for a long time
 and three checks had been added since. Most take **`--prove-it`, a negative control** that asserts the
@@ -103,7 +103,7 @@ blaming every document — call it from any new runner that takes a command.
   paths and a `--require` operand — verified, after I asserted the opposite from the command's name.)
   `tests/version.bx` checks it by path — not as a prose pattern, since `docs/install.md` shows a
   *consumer's* manifest whose `version 0.1.0` a generic pattern would flag.
-- **The VS Code extension's version must equal the format's** (`tests/extension.py`), and the
+- **The VS Code extension's version must equal the format's** (`tests/extension.bx`), and the
   committed `bmx.vsix` must be the packed one. The version is not in the filename, on purpose.
 - CI pins the Burxt it supports (`BURXT` env in `ci.yml`) to a **released** tarball, never a branch.
   Raise it deliberately, in its own commit.
@@ -156,7 +156,7 @@ only and leaves three scopes deliberately uncoloured — `meta.slot.expression.b
 implementation detail**: hosts inject their expression language into them, so renaming one is a major
 change, and `test/scopes.mjs` asserts them by name. Hosts extend by injection; nothing in this
 repository should need patching for a host. `editors/vscode/reference/` is staged from
-`reference/bmx.js` by `pack.py` and is gitignored — two copies of a parser in version control is how
+`reference/bmx.js` by `pack.bx` and is gitignored — two copies of a parser in version control is how
 they drift.
 
 **`docs/`** is a Jekyll site served at bmx.burxt-lang.org. Two things bite:
@@ -182,7 +182,7 @@ another language is a gap report rather than a solution.** BMX is the furthest o
 raw count — measure with `tests/languages.bx` — and it has the strongest defence, which is why
 every non-Burxt file **states its reason in its own first 20 lines** (`not-burxt: <reason>`) and the
 check fails on a file that states none. A count without reasons reads worse than the truth: on 2026-08-20
-an outside audit read 8,125 lines by counting the gitignored copy of `reference/bmx.js` that `pack.py`
+an outside audit read 8,125 lines by counting the gitignored copy of `reference/bmx.js` that `pack.bx`
 stages — the same file twice. **Run `tests/languages.bx` for today's numbers rather than reading
 one here**; this file has been wrong about them once, and the gitignored rules file beside it twice.
 
@@ -201,7 +201,7 @@ Three of the reasons are properties of BMX being a *format*, and they are not ne
 covered sixteen files on the strength of `ci.yml`'s sentence — *the format must be testable without its
 first host installed* — and **that sentence is about the format, not about this repository's CI.** The
 format's claim needs the fixtures, which are data, plus a runner a stranger can run: that is `neutral`.
-`tests/branding.py`, `tests/extension.py`, `editors/vscode/pack.py` and twelve others check *this
+`tests/branding.py` and twelve others check *this
 repository*. In Burxt they cost a contributor without a toolchain some local checks and cost the
 portability claim nothing. Fifteen files moved to `gap`; **the gap went from 708 lines to 3,086.** The
 number had been wrong in the flattering direction.
@@ -212,7 +212,7 @@ burxt-lang.org that must not be edited at all.
 
 **Two questions sort every entry here, and the second is the one that gets skipped.** *Which job runs
 this, and is that job allowed to need Burxt* — and then *is the capability actually absent, or did I stop
-checking*. The first forbids things a release cannot unforbid: `editors/vscode/pack.py` and
+checking*. The first forbids things a release cannot unforbid: `editors/vscode/pack.bx` and
 `tests/branding.py` are reachable from the conformance job, so a zip module or a PNG decoder in Burxt
 changes nothing about them. The second is how `docs/assets/code.js` sat in `platform` claiming a browser
 needs JavaScript, months after Burxt reached a browser through wasm. The Burxt session, who sharpened this
@@ -222,8 +222,7 @@ from the question into its two halves, found their own instance the same day.
 already gone: `burxt/test.py` (now `burxt/guarantees.bx`), `editors/lsp/bmx-lsp.mjs` (now `bmx-lsp.bx`),
 `tools/fmt.py`, `tools/migrate-0.7.py`, and the runners `harness`, `agree`, `output`, `renders`,
 `roundtrip`, `portability`, `messages`, `invitation` and `surface`. What is left is
-`tests/branding.py`, `tests/extension.py`,
-`editors/vscode/pack.py`; `docs/assets/code.js` could be Burxt through wasm but
+`tests/branding.py`; `docs/assets/code.js` could be Burxt through wasm but
 would cost the documented promise that Helix and Neovim need *only Node*; `tools/shot.mjs` is blocked on
 Burxt having no browser driver. The check prints the gap and caps nothing — a threshold is a number somebody raises
 when it is inconvenient.
