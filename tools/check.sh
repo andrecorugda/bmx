@@ -41,6 +41,19 @@ skip() {
   skipped=$((skipped + 1))
   skipped_what="${skipped_what}${skipped_what:+; }$2"
 }
+# **The counts in the skip labels were hand-written, and they went stale exactly as the note above said
+# they would.** The Burxt half was labelled 9 while its block held 14 `run` lines — five checks a reader
+# of a skipped run could not know they were missing, and the label had been bumped by hand twice on the
+# way there without anyone counting. The note even names the fix (`grep -c '^  run '` inside the block)
+# and then asks a person to do it. So the script counts its own blocks now; a label cannot drift from a
+# list it is derived from.
+group_size() {
+  awk -v tag="# group: $1" '
+    index($0, tag) == 1 { on = 1; next }
+    on && /^  run / { n++ }
+    on && /^else$/ { on = 0 }
+    END { print n + 0 }' "${BASH_SOURCE[0]}"
+}
 run() {
   local name="$1"; shift
   local out
@@ -76,13 +89,14 @@ run "no runner advertises a control it does not read" bash -c '
 echo
 echo "the editor surface"
 if [ -d editors/vscode/node_modules/vscode-textmate ]; then
+# group: editor
   run "the grammar puts every scope where it says it does" node editors/vscode/test/scopes.mjs
   run "the site's colours and the editor's agree" node editors/vscode/test/agrees.mjs
   run "every line is numbered and the document survives painting" bash -c '
     node editors/vscode/test/panel.mjs && node editors/vscode/test/panel.mjs --prove-it'
 else
   skip 'the grammar tests need `cd editors/vscode && npm install vscode-textmate vscode-oniguruma`' \
-       'the grammar tests (3, no vscode-textmate)'
+       "the grammar tests ($(group_size editor), no vscode-textmate)"
 fi
 run "the editor behaves the way the format reads" node editors/vscode/test/config.mjs
 # **The staged parser is deleted before it is staged, and that is not belt-and-braces.** `preview.js`
@@ -124,6 +138,7 @@ echo
 # which predates `use "std/…"` — and five checks reported FAIL for a missing standard library. A check
 # that cannot tell "this is broken" from "you have not set this up" sends you to debug the wrong thing.
 if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /dev/null -o /dev/null 2>&1 | grep -qv 'standard library'; then
+# group: burxt
   echo "the Burxt implementation — needs a released burxt on PATH and BURXT_LIB set"
   run "it compiles" bash -c 'burxt build burxt/examples/parse.bx -o /tmp/check-parse'
   # Needs burxt 1.4.0 or newer, which is the pinned version — `fmt` did not exist before it.
@@ -233,7 +248,7 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
     BMX_MIGRATE=/tmp/check-migrate /tmp/check-migration "node reference/bmx.js" --prove-it'
 else
   skip 'the Burxt half needs `burxt` on PATH and BURXT_LIB set — see docs/install.md' \
-       'the Burxt half (11, no toolchain)'
+       "the Burxt half ($(group_size burxt), no toolchain)"
 fi
 
 echo
@@ -247,5 +262,15 @@ if [ "$skipped" -gt 0 ]; then
   printf 'so this run is NOT the suite CI runs; the number above is not comparable to it.\n'
 else
   printf ' — the whole suite, nothing skipped\n'
+  # **A complete run must account for every `run` line in this file**, which is the arithmetic the note
+  # at the top asks a reader to do in their head — 17 + 3 + 9 not adding up to 29 is how the stale label
+  # was eventually noticed, months late. Doing it here means a `run` that is never reached, in a block
+  # whose guard passed, is a failure rather than a smaller number nobody compares.
+  listed=$(grep -c '^ *run ' "${BASH_SOURCE[0]}")
+  if [ "$((pass + fail))" -ne "$listed" ]; then
+    printf '\033[31mbut this file lists %d checks and ran %d\033[0m — a `run` line was not reached\n' \
+      "$listed" "$((pass + fail))"
+    exit 1
+  fi
 fi
 exit "$fail"
