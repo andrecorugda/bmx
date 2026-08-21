@@ -224,6 +224,282 @@ pure function bmx_parse_error(source: String, said: String) -> BmxDiagnostic {
     };
 }
 
+// ---- lints -----------------------------------------------------------------------
+//
+// **Warnings, and they are deliberately NOT conformance.** `docs/implementing.md` tells a third-party
+// implementer that lints are optional and that no fixture requires them, and that stays true: these four
+// rules exist here because BMX's own language server is Burxt, and a server that reported only refusals
+// would be a worse server than the one it replaced.
+//
+// **There is no agreement suite between this and `reference/bmx.js`'s `lint`, on purpose.** Obliging two
+// implementations to agree on warnings is precisely what would promote `BMX-W` codes toward conformance —
+// changing what the format asks of everyone who implements it. The cost of that choice is real and worth
+// naming: the two can drift, and nothing will notice. What is checked is each against its own fixtures.
+//
+// A document that does not parse yields nothing. There is no tree to lint, and a style note printed beside
+// a refusal buries the refusal.
+
+// The void elements, as a predicate rather than a list: a `const` may only be a literal, and building an
+// array to search it is more code than the comparison it replaces.
+pure function bmx_is_void(name: String) -> Bool {
+    return name == "area" || name == "base" || name == "br" || name == "col" || name == "embed"
+            || name == "hr" || name == "img" || name == "input" || name == "link" || name == "meta"
+            || name == "source" || name == "track" || name == "wbr";
+}
+
+// The column a byte offset sits at, counting from the line's first byte. Bytes rather than characters,
+// because this measures INDENTATION, which is spaces — `bmx_where` is the one that owes a reader
+// characters.
+pure function bmx_column_of(source: String, offset: Int) -> Int {
+    let mutable start: Int = 0;
+    let mutable i: Int = 0;
+    while i < offset && i < len(source) {
+        if byte_at(source, i) == 10 {
+            start = i + 1;
+        }
+        i += 1;
+    }
+    return offset - start;
+}
+
+pure function bmx_warning(source: String, code: String, message: String, offset: Int) -> BmxDiagnostic {
+    let w: BmxWhere = bmx_where(source, offset);
+    return BmxDiagnostic { code: code, message: message, offset: offset, line: w.line, column: w.column };
+}
+
+// BMX-W001 — a heading level skip breaks the outline a screen reader navigates by.
+//
+// **Within the document, never "must start at h1".** A component that opens at `##` is correct: the `#`
+// belongs to the page embedding it, so the first heading sets the baseline whatever it is. Only the jump
+// is flagged, and only at the top level, exactly as the reference implementation does it.
+function bmx_lint_headings(blocks: [Block], source: String, mutable out: [BmxDiagnostic]) -> Int {
+    let mutable previous: Int = 0;
+    let mutable i: Int = 0;
+    while i < len(blocks) {
+        match blocks[i] {
+            Heading(h) => {
+                if previous > 0 && h.level > previous + 1 {
+                    let m: String = "a heading jumps from level " + to_string(previous) + " to "
+                            + to_string(h.level) + " within this document. The outline a reader navigates by "
+                            + "has a gap in it — use h" + to_string(previous + 1) + ", or make the parent "
+                            + "shallower. (Opening at any level is fine: only the jump is flagged.)";
+                    let a: Int = push(out, bmx_warning(source, "BMX-W001", m, h.offset));
+                }
+                previous = h.level;
+            }
+            Paragraph(w) => { }
+            Quote(w) => { }
+            List(l) => { }
+            Code(c) => { }
+            Fenced(b) => { }
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+// BMX-W002 — a block with no head and no body renders as nothing, and is almost always an unfinished
+// edit. Two exemptions, both by contract: a block carrying its meaning in a HEAD, and a void element,
+// whose body must be empty. **A rule that flags correct code is a rule people switch off**, taking the
+// useful half with it — which this rule did in 0.5.0 before the void exemption existed.
+function bmx_lint_empty(blocks: [Block], source: String, mutable out: [BmxDiagnostic]) -> Int {
+    let mutable i: Int = 0;
+    while i < len(blocks) {
+        match blocks[i] {
+            Fenced(b) => {
+                if len(b.children) == 0 && len(string_trim(b.head)) == 0 && !bmx_is_void(b.name) {
+                    let m: String = "`" + b.name + "` has no head and no body, so it renders as nothing. "
+                            + "Give it content, give it a head, or delete it.";
+                    let a: Int = push(out, bmx_warning(source, "BMX-W002", m, b.offset));
+                }
+                let r: Int = bmx_lint_empty(b.children, source, out);
+            }
+            Heading(h) => { }
+            Paragraph(w) => { }
+            Quote(w) => { }
+            List(l) => { }
+            Code(c) => { }
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+// BMX-W003 — a link with an empty target points at the current page, which is never what was meant.
+function bmx_lint_links_inline(nodes: [Bmx], source: String, mutable out: [BmxDiagnostic]) -> Int {
+    let mutable i: Int = 0;
+    while i < len(nodes) {
+        match nodes[i] {
+            Link(k) => {
+                if len(string_trim(k.target)) == 0 {
+                    let m: String = "a link with an empty target points at the current page. "
+                            + "Give it a target, or write the text without brackets.";
+                    let a: Int = push(out, bmx_warning(source, "BMX-W003", m, k.offset));
+                }
+                let r: Int = bmx_lint_links_inline(k.children, source, out);
+            }
+            Emphasis(w) => { let r: Int = bmx_lint_links_inline(w.children, source, out); }
+            Strong(w) => { let r: Int = bmx_lint_links_inline(w.children, source, out); }
+            Text(v) => { }
+            CodeSpan(v) => { }
+            Slot(s) => { }
+            InlineBlock(n) => { }
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+function bmx_lint_links(blocks: [Block], source: String, mutable out: [BmxDiagnostic]) -> Int {
+    let mutable i: Int = 0;
+    while i < len(blocks) {
+        match blocks[i] {
+            Heading(h) => { let r: Int = bmx_lint_links_inline(h.children, source, out); }
+            Paragraph(w) => { let r: Int = bmx_lint_links_inline(w.children, source, out); }
+            Quote(w) => { let r: Int = bmx_lint_links_inline(w.children, source, out); }
+            List(l) => {
+                let mutable j: Int = 0;
+                while j < len(l.items) {
+                    let r: Int = bmx_lint_links_inline(l.items[j].children, source, out);
+                    j += 1;
+                }
+            }
+            Fenced(b) => { let r: Int = bmx_lint_links(b.children, source, out); }
+            Code(c) => { }
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+// BMX-W005 — indentation that contradicts the nesting.
+//
+// **Indentation cannot be wrong, which is exactly why it needs a warning.** Leading space means nothing
+// to the parser (§1), so a block at the wrong depth is a legal document that LIES to a reader, and a
+// reviewer who trusts the columns is trusted into the wrong block. Nothing but a lint can see it.
+//
+// **Silent on a document that does not indent at all**, because a flat document is correct and always
+// was. The step is learned from the document rather than assumed — a file indenting by four is
+// consistent, and telling its author that two is right would be this format having an opinion about
+// whitespace, which §1 spends its whole length refusing.
+function bmx_lint_step(blocks: [Block], depth: Int, source: String) -> Int {
+    let mutable i: Int = 0;
+    while i < len(blocks) {
+        match blocks[i] {
+            Fenced(b) => {
+                let col: Int = bmx_column_of(source, b.offset);
+                if depth == 1 && col > 0 {
+                    return col;
+                }
+                let inner: Int = bmx_lint_step(b.children, depth + 1, source);
+                if inner > 0 {
+                    return inner;
+                }
+            }
+            Heading(h) => { }
+            Paragraph(w) => { }
+            Quote(w) => { }
+            List(l) => { }
+            Code(c) => { }
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+function bmx_lint_indent(blocks: [Block], depth: Int, step: Int, source: String,
+        mutable out: [BmxDiagnostic]) -> Int {
+    let mutable i: Int = 0;
+    while i < len(blocks) {
+        match blocks[i] {
+            Fenced(b) => {
+                let col: Int = bmx_column_of(source, b.offset);
+                let want: Int = depth * step;
+                if col != want {
+                    // `if` is a statement here, not an expression — so the plural is assigned rather
+                    // than chosen inline.
+                    let mutable plural: String = "s";
+                    if depth == 1 {
+                        plural = "";
+                    }
+                    let m: String = "this block sits at column " + to_string(col) + " but is "
+                            + to_string(depth) + " level" + plural + " deep, where the document indents by "
+                            + to_string(step) + ", so " + to_string(want) + " is expected. Indentation means "
+                            + "nothing to the parser, which is why a wrong one misleads a reader with nothing "
+                            + "to catch it — `python3 tools/fmt.py` fixes the file.";
+                    let a: Int = push(out, bmx_warning(source, "BMX-W005", m, b.offset));
+                }
+                let r: Int = bmx_lint_indent(b.children, depth + 1, step, source, out);
+            }
+            Heading(h) => { }
+            Paragraph(w) => { }
+            Quote(w) => { }
+            List(l) => { }
+            Code(c) => { }
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+// Sorted by offset, because a reader reads a file downwards and an editor shows diagnostics in the order
+// it is given them.
+//
+// **Selection sort rather than insertion, because there is no `insert`** — an array grows by `push` and
+// nothing else, so a sort that has to place an element in the middle cannot be written. Choosing the
+// smallest remaining and pushing it is the shape the available operations allow, and the list is the
+// number of warnings in one document.
+function bmx_lint_sorted(found: [BmxDiagnostic]) -> [BmxDiagnostic] {
+    let mutable out: [BmxDiagnostic] = [];
+    let mutable taken: [Bool] = [];
+    let mutable i: Int = 0;
+    while i < len(found) {
+        let f: Int = push(taken, false);
+        i += 1;
+    }
+    let mutable placed: Int = 0;
+    while placed < len(found) {
+        let mutable best: Int = 0 - 1;
+        let mutable j: Int = 0;
+        while j < len(found) {
+            if !taken[j] {
+                if best < 0 {
+                    best = j;
+                } else {
+                    if found[j].offset < found[best].offset {
+                        best = j;
+                    }
+                }
+            }
+            j += 1;
+        }
+        taken[best] = true;
+        let a: Int = push(out, found[best]);
+        placed += 1;
+    }
+    return out;
+}
+
+// Every warning a document earns, in document order. Empty for a document that does not parse.
+public function bmx_lint(source: String) -> [BmxDiagnostic] {
+    match bmx_parse(source) {
+        Error(message) => {
+            return [];
+        }
+        Ok(blocks) => {
+            let mutable found: [BmxDiagnostic] = [];
+            let a: Int = bmx_lint_headings(blocks, source, found);
+            let b: Int = bmx_lint_empty(blocks, source, found);
+            let c: Int = bmx_lint_links(blocks, source, found);
+            let step: Int = bmx_lint_step(blocks, 0, source);
+            if step > 0 {
+                let d: Int = bmx_lint_indent(blocks, 0, step, source, found);
+            }
+            return bmx_lint_sorted(found);
+        }
+    }
+}
+
 // ---- scanning helpers ----------------------------------------------------------
 
 pure function bmx_is_space(b: Int) -> Bool {

@@ -145,6 +145,7 @@ public function bmx_to_html(source: String, bindings: [Binding]) -> Result<Strin
 
 ```burxt
 public function bmx_check(source: String) -> Option<BmxDiagnostic>
+public function bmx_lint(source: String) -> [BmxDiagnostic]
 public pure function bmx_where(source: String, offset: Int) -> BmxWhere
 ```
 
@@ -241,28 +242,28 @@ none.
 **No cross-file component resolution in the format.** A block names a component; how a host finds
 it is the host's module system, not BMX's.
 
-**No lint in `burxt/bmx.bx`, and this one is a decision rather than a backlog item.** The four warnings —
-`BMX-W001`, `W002`, `W003`, `W005` — exist only in `reference/bmx.js`, which exports `lint`. A host asked
-for them in the Burxt implementation, with a real caller: their language server had become Burxt, which
-removed Node from their extension entirely, and the warnings went with it. It was declined, for two
-reasons worth stating because they are the reasons anyone asking again will run into.
+**`bmx_lint` exists now, and the reasoning that declined it a day earlier is worth keeping.** The four
+warnings — `BMX-W001`, `W002`, `W003`, `W005` — were JavaScript only, and a host asked for them in Burxt
+because their language server had become Burxt and the warnings went with it. **That request was declined**,
+for two reasons: `BMX-W` codes are deliberately not conformance, so obliging two implementations to agree
+on them would change what the format asks of *everyone* who implements it; and every `public` name here is
+a compatibility promise `tests/surface.py` keeps in both directions.
 
-**`BMX-W` codes are deliberately not conformance.** [Writing an implementation](implementing.html) tells
-a third-party implementer that lints are optional and that no fixture requires them. Two lint
-implementations obliged to agree would quietly promote them toward conformance — changing what the format
-asks of *everyone* who implements it, in exchange for four warnings in one editor. That is a
-[versioning](https://github.com/andrecorugda/bmx/blob/main/VERSIONING.md) question wearing a feature's
-clothes.
+**What changed is the caller, not the argument.** BMX's own language server is Burxt now, and a server
+reporting only refusals is a worse server than the one it replaced — so the rules had to exist here for
+BMX's own tooling, not as a favour to a host. The surface promise is accepted deliberately; that is what
+this page is.
 
-**And it is not 150 lines; it is 150 lines plus a promise.** Every `public` name in `burxt/bmx.bx` must
-appear on this page and be reachable from an outside package — `tests/surface.py` checks both directions.
-`bmx_lint` would be a compatibility commitment this repository then keeps, and `W002` and `W005` have each
-been *too broad* once already, so a second implementation would inherit a judgement it cannot maintain.
+**And the half that decided the original refusal still holds: there is no agreement suite between
+`bmx_lint` and `reference/bmx.js`'s `lint`, on purpose.** Obliging them to agree is precisely what would
+promote `BMX-W` toward conformance. Each is checked against its own fixtures. **The cost is real and is
+stated rather than hidden: the two can drift and nothing will notice.** What a third-party implementer is
+promised is unchanged — [writing an implementation](implementing.html) still says lints are optional and
+that no fixture requires them.
 
-**What the host did instead is the better pattern for anyone in the same position:** announce the missing
-capability at startup and assert that the announcement happens, so it cannot vanish quietly, plus a probe
-that fires if somebody reimplements the four rules locally to close a gap that is not one. If `bmx_lint`
-is ever added here, those warnings return with no change on the host's side.
+The port was verified against the reference implementation on ten documents covering all four rules,
+including `BMX-W005`'s learned indent step, before it was committed — a one-off comparison to validate a
+port, which is a different thing from a standing agreement check.
 
 ## Give your library its own version number
 
