@@ -7,7 +7,7 @@ the same defect as a spec sentence nobody ran.
     burxt build render.bx -o bmxrender      # the level-1 renderer, from burxt/bmx.bx
     burxt build page.bx -o page && ./page ex2        # source + rendered, side by side
     burxt build errpage.bx -o errpage && ./errpage err1   # source + the refusal
-    python3 fmt.py docs/*.md                # indent every example, one level per open block
+    burxt build fmt.bx -o fmt && ./fmt ../docs/*.md   # indent every example, one per open block
     python3 migrate-0.7.py FILE...          # 0.6 fences -> 0.7, tracking a stack
     burxt build showcase.bx -o showcase && ./showcase   # the landing page, LIVE HTML -> docs/_includes/
     node shot.mjs ex1 ex2 ex3 err1 editor skins        # -> PNG, 2x, cropped to the panels
@@ -55,9 +55,9 @@ site that cannot fail a test when it goes stale — `docs/` has no check that an
 what the code does, which is exactly why the pipeline lives here in the repository rather than in
 somebody's shell history.
 
-## `fmt.py` is a gate, not a convenience
+## `fmt.bx` is a gate, not a convenience
 
-CI runs `fmt.py --check` over every page, because **indentation is insignificant to the parser and
+CI runs `fmt --check` over every page, because **indentation is insignificant to the parser and
 therefore invisible to every other check.** An example indented wrongly parses perfectly and teaches a
 reader the wrong shape, which is worse than a broken example — a broken one gets fixed.
 

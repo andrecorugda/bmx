@@ -58,9 +58,6 @@ echo "the format, and both implementations of it"
 run "the reference implementation passes the suite" python3 tests/harness.py "node reference/bmx.js"
 run "no refusal tells an author to write what the format refuses" bash -c '
   python3 tests/messages.py && python3 tests/messages.py --prove-it'
-run "indenting a document does not change it" bash -c '
-  python3 tests/roundtrip.py "node reference/bmx.js" &&
-  python3 tests/roundtrip.py "node reference/bmx.js" --prove-it'
 # **This line said `tests/cases` and `-ge 20` while CI said both folders and `-ge 39`** — so the file
 # whose header promises to mirror `ci.yml` was checking a different set against a different floor, and
 # the local run was the weaker of the two. Found while adding the implementer page, which states the
@@ -111,8 +108,6 @@ run "the extension's version is the format's, and the committed package is the p
 
 echo
 echo "the documentation"
-run "every example is indented the way the format says" bash -c '
-  python3 tools/fmt.py --check docs/*.md docs/guide/*.md README.md editors/vscode/README.md'
 run "the reference parser needs nothing newer than the Node it promises" bash -c '
   python3 tests/portability.py && python3 tests/portability.py --prove-it'
 run "every version the documentation states agrees with SPEC.md" bash -c '
@@ -189,6 +184,18 @@ if [ -n "${BURXT_LIB:-}" ] && [ -r "${BURXT_LIB}/option.bx" ] && burxt build /de
       || { echo "showcase.html is not what tools/showcase.bx produces"; bad=1; }
     rm -rf "$d"
     exit $bad'
+  # **Three more checks moved out of the Node-only section as their tools became Burxt**, and the cost is
+  # the same one every time: a contributor without a toolchain loses them, and the summary says which
+  # groups it skipped rather than printing a smaller total as though it were the suite.
+  run "every example is indented the way the format says" bash -c '
+    burxt build tools/fmt.bx -o /tmp/check-fmt &&
+    /tmp/check-fmt --check docs/*.md docs/guide/*.md README.md editors/vscode/README.md'
+  run "indenting a document does not change it" bash -c '
+    burxt build tools/fmt.bx -o /tmp/check-fmt &&
+    burxt build tests/roundtrip.bx -o /tmp/check-roundtrip &&
+    BMX_FMT=/tmp/check-fmt /tmp/check-roundtrip "node reference/bmx.js" &&
+    BMX_FMT=/tmp/check-fmt /tmp/check-roundtrip "node reference/bmx.js" --prove-it'
+
   # **Moved out of the Node-only section, because the server is a Burxt binary now.** That is a real cost
   # and it is the one the reclassification predicted: a contributor without a toolchain loses this check,
   # and the summary says so rather than hiding it in a total.

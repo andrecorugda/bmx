@@ -426,7 +426,7 @@ function bmx_lint_indent(blocks: [Block], depth: Int, step: Int, source: String,
                             + to_string(depth) + " level" + plural + " deep, where the document indents by "
                             + to_string(step) + ", so " + to_string(want) + " is expected. Indentation means "
                             + "nothing to the parser, which is why a wrong one misleads a reader with nothing "
-                            + "to catch it — `python3 tools/fmt.py` fixes the file.";
+                            + "to catch it — the formatter in `tools/fmt.bx` fixes the file.";
                     let a: Int = push(out, bmx_warning(source, "BMX-W005", m, b.offset));
                 }
                 let r: Int = bmx_lint_indent(b.children, depth + 1, step, source, out);

@@ -38,8 +38,9 @@ python3 tests/output.py 'node reference/bmx.js --render' /tmp/bmxrender
 burxt run burxt/guarantees.bx
 
 # Documentation gates
-python3 tools/fmt.py --check docs/*.md docs/guide/*.md README.md editors/vscode/README.md
-python3 tools/fmt.py docs/*.md          # rewrite in place
+burxt build tools/fmt.bx -o /tmp/fmt
+/tmp/fmt --check docs/*.md docs/guide/*.md README.md editors/vscode/README.md
+/tmp/fmt docs/*.md                      # rewrite in place
 
 # Editor surface
 cd editors/vscode && npm install vscode-textmate vscode-oniguruma   # what scopes.mjs needs
@@ -65,7 +66,7 @@ a claim no implementation has to honour, and this repository's history is largel
 converting such claims into checks.
 
 Beyond conformance, `tests/` holds meta-checks over the repository itself — `version.py`,
-`messages.py`, `roundtrip.py`, `portability.py`, `branding.py`, `extension.py`, `surface.py`,
+`messages.py`, `portability.py`, `branding.py`, `extension.py`, `surface.py`,
 `output.py`, `invitation.py`. Most take **`--prove-it`, a negative control** that asserts the check can fail; CI runs
 both halves, because a check nobody has watched fail is a check nobody has tested. Add the control
 when you add a check.
@@ -162,7 +163,7 @@ they drift.
   in `{% raw %}`/`{% endraw %}`**, and an unclosed one takes the whole site build down. CI counts
   them, because there is no Ruby locally — a green local run says nothing about whether the site
   builds.
-- **Examples must be indented by `tools/fmt.py`.** Indentation is insignificant to the parser, so a
+- **Examples must be indented by `tools/fmt.bx`.** Indentation is insignificant to the parser, so a
   wrongly-indented example parses perfectly and teaches a reader the wrong shape; nothing but this
   gate can see it. `site.css`/`site.js` are byte copies from burxt-lang.org — re-copy, don't edit.
 

@@ -1,0 +1,239 @@
+// tests/roundtrip.bx — indenting a document may not change what it means.
+//
+//     burxt build tests/roundtrip.bx -o roundtrip
+//     ./roundtrip 'node reference/bmx.js'
+//     ./roundtrip 'node reference/bmx.js' --prove-it     # the negative control
+//
+// BMX_FMT names the formatter to drive; it defaults to `./fmt`.
+//
+// **This is the check that found 0.8.** Round-tripping the conformance suite through `tools/fmt.bx` —
+// indent, reparse, compare — made two fixtures stop parsing, because `BMX-E012` was refusing an indented
+// list inside a block. **Nothing in the conformance suite could have caught that: every case in it was
+// written by somebody who believed the rules.** A tool that CONSUMES a rule is what finds the rule too
+// broad.
+//
+// Two assertions, and the second is the one people forget: a document that parsed before must still
+// parse, and its structure must be identical. Offsets move when a line is indented; nothing else may.
+//
+// ---- the port -------------------------------------------------------------------------------------
+//
+// Ported from `tests/roundtrip.py`. Verdict-identical to it — same counts, same failures, same exit —
+// verified on the real corpus and on a planted failure.
+//
+// **And the Python had the bug this file exists to catch, in itself.** It copied each document with
+// `read_text`/`write_text`, which applies universal-newline translation, so a lone CR became an LF
+// before the formatter ever saw it: the harness corrupted the document it was measuring and then
+// reported the formatter for it. Burxt reads bytes and has nothing to translate.
+use "std/files.bx";
+use "std/json.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+class Parsed { ok: Bool, tree: Json, why: String }
+
+function parse_with(command: String, path: String) -> Parsed touches commands, files, input {
+    let r: Capture = os_capture_status(command + " " + file_quote(path));
+    if r.code != 0 {
+        let said: String = string_trim(r.errors + r.output);
+        let lines: [String] = string_split(said, "\n");
+        let mutable first: String = "";
+        if len(lines) > 0 {
+            first = lines[0];
+        }
+        return Parsed { ok: false, tree: json_null(), why: first };
+    }
+    match json_parse(r.output) {
+        Error(why) => {
+            return Parsed { ok: false, tree: json_null(), why: "stdout is not JSON: " + why };
+        }
+        Ok(tree) => {
+            return Parsed { ok: true, tree: tree, why: "" };
+        }
+    }
+}
+
+// Everything except position. Bytes move when a line is indented; the tree must not.
+function structure(node: Json) -> Json {
+    match node {
+        Object(fields) => {
+            let mutable kept: [Field] = [];
+            let mutable i: Int = 0;
+            while i < len(fields) {
+                let f: Field = fields[i];
+                if f.name != "offset" && f.name != "head_offset" {
+                    let a: Int = push(kept, json_field(f.name, structure(f.value)));
+                }
+                i += 1;
+            }
+            return json_object(kept);
+        }
+        List(items) => {
+            let mutable kept: [Json] = [];
+            let mutable i: Int = 0;
+            while i < len(items) {
+                let a: Int = push(kept, structure(items[i]));
+                i += 1;
+            }
+            return json_list(kept);
+        }
+        Null => { return node; }
+        Truth(b) => { return node; }
+        Number(d) => { return node; }
+        Text(s) => { return node; }
+    }
+}
+
+// **The mangle has to be RELATIVE.** Shifting every line by one space is meaning-preserving by §1 — a
+// uniform shift moves a code fence along with its content and keeps every list item at the same depth as
+// its neighbours — so a control that did that passed and proved nothing. This indents the first line that
+// is neither blank nor a closer, which breaks the nesting rather than moving it.
+function mangled(text: String) -> String {
+    let lines: [String] = string_split(text, "\n");
+    let mutable out: [String] = [];
+    let mutable done: Bool = false;
+    let mutable i: Int = 0;
+    while i < len(lines) {
+        let line: String = lines[i];
+        let trimmed: String = string_trim(line);
+        if !done && i > 0 && len(trimmed) > 0 && !string_starts_with(trimmed, ":!") {
+            let a: Int = push(out, "  " + line);
+            done = true;
+        } else {
+            let b: Int = push(out, line);
+        }
+        i += 1;
+    }
+    return string_join(out, "\n");
+}
+
+let mutable command: String = "node reference/bmx.js";
+let mutable prove: Bool = false;
+let mutable a: Int = 1;
+let mutable positional: Int = 0;
+while a < os_arg_count() {
+    let arg: String = os_arg(a);
+    if arg == "--prove-it" {
+        prove = true;
+    } else {
+        if positional == 0 {
+            command = arg;
+            positional += 1;
+        }
+    }
+    a += 1;
+}
+let fmt: String = os_env_or("BMX_FMT", "./fmt");
+
+match file_temp_directory("bmx-roundtrip") {
+    None => {
+        print_error("cannot make a scratch directory");
+        exit(2);
+    }
+    Some(scratch) => {
+        match file_list_directory("tests/cases") {
+            None => {
+                print_error("cannot list tests/cases — run this from the repository root");
+                exit(2);
+            }
+            Some(entries) => {
+                let mutable checked: Int = 0;
+                let mutable refused: Int = 0;
+                let mutable moved: Int = 0;
+                let mutable skipped: Int = 0;
+                let mutable touched: Int = 0;
+                let mutable failures: [String] = [];
+                let mutable i: Int = 0;
+                while i < len(entries) {
+                    let name: String = entries[i];
+                    if string_ends_with(name, ".bmx") {
+                        let source: String = "tests/cases/" + name;
+                        let before: Parsed = parse_with(command, source);
+                        if !before.ok {
+                            // a case may be here to pin an error; nothing to round-trip
+                            skipped += 1;
+                        } else {
+                            match file_read_maybe(source) {
+                                None => {
+                                    let f: Int = push(failures, name + ": cannot read it");
+                                }
+                                Some(original) => {
+                                    let copy: String = scratch + "/" + name;
+                                    let w1: Int = file_write(copy, original);
+                                    let r: Capture = os_capture_status(fmt + " " + file_quote(copy));
+                                    match file_read_maybe(copy) {
+                                        None => {
+                                            let f: Int = push(failures, name + ": the copy vanished");
+                                        }
+                                        Some(after_fmt) => {
+                                            if after_fmt != original {
+                                                touched += 1;
+                                            }
+                                            if prove {
+                                                let w2: Int = file_write(copy, mangled(after_fmt));
+                                            }
+                                            let after: Parsed = parse_with(command, copy);
+                                            if !after.ok {
+                                                refused += 1;
+                                                let f: Int = push(failures, name
+                                                            + ": parsed before, REFUSED after indenting — "
+                                                        + after.why);
+                                            } else {
+                                                if json_render(structure(before.tree))
+                                                        != json_render(structure(after.tree)) {
+                                                    moved += 1;
+                                                    let g: Int = push(failures, name
+                                                                + ": structure changed under a transform that"
+                                                            + " may not change it");
+                                                } else {
+                                                    checked += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    i += 1;
+                }
+
+                let mutable k: Int = 0;
+                while k < len(failures) {
+                    print("  FAIL  " + failures[k]);
+                    k += 1;
+                }
+                let mutable note_failed: String = "";
+                if len(failures) > 0 {
+                    note_failed = ", " + to_string(refused) + " stopped parsing, " + to_string(moved)
+                            + " changed shape";
+                }
+                let mutable note_skipped: String = "";
+                if skipped > 0 {
+                    note_skipped = ", " + to_string(skipped) + " do not parse to begin with";
+                }
+                print("");
+                print(to_string(touched) + " documents were REINDENTED and kept their structure; "
+                            + to_string(checked - touched)
+                        + " the formatter left alone, which proves nothing about it" + note_failed + note_skipped);
+
+                if prove {
+                    if len(failures) > 0 {
+                        print("the control failed as it must — the check has a subject that varies");
+                        exit(0);
+                    }
+                    print("THE CONTROL DID NOT FAIL, so this check cannot see anything");
+                    exit(1);
+                }
+                // **A formatter that did nothing would pass every assertion above.**
+                if touched == 0 {
+                    print("no document was reindented at all, so the round-trip compared each file with itself");
+                    exit(1);
+                }
+                if len(failures) > 0 {
+                    exit(1);
+                }
+                exit(0);
+            }
+        }
+    }
+}

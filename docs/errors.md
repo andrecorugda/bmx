@@ -361,7 +361,7 @@ BMX-W005 at 20: this block sits at column 6 but is 2 levels deep, where the docu
 **Indentation means nothing to the parser, which is exactly why a wrong one needs saying.** A block at the
 wrong column is a perfectly legal document that misleads a reader — and a reviewer who trusts the columns
 is trusted into the wrong block. It is the one hazard that came with making leading space insignificant,
-and a warning is the only thing that can see it. `python3 tools/fmt.py` fixes the file.
+and a warning is the only thing that can see it. The formatter in `tools/fmt.bx` fixes the file.
 
 **It says nothing about a document that does not indent at all.** A flat document is correct and always
 was, so a rule that flagged one would be flagging correct code — the mistake `BMX-W002` made in 0.5.0,

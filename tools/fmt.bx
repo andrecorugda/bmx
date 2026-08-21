@@ -1,0 +1,301 @@
+// tools/fmt.bx — indents BMX documents so nesting is visible: one level per open block.
+//
+//     burxt build tools/fmt.bx -o fmt
+//     ./fmt FILE...            # rewrites in place
+//     ./fmt --check FILE...    # reports, changes nothing
+//     ./fmt --stdin < doc.bmx  # prints to stdout
+//
+// Handles `.bmx` files and the ```bmx fences inside markdown, so the documentation's examples and the
+// documents they describe stay in the same shape.
+//
+// **Indentation is insignificant to the parser (SPEC §1), which is exactly why a tool has to own it.**
+// A wrong indent cannot change what a document means — and cannot be caught by anything either, so a
+// reviewer who trusts the columns can be trusted into the wrong block. Two answers to that, and this is
+// one: make the columns mechanical. The other is `BMX-W005`, which warns when they disagree with the
+// nesting; a warning tells you, a formatter fixes it.
+//
+// **One thing it will not touch: a document containing a code fence.** A fenced block's content keeps
+// everything past its OWN fence's indentation (§2.4), so moving the fence moves the content with it —
+// and if the content is a document showing BMX, reindenting it twice would be reindenting an example of
+// reindenting. Refused rather than half-done, and it says which file.
+//
+// This is deliberately not a formatter. It does not touch line length, blank lines, head spacing or
+// inline content. It does the one thing whose absence Andre pointed at, and stops.
+//
+// ---- the port -------------------------------------------------------------------------------------
+//
+// Ported from `tools/fmt.py` and verified byte-identical over every file the documentation gate covers
+// and every document in `tests/cases`, in both modes: the `--check` report and the in-place rewrite.
+//
+// **The three regular expressions became three scanners, and none of them needed a regex engine.** A
+// line is leading whitespace, then a literal, then a name, then a literal — which `lib/string.bx` reads
+// directly. I had counted thirty patterns across the remaining Python and was ready to ask Burxt for a
+// regex module; the library already had every piece.
+//
+// **Bytes, not text.** Python needed `newline=""` here because it translates a lone CR to LF on read and
+// this tool writes the file back — a document reading `one` CR `two` came back as two paragraphs the
+// moment it also needed reindenting, which is the formatter changing what a document means. Burxt reads
+// bytes and has nothing to translate, so the hazard is absent rather than guarded.
+use "std/files.bx";
+use "std/os.bx";
+use "std/string.bx";
+
+class Opener { found: Bool, name: String, rest: String }
+class Shaped { lines: [String], problems: [String] }
+class Made { text: String, problems: [String] }
+
+pure function is_name_start(b: Int) -> Bool {
+    return (b >= 65 && b <= 90) || (b >= 97 && b <= 122);
+}
+
+pure function is_name_byte(b: Int) -> Bool {
+    return is_name_start(b) || (b >= 48 && b <= 57) || b == 45 || b == 95;
+}
+
+// The number of leading spaces and tabs — `^[ \t]*` in all three patterns.
+pure function lead(line: String) -> Int {
+    let mutable i: Int = 0;
+    while i < len(line) && (byte_at(line, i) == 32 || byte_at(line, i) == 9) {
+        i += 1;
+    }
+    return i;
+}
+
+// `^[ \t]*(`{3,})` — the fence itself, or "" when the line does not open one.
+pure function code_fence(line: String) -> String {
+    let start: Int = lead(line);
+    let mutable i: Int = start;
+    while i < len(line) && byte_at(line, i) == 96 {
+        i += 1;
+    }
+    if i - start < 3 {
+        return "";
+    }
+    return substring(line, start, i - start);
+}
+
+// `^[ \t]*:([A-Za-z][A-Za-z0-9_-]*):(.*)$`
+pure function opener(line: String) -> Opener {
+    let mutable i: Int = lead(line);
+    if i >= len(line) || byte_at(line, i) != 58 {
+        return Opener { found: false, name: "", rest: "" };
+    }
+    i += 1;
+    let name_at: Int = i;
+    if i >= len(line) || !is_name_start(byte_at(line, i)) {
+        return Opener { found: false, name: "", rest: "" };
+    }
+    while i < len(line) && is_name_byte(byte_at(line, i)) {
+        i += 1;
+    }
+    if i >= len(line) || byte_at(line, i) != 58 {
+        return Opener { found: false, name: "", rest: "" };
+    }
+    let name: String = substring(line, name_at, i - name_at);
+    let rest: String = substring(line, i + 1, len(line) - (i + 1));
+    return Opener { found: true, name: name, rest: rest };
+}
+
+// `^[ \t]*:!([A-Za-z][A-Za-z0-9_-]*):[ \t]*$`
+pure function is_closer(line: String) -> Bool {
+    let mutable i: Int = lead(line);
+    if i + 1 >= len(line) || byte_at(line, i) != 58 || byte_at(line, i + 1) != 33 {
+        return false;
+    }
+    i += 2;
+    if i >= len(line) || !is_name_start(byte_at(line, i)) {
+        return false;
+    }
+    while i < len(line) && is_name_byte(byte_at(line, i)) {
+        i += 1;
+    }
+    if i >= len(line) || byte_at(line, i) != 58 {
+        return false;
+    }
+    i += 1;
+    while i < len(line) && (byte_at(line, i) == 32 || byte_at(line, i) == 9) {
+        i += 1;
+    }
+    return i == len(line);
+}
+
+// `:span: class=box :!span:` opens and closes on its line, so it does not change the depth.
+pure function one_liner(name: String, rest: String) -> Bool {
+    return string_ends_with(string_trim_end(rest), ":!" + name + ":");
+}
+
+pure function step_for(depth: Int) -> String {
+    return string_repeat("  ", depth);
+}
+
+function shape(lines: [String], path: String) -> Shaped {
+    let mutable out: [String] = [];
+    let mutable problems: [String] = [];
+    let mutable depth: Int = 0;
+    let mutable n: Int = 0;
+    while n < len(lines) {
+        let line: String = lines[n];
+        if len(code_fence(line)) > 0 {
+            let p: Int = push(problems, path + ": line " + to_string(n + 1)
+                    + " holds a code fence, whose content is relative to it — left alone");
+            return Shaped { lines: lines, problems: problems };
+        }
+        if is_closer(line) {
+            if depth > 0 {
+                depth -= 1;
+            }
+            let a: Int = push(out, step_for(depth) + string_trim(line));
+        } else {
+            let o: Opener = opener(line);
+            if o.found {
+                let b: Int = push(out, step_for(depth) + string_trim(line));
+                if !one_liner(o.name, o.rest) {
+                    depth += 1;
+                }
+            } else {
+                let stripped: String = string_trim(line);
+                if len(stripped) == 0 {
+                    let c: Int = push(out, "");
+                } else {
+                    let d: Int = push(out, step_for(depth) + stripped);
+                }
+            }
+        }
+        n += 1;
+    }
+    if depth != 0 {
+        let e: Int = push(problems, path + ": " + to_string(depth)
+                + " block(s) left open — indented as far as it got");
+    }
+    return Shaped { lines: out, problems: problems };
+}
+
+// Markdown gets its ```bmx fences indented; a `.bmx` file is one document throughout.
+function process(text: String, path: String) -> Made {
+    if !string_ends_with(path, ".md") {
+        let shaped: Shaped = shape(string_split(text, "\n"), path);
+        return Made { text: string_join(shaped.lines, "\n"), problems: shaped.problems };
+    }
+    let mutable out: [String] = [];
+    let mutable problems: [String] = [];
+    let mutable block: [String] = [];
+    let mutable fence: String = "";
+    let mutable inside: Bool = false;
+    let lines: [String] = string_split(text, "\n");
+    let mutable i: Int = 0;
+    while i < len(lines) {
+        let line: String = lines[i];
+        if inside {
+            if string_starts_with(string_trim(line), fence) {
+                let shaped: Shaped = shape(block, path);
+                let mutable j: Int = 0;
+                while j < len(shaped.lines) {
+                    let a: Int = push(out, shaped.lines[j]);
+                    j += 1;
+                }
+                let mutable k: Int = 0;
+                while k < len(shaped.problems) {
+                    let b: Int = push(problems, shaped.problems[k]);
+                    k += 1;
+                }
+                let c: Int = push(out, line);
+                inside = false;
+                fence = "";
+                block = [];
+            } else {
+                let d: Int = push(block, line);
+            }
+        } else {
+            let found: String = code_fence(line);
+            let mutable info: String = "";
+            if len(found) > 0 {
+                let trimmed: String = string_trim(line);
+                info = string_trim(substring(trimmed, len(found), len(trimmed) - len(found)));
+            }
+            if len(found) > 0 && (info == "bmx" || info == "sbmx") {
+                fence = found;
+                inside = true;
+                block = [];
+                let e: Int = push(out, line);
+            } else {
+                let f: Int = push(out, line);
+            }
+        }
+        i += 1;
+    }
+    if inside {
+        let g: Int = push(problems, path + ": a ```bmx fence never closed");
+        let mutable m: Int = 0;
+        while m < len(block) {
+            let h: Int = push(out, block[m]);
+            m += 1;
+        }
+    }
+    return Made { text: string_join(out, "\n"), problems: problems };
+}
+
+let mutable check: Bool = false;
+let mutable stdin_mode: Bool = false;
+let mutable files: [String] = [];
+let mutable a: Int = 1;
+while a < os_arg_count() {
+    let arg: String = os_arg(a);
+    if arg == "--check" {
+        check = true;
+    } else {
+        if arg == "--stdin" {
+            stdin_mode = true;
+        } else {
+            if !string_starts_with(arg, "--") {
+                let p: Int = push(files, arg);
+            }
+        }
+    }
+    a += 1;
+}
+
+if stdin_mode {
+    let made: Made = process(os_read_all(), "<stdin>");
+    print_exact(made.text);
+    exit(0);
+}
+
+if len(files) == 0 {
+    print("usage: fmt [--check] FILE...");
+    exit(1);
+}
+
+let mutable changed: Int = 0;
+let mutable i: Int = 0;
+while i < len(files) {
+    let path: String = files[i];
+    match file_read_maybe(path) {
+        None => {
+            print_error("cannot read " + path);
+            exit(2);
+        }
+        Some(text) => {
+            let made: Made = process(text, path);
+            let mutable j: Int = 0;
+            while j < len(made.problems) {
+                print("  " + made.problems[j]);
+                j += 1;
+            }
+            if made.text != text {
+                changed += 1;
+                if check {
+                    print("  would reindent " + path);
+                } else {
+                    let wrote: Int = file_write(path, made.text);
+                    print("  reindented " + path);
+                }
+            }
+        }
+    }
+    i += 1;
+}
+
+if check && changed > 0 {
+    exit(1);
+}
+exit(0);

@@ -994,7 +994,7 @@ const LINTS = [
               `this block sits at column ${col} but is ${depth} level${depth === 1 ? '' : 's'} deep, ` +
               `where the document indents by ${step}, so ${want} is expected. ` +
               'Indentation means nothing to the parser, which is why a wrong one misleads a reader ' +
-              'with nothing to catch it — `python3 tools/fmt.py` fixes the file.')
+              'with nothing to catch it — the formatter in `tools/fmt.bx` fixes the file.')
           }
           walk(block.children, depth + 1)
         }

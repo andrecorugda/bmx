@@ -55,11 +55,6 @@ jobs:
           python3 tests/messages.py
           python3 tests/messages.py --prove-it
 
-      - name: Indenting a document does not change it
-        run: |
-          python3 tests/roundtrip.py "node reference/bmx.js"
-          python3 tests/roundtrip.py "node reference/bmx.js" --prove-it
-
       - name: The suite is not empty
         run: |
           count=$(ls tests/cases/*.bmx tests/errors/*.bmx | wc -l)
@@ -203,17 +198,6 @@ jobs:
       # **Indentation is insignificant, so nothing else can catch a wrong one.** The examples on the
       # site are what a reader copies, and a wrongly-indented example teaches the wrong shape while
       # parsing perfectly. `tools/fmt.py` decides the shape; this asserts the docs are in it.
-      - name: Every example is indented the way the format says
-        run: python3 tools/fmt.py --check docs/*.md docs/guide/*.md README.md editors/vscode/README.md
-
-      # **A zero-dependency parser whose runtime requirement is undocumented is not portable — it is
-      # untested on everything except the machine that wrote it.** `reference/bmx.js` is what this project
-      # offers a stranger to copy, and nothing said which Node runs it. CI provides 20, which is a PIN;
-      # the floor is 14, measured (nullish coalescing is the newest thing in the file).
-      #
-      # The check reads the floor out of `docs/install.md` so the number lives in one place, and it exists
-      # because measuring it went wrong first: `\.at\(` matched `...at(source, offset)` — a spread of a
-      # local function — and reported a floor 2.6 versions too high, which I nearly published.
       - name: The reference parser needs nothing newer than the Node it promises
         run: |
           python3 tests/portability.py
@@ -427,6 +411,32 @@ jobs:
           burxt build tools/showcase.bx -o "$d/showcase"
           cp tools/shop.bmx "$d/"; mkdir -p "$d/../docs/_includes"
           (cd "$d" && ./showcase); cmp "$d/../docs/_includes/showcase.html" docs/_includes/showcase.html
+
+      # **Both of these moved here from the Node-only job when their tools became Burxt.** `tools/fmt.bx`
+      # decides the shape of every example on the site and `tests/roundtrip.bx` is what found 0.8 — and
+      # both now need a compiler, so both belong in the job that has one. The conformance job keeps the
+      # property it exists for: the FORMAT is testable without its first host installed. This repository's
+      # own tooling is not, and that is the trade the `standalone` reclassification named.
+      - name: Every example is indented the way the format says
+        run: |
+          burxt build tools/fmt.bx -o /tmp/fmt
+          /tmp/fmt --check docs/*.md docs/guide/*.md README.md editors/vscode/README.md
+
+      # **A zero-dependency parser whose runtime requirement is undocumented is not portable — it is
+      # untested on everything except the machine that wrote it.** `reference/bmx.js` is what this project
+      # offers a stranger to copy, and nothing said which Node runs it. CI provides 20, which is a PIN;
+      # the floor is 14, measured (nullish coalescing is the newest thing in the file).
+      #
+      # The check reads the floor out of `docs/install.md` so the number lives in one place, and it exists
+      # because measuring it went wrong first: `\.at\(` matched `...at(source, offset)` — a spread of a
+      # local function — and reported a floor 2.6 versions too high, which I nearly published.
+      - name: Indenting a document does not change it
+        run: |
+          burxt build tools/fmt.bx -o /tmp/fmt
+          burxt build tests/roundtrip.bx -o /tmp/roundtrip
+          BMX_FMT=/tmp/fmt /tmp/roundtrip "node reference/bmx.js"
+          BMX_FMT=/tmp/fmt /tmp/roundtrip "node reference/bmx.js" --prove-it
+
 
       # **This step lives in the Burxt job now, because the server it drives is a Burxt binary.** The
       # conformance job above lost a check, which is the cost the `standalone` reclassification predicted
