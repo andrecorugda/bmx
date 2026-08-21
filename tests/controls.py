@@ -55,12 +55,18 @@ READS = [
     re.compile(r"sys\.argv"),          # python
     re.compile(r"process\.argv"),      # node
     re.compile(r"\$@|\$1|\$\*"),       # shell
+    re.compile(r"os_arg"),             # burxt
 ]
 
 
 def runners():
     for path in sorted(ROOT.rglob("*")):
-        if path.suffix not in (".py", ".mjs", ".js", ".sh") or not path.is_file():
+        # **`.bx` was missing, and every runner ported to Burxt left this check's sight silently.**
+        # The count printed below went on saying eleven while the suite grew: a gate whose scope is a
+        # hand-written list of file extensions stops covering the tree the moment the tree changes
+        # language, and it reports success the whole way down. Same defect as `tests/version.py`'s
+        # literal list of six files, one language over.
+        if path.suffix not in (".py", ".mjs", ".js", ".sh", ".bx") or not path.is_file():
             continue
         rel = str(path.relative_to(ROOT))
         if any(s in rel + "/" for s in (".git/", "node_modules/", "editors/vscode/reference/")):
@@ -69,7 +75,18 @@ def runners():
 
 
 CHECK_SH = "tools/check.sh"
-PATHLIKE = re.compile(r"[\w./-]+\.(?:py|mjs|js|sh)")
+BUILD = re.compile(r"burxt\s+build\s+(\S+\.bx)\s+-o\s+(\S+)")
+
+
+def built(lines):
+    """source path -> every binary name `check.sh` compiles it to."""
+    out = {}
+    for line in lines:
+        for source, binary in BUILD.findall(line):
+            out.setdefault(source, []).append(binary)
+    return out
+
+PATHLIKE = re.compile(r"[\w./-]+\.(?:py|mjs|js|sh|bx)")
 
 
 def offers(rel, path):
@@ -95,10 +112,15 @@ def offers(rel, path):
     return False
 
 
+BUILT = {}
+
+
 def main():
     prove = FLAG in sys.argv
     advertise, dead, unrun = [], [], []
     runner = (ROOT / CHECK_SH).read_text().splitlines()
+    global BUILT
+    BUILT = built(runner)
 
     for rel, path in runners():
         text = path.read_text()
@@ -108,10 +130,22 @@ def main():
         # flag and never documents it is not making a promise; one that documents it and never reads it is.
         advertise.append(rel)
 
-        # The second question: does anything actually pass it? One line must name both the file and the
-        # flag — which is how `check.sh` writes every one of them, including the two that take an
+        # The second question: does anything actually pass it? One line must name both the runner and
+        # the flag — which is how `check.sh` writes every one of them, including the two that take an
         # argument first.
-        named = any(rel in line and FLAG in line for line in runner)
+        #
+        # **A COMPILED runner is not invoked under its own name**, and that is how this half went blind
+        # the moment a runner became Burxt: `check.sh` says `burxt build tests/roundtrip.bx -o
+        # /tmp/check-roundtrip` on one line and `/tmp/check-roundtrip … --prove-it` on the next, so no
+        # single line carries both the source path and the flag. The check reported two live controls as
+        # never fired — a false alarm, which is the failure mode that gets a check deleted rather than
+        # fixed. So follow the `-o`: whatever a build names the binary is another name for the source.
+        for alias in BUILT.get(rel, ()):
+            if any(alias in line and FLAG in line for line in runner):
+                named = True
+                break
+        else:
+            named = any(rel in line and FLAG in line for line in runner)
         if prove and rel == "tests/version.py":
             named = False
         if not named:
